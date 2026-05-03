@@ -1,78 +1,78 @@
 # Pixel Alignment Playbook
 
-## 快速導覽
+## Quick Navigation
 
-- [目標](#目標)
-- [基準建立](#基準建立)
-- [資產裁切策略](#資產裁切策略)
-- [視覺比對流程](#視覺比對流程)
-- [如何解讀 diff 結果](#如何解讀-diff-結果)
-- [驗收建議](#驗收建議)
+- [Goal](#goal)
+- [Establishing Baselines](#establishing-baselines)
+- [Asset Cropping Strategy](#asset-cropping-strategy)
+- [Visual Comparison Workflow](#visual-comparison-workflow)
+- [Interpreting Diff Results](#interpreting-diff-results)
+- [Acceptance Checklist](#acceptance-checklist)
 
-## 目標
+## Goal
 
-這份參考文件補充 [SKILL.md](../SKILL.md) 的實戰細節，重點是讓「圖片轉 HTML」不是停在大概像，而是能快速收斂到有依據的高擬真版本。
+This reference document supplements [SKILL.md](../SKILL.md) with hands-on details. The focus is moving "image-to-HTML" past "roughly looks right" and converging quickly to a high-fidelity, evidence-backed result.
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 基準建立
+## Establishing Baselines
 
-1. 先用 [scripts/image_info.py](../scripts/image_info.py) 量原圖尺寸。
-2. HTML 初版若沒有 responsive 要求，直接以原圖寬高當基準。
-3. 預覽與 screenshot 必須共用同一組尺寸。
-4. 如果比較圖的高寬不同，先修尺寸，不要先看 diff。
+1. Measure the source image with [scripts/image_info.py](../scripts/image_info.py).
+2. If there is no responsive requirement, use the source image's width and height as the initial HTML baseline.
+3. Preview and screenshot must share the same dimensions.
+4. If the comparison images have different sizes, fix the dimensions first — do not look at the diff yet.
 
-建議指令：
+Suggested command:
 
 ```bash
 python scripts/image_info.py --image source.png --json
 ```
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 資產裁切策略
+## Asset Cropping Strategy
 
-裁切前先問兩個問題：
+Before cropping, ask two questions:
 
-1. 這塊內容是不是複雜到不值得手刻？
-2. 這塊內容是不是可以獨立存在，而不是把父容器一起截進來？
+1. Is this content complex enough that hand-coding it in CSS is not worth it?
+2. Can this content stand alone, or would cropping it pull in part of its parent container?
 
-### 應裁切
+### Should crop
 
-- 書封、照片、人物插畫、複雜裝飾、手寫字樣、噪聲紋理
+- Book covers, photographs, character illustrations, complex decorations, hand-lettering, noise textures
 
-### 不應裁切
+### Should not crop
 
-- 標題 bar
-- headline 文字
-- feature list
-- 單純色塊、圓角、箭頭、邊框
-- 整個欄位容器
+- Header bar
+- Headline text
+- Feature lists
+- Solid color blocks, rounded corners, arrows, borders
+- Entire column containers
 
-### 裁切守則
+### Cropping rules
 
-- 優先裁最小必要 box
-- 保留資產自身邊界，不把周邊大塊留白一起切進去
-- 同一區塊若只有其中一張圖複雜，不要因為省事把整塊都變成圖片
+- Always crop the minimum necessary bounding box
+- Keep the asset's own boundary; do not include large surrounding whitespace
+- If only one image within a block is complex, do not convert the entire block to an image for convenience
 
-建議指令：
+Suggested command:
 
 ```bash
 python scripts/crop_image.py --source source.png --output asset.png --box 120,40,381,350 --json
 ```
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 視覺比對流程
+## Visual Comparison Workflow
 
-1. 啟動本地預覽
-2. 設定與原圖完全一致的 viewport
-3. 擷取 viewport screenshot
-4. 用 [scripts/visual_diff.py](../scripts/visual_diff.py) 比對
-5. 先看尺寸，再看 `diff_bbox`
-6. 只修造成差異的 root cause
+1. Start a local preview server
+2. Set the viewport to exactly match the source image dimensions
+3. Take a viewport screenshot (no `fullPage`)
+4. Run [scripts/visual_diff.py](../scripts/visual_diff.py) to compare
+5. Check dimensions first, then inspect `diff_bbox`
+6. Fix only the root cause of each difference
 
-建議指令：
+Suggested command:
 
 ```bash
 python scripts/visual_diff.py ^
@@ -83,40 +83,40 @@ python scripts/visual_diff.py ^
   --json
 ```
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 如何解讀 diff 結果
+## Interpreting Diff Results
 
 ### `changed_pixels`
 
-- 反映有差異的像素數量
-- 適合看「改動範圍」是不是縮小
+- Reflects the number of differing pixels
+- Use it to track whether the scope of differences is shrinking
 
 ### `mean_diff_ratio`
 
-- 反映整體差異強度
-- 用來看每次調整後是否朝正確方向收斂
+- Reflects overall difference intensity
+- Use it to confirm each adjustment is converging in the right direction
 
 ### `diff_bbox`
 
-- 最重要，因為它直接告訴你差異聚集在哪
-- 若 bbox 很窄，通常是某條 bar、邊框、字級或單一圖片位置問題
-- 若 bbox 幾乎包住全畫面，通常是整體尺寸、間距、字體或大面積背景錯
+- Most important: it tells you directly where differences are concentrated
+- A narrow bbox usually points to a specific bar, border, font size, or single image position issue
+- A bbox that covers nearly the full canvas usually means overall dimensions, spacing, fonts, or a large background area is wrong
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 驗收建議
+## Acceptance Checklist
 
-1. 先確認：
-   - HTML 文字是可選取的
-   - 複雜資產不是用整欄截圖偽裝
-   - screenshot 尺寸與原圖一致
-2. 再確認：
-   - `mean_diff_ratio` 比初版明顯下降
-   - `diff_bbox` 不再落在明顯錯誤區塊
-3. 最後人工看：
-   - 沒有雙重 bar / 雙重標題
-   - 沒有奇怪白縫、邊界、比例壓縮
-   - 重複元素在三欄中的視覺權重一致
+1. First verify:
+   - HTML text is selectable
+   - Complex assets are not disguised as full-column screenshots
+   - Screenshot dimensions match the source image
+2. Then verify:
+   - `mean_diff_ratio` is noticeably lower than the initial version
+   - `diff_bbox` no longer falls in an obviously wrong region
+3. Finally, review visually:
+   - No double bars or double headings
+   - No unexpected white gaps, odd boundaries, or proportion squashing
+   - Repeated elements have consistent visual weight across all three columns
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
