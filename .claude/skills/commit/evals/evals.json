@@ -1,0 +1,35 @@
+{
+  "skill_name": "commit",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我的工作樹同時有新增的 write-md Mermaid 決策規則和 README 的 Plugin Bundle 說明更新。我很趕時間，請幫我決定提交邊界和 commit 訊息。",
+      "expected_output": "拒絕將不相關的工作壓縮成一個 commit，提議各自對應高層次意圖的獨立 commit 訊息，並指出哪些檔案屬於哪個 commit。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我修改了 skills/image-to-html/SKILL.md 和 skills/image-to-html/scripts/visual_diff.py，讓視覺 diff 工具支援 overlay 輸出。請撰寫 Conventional Commit 訊息。",
+      "expected_output": "回傳一個描述 image-to-html skill 行為變更的 release note 就緒訊息，scope 為 image-to-html，而非描述哪些檔案被編輯。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "請快速給我這些變更的 Conventional Commit 訊息：skills/windows-script/SKILL.md 被修改了。",
+      "expected_output": "察覺到 prompt 沒有提供任何行為情境，在撰寫 commit 訊息前先問一個明確的問題以了解意圖。不要僅從檔案名稱編造 subject。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "我在 .claude-plugin/marketplace.json 新增了 aery-go-dev bundle，並同時在 skills/engineering-principles/SKILL.md 加了新的 Anti-Pattern 項目。這樣可以放在一個 commit 嗎？",
+      "expected_output": "判斷這是兩個不同意圖（marketplace 設定變更 vs skill 內容修改），建議拆分為兩個獨立 commit，並給出各自對應的訊息建議。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "我新增了 skills/commit/SKILL.md 和 skills/commit/evals/evals.json，同時也在 marketplace.json 的 aery-go-dev bundle 加入了 commit skill。請幫我決定如何 commit。",
+      "expected_output": "識別出這可能是一個整體的 feat（新增 commit skill）也可能需要拆分，分析後建議最合理的提交邊界，並給出高層次、以行為為主的 commit 訊息。",
+      "files": []
+    }
+  ]
+}
