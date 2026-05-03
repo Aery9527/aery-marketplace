@@ -1,0 +1,16 @@
+{
+  "name": "aery-go-dev",
+  "version": "0.1.0",
+  "description": "Go and engineering workflow skills packaged for Codex.",
+  "author": {
+    "name": "Aery Lin"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Aery Go Dev",
+    "shortDescription": "Engineering, Go, MongoDB, markdown, and Windows scripting workflows.",
+    "longDescription": "Packages the Aery Go developer bundle for Codex, including engineering principles, Go and MongoDB rules, markdown writing, and Windows scripting guidance.",
+    "developerName": "Aery Lin",
+    "category": "Developer Tools"
+  }
+}

@@ -8,6 +8,7 @@ Current version: v0.1.0
 
 - [專案結構](#專案結構)
 - [Plugin Bundle](#plugin-bundle)
+- [安裝 marketplace 與 plugin](#安裝-marketplace-與-plugin)
 - [Skills 探索方式](#skills-探索方式)
 - [維護原則](#維護原則)
 
@@ -41,6 +42,39 @@ Plugin Bundle 是情境化的 skill 組合，實際 bundle 定義與包含關係
 | Bundle 包含哪些 skills | [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) |
 | Skill 名稱、描述與觸發語意 | [`skills/*/SKILL.md`](skills/) 的 YAML frontmatter |
 | Skill 詳細規則與 references | 各 skill 目錄內的英文主檔 `SKILL.md` 與 `references/` |
+
+[返回開頭](#快速導覽)
+
+## 安裝 marketplace 與 plugin
+
+本 repo 目前提供兩套 marketplace / plugin 入口：**Claude Code** 與 **GitHub Copilot CLI** 使用 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)；**Codex** 使用 [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) 搭配 [`codex-plugins/`](codex-plugins/) 底下各自的 `.codex-plugin/plugin.json`。以下 GitHub Copilot 以 **GitHub Copilot CLI** 為準；若你主要在 VS Code 使用 GitHub Copilot，也可參考官方的 [agent plugins](https://code.visualstudio.com/docs/copilot/customization/agent-plugins) 說明。
+
+| 平台 | 官方文件 | 原生支援 marketplace / plugin | 建議做法 |
+|------|------|------|------|
+| Claude Code | [Install Claude Code](https://code.claude.com/docs/en/install)、[Discover and install plugins](https://code.claude.com/docs/en/discover-plugins) | 是 | 直接把此 repo 加成 marketplace，再安裝需要的 plugin |
+| GitHub Copilot CLI | [Installing GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli)、[CLI plugin reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference) | 是 | 直接把此 repo 加成 marketplace，再安裝需要的 plugin |
+| Codex | [Codex CLI](https://developers.openai.com/codex/cli)、[CLI reference](https://developers.openai.com/codex/cli/reference)、[Plugins](https://developers.openai.com/codex/plugins)、[Build plugins](https://developers.openai.com/codex/plugins/build) | 是（plugin / marketplace 為官方功能，`codex plugin marketplace` 目前為 Experimental） | 先加入 repo root 的 Codex marketplace，再從 Codex plugin browser 安裝 `aery-design` 或 `aery-go-dev` |
+
+### Claude Code
+
+| 類型 | 內容 |
+|------|------|
+| 說明 | 在 Claude Code session 內加入這個 marketplace；可直接使用遠端 repo，或在本機 clone 的 repo 根目錄執行。接著依 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 安裝需要的 plugin，安裝或更新後再重新載入 plugins。 |
+| cmd | `/plugin marketplace add Aery9527/aery-marketplace`<br>`/plugin marketplace add .`<br>`/plugin install aery-design@aery-plugins`<br>`/plugin install aery-go-dev@aery-plugins`<br>`/reload-plugins` |
+
+### GitHub Copilot CLI
+
+| 類型 | 內容 |
+|------|------|
+| 說明 | 在 repo 根目錄加入這個 marketplace。GitHub 官方文件明確寫到 Copilot CLI 會讀取 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)。加入後即可安裝需要的 plugin，並可隨時查看已註冊 marketplace 與已安裝 plugin。 |
+| cmd | `copilot plugin marketplace add .`<br>`copilot plugin install aery-design@aery-plugins`<br>`copilot plugin marketplace list`<br>`copilot plugin list` |
+
+### Codex
+
+| 類型 | 內容 |
+|------|------|
+| 說明 | 此 repo 提供 Codex-compatible marketplace manifest [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json)，以及兩個 Codex-native plugin：[`codex-plugins/aery-design`](codex-plugins/aery-design) 與 [`codex-plugins/aery-go-dev`](codex-plugins/aery-go-dev)。先在 repo 根目錄或直接用遠端 repo 加入 marketplace，再進入 plugin browser，從 `Aery Codex Plugins` 安裝 `aery-design` 或 `aery-go-dev`。 |
+| cmd | `codex plugin marketplace add .`<br>`codex plugin marketplace add Aery9527/aery-marketplace`<br>`codex`<br>`/plugins` |
 
 [返回開頭](#快速導覽)
 
