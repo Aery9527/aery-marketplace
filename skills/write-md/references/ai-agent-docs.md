@@ -1,74 +1,76 @@
 # AI Agent Markdown Rules
 
-本文件只在 Markdown 的目標讀者是 AI agent 時讀取。AI agent 文件的重點是 context-efficient、精準、可執行，避免載入人類閱讀導向的導覽與 Mermaid 規則。
+Load this file only when the Markdown target audience is an AI agent. AI-agent
+documents focus on context-efficiency, precision, and executability; avoid
+loading human-reader navigation and Mermaid rules.
 
-## 適用情境
+## Applicable Contexts
 
-- `SKILL.md`、agent instructions、system prompt、workflow rule、coding rule、eval spec、tool usage guideline。
-- 內容目標是讓 AI agent 穩定執行規則，而不是讓人瀏覽學習。
-- 文件會被長期載入 context window，重點是壓縮、精準、可執行。
+- `SKILL.md`, agent instructions, system prompt, workflow rule, coding rule, eval spec, tool usage guideline.
+- Content goal: enable an AI agent to execute rules reliably, not to help humans browse and learn.
+- Documents are loaded into a context window long-term; priority is compression, precision, and executability.
 
-## 必要輸出規格
+## Required Output Spec
 
-- 不要求 `## 快速導覽` 或 `## 目錄`。
-- 不要求 `[返回開頭]` 連結。
-- 不使用 Mermaid。
-- 不讀取 `references/diagram-examples.md`，除非使用者明確要求在 AI agent 文件中包含 Mermaid 語法說明。
-- 規則要直接、可執行，優先使用 MUST / SHOULD / 禁止 / 先後順序等明確語氣。
-- 避免長篇例子；只保留必要的短例子、反例或判斷句。
+- MUST NOT include `## Quick Navigation` or `## Table of Contents`.
+- MUST NOT include `[Back to top]` links.
+- MUST NOT use Mermaid.
+- MUST NOT load `references/diagram-examples.md` unless the user explicitly requests Mermaid syntax in an AI-agent document.
+- Rules MUST be direct and executable; prefer MUST / SHOULD / MUST NOT / ordered-priority phrasing.
+- Avoid lengthy examples; keep only necessary short examples, counterexamples, or decision sentences.
 
-## 文字替代格式
+## Text Replacement Formats
 
-AI agent 文件若需要描述架構、流程、狀態或依賴，使用以下文字格式取代 Mermaid：
+When an AI-agent document needs to describe architecture, flow, state, or dependencies, use the following text formats instead of Mermaid:
 
-| 資訊類型 | 建議格式 |
-|----------|----------|
-| 依賴關係 | 「元件 / 依賴 / 責任」表格 |
-| 時序互動 | 編號步驟，逐步描述 actor、動作與結果 |
-| 狀態轉換 | `from -> event -> to` transition list |
-| 資料流 | pipeline 條列，逐步寫明輸入、處理與輸出 |
-| 決策邏輯 | 條件表或優先序清單 |
+| Information type | Recommended format |
+|-----------------|-------------------|
+| Dependencies | "Component / Dependency / Responsibility" table |
+| Temporal interactions | Numbered steps describing actor, action, and result |
+| State transitions | `from -> event -> to` transition list |
+| Data flow | Pipeline bullet list with input, processing, and output per step |
+| Decision logic | Condition table or priority-ordered list |
 
-## 典型結構
+## Typical Structure
 
 ```markdown
-# {Skill / Rule / Workflow 名稱}
+# {Skill / Rule / Workflow Name}
 
-## 目的
+## Purpose
 
-這份文件要讓 agent 做什麼、何時使用、成功條件是什麼。
+What this document makes the agent do, when to use it, and what success looks like.
 
-## 觸發條件
+## Trigger Conditions
 
-- 使用者提到 ...
-- 任務涉及 ...
+- User mentions ...
+- Task involves ...
 
-## 規則
+## Rules
 
 - MUST ...
-- 禁止 ...
-- 若 ... 則 ...
+- MUST NOT ...
+- If ... then ...
 
-## 工作流程
+## Workflow
 
-1. 先 ...
-2. 再 ...
-3. 最後 ...
+1. First ...
+2. Then ...
+3. Finally ...
 
-## 判斷表
+## Decision Table
 
-| 情境 | 做法 |
-|------|------|
+| Scenario | Action |
+|----------|--------|
 | ... | ... |
 ```
 
-不適用的章節直接省略，依需求增加領域專屬章節。
+Omit inapplicable sections; add domain-specific sections as needed.
 
-## 撰寫準則
+## Writing Guidelines
 
-- 把「何時觸發」與「如何執行」分開，避免 agent 在錯誤情境套用規則。
-- 規則順序要符合實際執行順序；不要把例外放在遠離主流程的位置。
-- 對高風險行為使用禁止式語句，例如「禁止靜默忽略錯誤」。
-- 對條件分支使用「若 ... 則 ...；否則 ...」格式。
-- 對多選一決策使用表格，而不是長段落。
-- 若資訊只是給人理解背景、但不影響 agent 行為，刪除或壓縮。
+- Separate "when to trigger" from "how to execute" to prevent the agent from applying rules in the wrong context.
+- Rule order MUST match actual execution order; do not bury exceptions far from the main flow.
+- Use prohibitive phrasing for high-risk behaviors, e.g. "MUST NOT silently ignore errors."
+- Use "If ... then ...; otherwise ..." format for conditional branches.
+- Use a table rather than long prose for multi-option decisions.
+- If information only helps humans understand background but does not affect agent behavior, delete or compress it.

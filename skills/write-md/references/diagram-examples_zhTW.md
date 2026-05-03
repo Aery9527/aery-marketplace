@@ -10,12 +10,12 @@ Top-down for hierarchies:
 
 ```mermaid
 flowchart TD
-    Common[game-go-common<br/>Base Utilities]
-    Core[slot-core<br/>Game Engine]
-    Infra[game-go-infra<br/>Infrastructure]
+    Common[game-go-common<br/>基礎工具庫]
+    Core[slot-core<br/>遊戲引擎]
+    Infra[game-go-infra<br/>基礎設施]
     Common --> Core
     Common --> Infra
-    Core --> App[game-slot-gp-app<br/>Application Layer]
+    Core --> App[game-slot-gp-app<br/>應用層]
     Infra --> App
 ```
 
@@ -23,12 +23,12 @@ Left-to-right for pipelines:
 
 ```mermaid
 flowchart LR
-    A[Parse Request] --> B[Read State]
-    B --> C[Execute Game Logic]
-    C --> D[Update Balance]
-    D --> E[Write Record]
-    E --> F[Save State]
-    F --> G[Return Response]
+    A[解析請求] --> B[讀取狀態]
+    B --> C[執行遊戲邏輯]
+    C --> D[更新餘額]
+    D --> E[寫入紀錄]
+    E --> F[保存狀態]
+    F --> G[回應結果]
 ```
 
 With subgraph grouping:
@@ -114,11 +114,11 @@ classDiagram
 stateDiagram-v2
     [*] --> Idle
     Idle --> Spinning : Launch Spin
-    Spinning --> Evaluating : Reels Stop
-    Evaluating --> FreeGame : Trigger Free Game
-    Evaluating --> Idle : No Special Trigger
+    Spinning --> Evaluating : 轉輪停止
+    Evaluating --> FreeGame : 觸發免費遊戲
+    Evaluating --> Idle : 無特殊觸發
     FreeGame --> Spinning : Next Spin
-    FreeGame --> Idle : Free Game Ends
+    FreeGame --> Idle : 免費遊戲結束
 ```
 
 ---

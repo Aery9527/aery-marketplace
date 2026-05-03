@@ -1,120 +1,121 @@
 # Human Reader Markdown Rules
 
-本文件只在 Markdown 的目標讀者是人類時讀取。人類文件的重點是可瀏覽、可導覽、容易建立心智模型。
+Load this file only when the Markdown target audience is human. Human-facing
+documents focus on scannability, navigability, and ease of building a mental model.
 
-## 適用情境
+## Applicable Contexts
 
-- README、使用者指南、功能文件、架構總覽、API 說明、設計提案、交付給團隊閱讀的技術文件。
-- 內容目標是協助人快速理解背景、架構、流程、決策或使用方式。
-- 文件會被放在 repo、Wiki、PR、Notion 或其他團隊知識庫中供人閱讀。
+- README, user guide, feature doc, architecture overview, API reference, design proposal, technical docs shared with a team.
+- Content goal: help readers quickly understand background, architecture, flow, decisions, or usage.
+- Documents live in repos, Wikis, PRs, Notion, or other shared knowledge bases.
 
-## 必要輸出規格
+## Required Output Spec
 
-- 必須提供 `## 快速導覽` 或 `## 目錄`。
-- 快速導覽必須使用 Markdown link，指向文件內的主要章節。
-- 預設至少列出所有主要 `##` 章節；當文件很長或結構複雜時，可進一步補到重要的 `###`。
-- 每個主要章節結尾必須提供返回開頭連結；預設用 `[返回開頭](#快速導覽)`。
-- 若文件使用的是 `## 目錄` 而非 `## 快速導覽`，回頂 link 改成 `[返回開頭](#目錄)`。
-- 若調整標題名稱或章節順序，必須同步更新快速導覽與回頂 link，避免死連結或名稱不一致。
+- MUST include `## Quick Navigation` or `## Table of Contents`.
+- Quick Navigation MUST use Markdown links pointing to major sections within the document.
+- Default to listing all major `##` sections; for long or complex documents, extend to important `###` sections.
+- Each major section MUST end with a back-to-top link; default to `[Back to top](#quick-navigation)`.
+- If the document uses `## Table of Contents` instead of `## Quick Navigation`, use `[Back to top](#table-of-contents)`.
+- When renaming headings or reordering sections, update Quick Navigation and back-to-top links to avoid dead links or name mismatches.
 
-## Mermaid 規則
+## Mermaid Rules
 
-- 人類讀者文件必須使用 Mermaid 視覺化核心關係、流程、狀態或資料流。
-- 若內容很單純，也至少用一張簡短 Mermaid 圖整理主要結構、流程或決策關係。
-- Mermaid 必須補充文字，不能只重複段落內容。
-- 不要為了湊圖而畫與文件無關的裝飾圖。
-- 需要 Mermaid 語法細節或圖表類型範例時，再讀取 `references/diagram-examples.md`。
+- Human-reader documents MUST use Mermaid to visualize core relationships, flows, states, or data flows.
+- Even for simple content, include at least one brief Mermaid diagram to organize the main structure, flow, or decision relationship.
+- Mermaid diagrams MUST complement prose; they must not merely restate paragraph content.
+- Do not draw decorative diagrams unrelated to the document.
+- When Mermaid syntax details or diagram-type examples are needed, additionally load `references/diagram-examples.md`.
 
-## Mermaid 選擇指南
+## Mermaid Selection Guide
 
-| 情境 | 圖表類型 | 使用時機 |
-|------|----------|----------|
-| 模組相依、呼叫層級 | `flowchart TD` | 套件 / 模組間相依鏈不直觀時 |
-| 跨服務的請求 / 回應流程 | `sequenceDiagram` | >=3 個元件之間的時序互動 |
-| 介面 / struct 型別關係 | `classDiagram` | 型別層級、介面實作、struct 組合 |
-| 生命週期、狀態轉換 | `stateDiagram-v2` | 實體在有分支的狀態間流轉 |
-| 資料庫 schema、實體關係 | `erDiagram` | 有多個外鍵關係的資料模型 |
-| 處理 pipeline | `flowchart LR` | 方向與標籤都很重要的線性處理流程 |
-| 決策邏輯、分支流程 | `flowchart TD` | 用文字難以說清楚的條件分支 |
+| Context | Diagram type | When to use |
+|---------|-------------|-------------|
+| Module dependencies, call hierarchy | `flowchart TD` | When the dependency chain between packages/modules is non-obvious |
+| Cross-service request/response flow | `sequenceDiagram` | Temporal interactions among 3+ components |
+| Interface/struct type relationships | `classDiagram` | Type hierarchy, interface implementations, struct composition |
+| Lifecycle, state transitions | `stateDiagram-v2` | Entity flows between states with branching |
+| Database schema, entity relationships | `erDiagram` | Data models with multiple foreign-key relationships |
+| Processing pipeline | `flowchart LR` | Linear processing flows where direction and labels both matter |
+| Decision logic, branching flow | `flowchart TD` | Conditional branches that are hard to express in prose |
 
-若一個功能橫跨多個面向，只在每種圖各自帶來獨立洞見時才組合使用，避免為求完整而堆圖。
+If a feature spans multiple aspects, combine diagram types only when each type provides independent insight; avoid stacking diagrams just for completeness.
 
-## 典型結構
+## Typical Structure
 
 ```markdown
-# {功能 / 模組名稱}
+# {Feature / Module Name}
 
-## 快速導覽
+## Quick Navigation
 
-- [概覽](#概覽)
-- [架構](#架構)
-- [流程](#流程)
-- [核心元件](#核心元件)
-- [注意事項](#注意事項)
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Flow](#flow)
+- [Core Components](#core-components)
+- [Notes](#notes)
 
-## 概覽
+## Overview
 
-目的、範圍、關鍵設計決策。
+Purpose, scope, key design decisions.
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 架構
+## Architecture
 
-[Mermaid：用一張圖呈現核心元件關係；即使關係簡單，也以最小圖整理主要結構。]
+[Mermaid: one diagram showing core component relationships; even simple relationships deserve a minimal structural diagram.]
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 流程
+## Flow
 
-[Mermaid：用一張圖呈現主要流程、資料流或決策路徑。]
+[Mermaid: one diagram showing main flow, data flow, or decision path.]
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 核心元件
+## Core Components
 
-各元件說明。
+Description of each component.
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 注意事項
+## Notes
 
-邊界條件、設計限制、待解決問題。
+Edge cases, design constraints, unresolved issues.
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 ```
 
-不適用的章節直接省略，依需求增加領域專屬章節。
+Omit inapplicable sections; add domain-specific sections as needed.
 
-## Mermaid 最佳實踐
+## Mermaid Best Practices
 
-- 每張圖專注於一個概念；複雜系統拆成多張圖。
-- Node label 使用繁體中文，identifier 維持英文。
-- flowchart 的連線要加有意義的 label 說明關係類型。
-- 圖的深度控制在 3-4 層以維持可讀性。
-- 節點 >=6 個時用 `subgraph` 分群。
-- sequence diagram 用 `activate` / `deactivate` 與 `note` 標示關鍵行為。
-- 直接相依用 `-->` 實線，可選 / 間接關係用 `-.->` 虛線。
-- 若文件含多張圖，快速導覽應讓讀者能快速跳到各圖所在章節。
-- 圖所在章節在收尾時仍要保留回頂 link，不因為有 Mermaid 就省略。
+- Each diagram focuses on one concept; split complex systems into multiple diagrams.
+- Node labels use English; identifiers stay ASCII.
+- Add meaningful labels to flowchart edges to clarify relationship types.
+- Keep diagram depth to 3-4 levels for readability.
+- Use `subgraph` to group when there are 6+ nodes.
+- Use `activate` / `deactivate` and `note` in sequence diagrams to mark key behaviors.
+- Use `-->` solid lines for direct dependencies; `-.->` dashed lines for optional/indirect relationships.
+- If the document contains multiple diagrams, Quick Navigation should allow readers to jump directly to each diagram's section.
+- Sections containing diagrams must still include a back-to-top link; do not omit it just because a Mermaid diagram is present.
 
-## Mermaid 語法安全
+## Mermaid Syntax Safety
 
-- 菱形節點 `{}` 內禁止裸括號：`()` 會被 parser 當作圓角矩形 token。改用雙引號包住整段文字，例如 `T1{"是否實作 FormatStack？"}`，或以 `&#40;&#41;` HTML entity 取代括號。
-- 方框 `[]` 內的引號：若文字含雙引號，使用 `&quot;` 取代 `\"`，避免截斷節點定義。
-- 方框 `[]` 內的大括號：若文字含 `{}`，使用 `#123;` / `#125;` 取代，避免被解讀為子圖或菱形。
+- Diamond nodes `{}` must not contain bare parentheses: `()` is parsed as a rounded-rectangle token. Wrap the entire label in double quotes, e.g. `T1{"Is FormatStack implemented?"}`, or replace parentheses with `&#40;&#41;` HTML entities.
+- Quotes inside brackets `[]`: if text contains double quotes, use `&quot;` instead of `\"` to avoid truncating the node definition.
+- Braces inside brackets `[]`: if text contains `{}`, use `#123;` / `#125;` to avoid being interpreted as a subgraph or diamond.
 
-## Mermaid 配色與可讀性
+## Mermaid Color and Readability
 
-- 使用 `style` 為節點加底色時，必須同時指定 `color`（文字色），確保 light / dark mode 都可讀。
-- 配色原則：底色與文字色使用同色系深淺搭配（淺底色 + 同色系深色文字）。
+- When using `style` to add a background color to a node, MUST also specify `color` (text color) to ensure readability in both light and dark mode.
+- Color principle: pair background and text colors within the same hue family (light background + dark text of the same hue).
 
-| 語意 | fill（底色） | stroke（邊框） | color（文字） |
-|------|-------------|---------------|--------------|
-| 成功 / 推薦 | `#d4edda` | `#28a745` | `#155724` |
-| 警告 / 注意 | `#fff3cd` | `#ffc107` | `#856404` |
-| 錯誤 / 降級 | `#f8d7da` | `#dc3545` | `#721c24` |
-| 資訊（藍） | `#e3f2fd` | `#1976d2` | `#0d47a1` |
-| 資訊（紫） | `#f3e5f5` | `#7b1fa2` | `#4a148c` |
-| 資訊（橙） | `#fff8e1` | `#f9a825` | `#e65100` |
+| Semantic | fill (background) | stroke (border) | color (text) |
+|----------|------------------|-----------------|--------------| 
+| Success / recommended | `#d4edda` | `#28a745` | `#155724` |
+| Warning / caution | `#fff3cd` | `#ffc107` | `#856404` |
+| Error / degraded | `#f8d7da` | `#dc3545` | `#721c24` |
+| Info (blue) | `#e3f2fd` | `#1976d2` | `#0d47a1` |
+| Info (purple) | `#f3e5f5` | `#7b1fa2` | `#4a148c` |
+| Info (orange) | `#fff8e1` | `#f9a825` | `#e65100` |
 
-範例：`style NodeId fill:#d4edda,stroke:#28a745,color:#155724`
+Example: `style NodeId fill:#d4edda,stroke:#28a745,color:#155724`

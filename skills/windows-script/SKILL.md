@@ -1,52 +1,52 @@
 ---
 name: windows-script
 description: >-
-   Use when 撰寫、修改、review 任何 Windows 腳本（.ps1、.bat、.cmd），或處理
-   PowerShell 的 encoding、BOM、line ending、Windows PowerShell 5.1 相容性、
-   中文／非 ASCII 內容、hook script、init.ps1、Windows CLI 自動化時。只要任務碰到
-   .ps1、PowerShell、UTF-8、BOM、CRLF/LF、batch script 遷移，就應先使用此 skill。
+  Use when writing, modifying, or reviewing any Windows script (.ps1, .bat,
+  .cmd), or handling PowerShell encoding, BOM, line endings, Windows
+  PowerShell 5.1 compatibility, non-ASCII content, hook scripts, init.ps1,
+  or Windows CLI automation. Whenever a task involves .ps1, PowerShell,
+  UTF-8, BOM, CRLF/LF, or batch script migration, use this skill first.
 ---
 
-# Windows Script 開發守則
+# Windows Script Development Guidelines
 
-## 快速導覽
+## Quick Navigation
 
-- [禁止使用 .bat / .cmd](#禁止使用-bat--cmd--一律改寫為-ps1)
-- [PowerShell (.ps1) 守則](#powershell-ps1-守則)
-- [腳本開頭 Checklist](#腳本開頭-checklist)
-- [常見誤區](#常見誤區)
+- [Ban .bat / .cmd — Always Rewrite as .ps1](#-ban-bat--cmd--always-rewrite-as-ps1)
+- [PowerShell (.ps1) Rules](#powershell-ps1-rules)
+- [Script Header Checklist](#script-header-checklist)
+- [Common Pitfalls](#common-pitfalls)
 
-## ⛔ 禁止使用 .bat / .cmd — 一律改寫為 .ps1
+## ⛔ Ban .bat / .cmd — Always Rewrite as .ps1
 
-> **這不是建議，是強制規範。**
+> **This is a hard rule, not a suggestion.**
 
-`.bat` / `.cmd` 是過時的技術遺產，不值得再投資維護成本。遇到需要修改、擴充、除錯或 review 的 batch script，預設策略不是修補，而是直接改寫成 `.ps1`。
+`.bat` / `.cmd` are legacy technology not worth further investment. When asked to modify, extend, debug, or review a batch script, the default strategy is **not to patch it** — rewrite it as `.ps1` instead.
 
-**PowerShell 是預設替代方案**：語法與錯誤處理較一致、UTF-8 友善、可讀性與可維護性都明顯較好，也更適合現代 CLI、CI 與自動化工作流。
+**PowerShell is the default replacement**: consistent syntax and error handling, UTF-8 friendly, far more readable and maintainable, and better suited for modern CLI, CI, and automation workflows.
 
-**遇到現有 .bat 需要修改時 → 直接改寫成 .ps1，不要修補 .bat。**
+**If an existing .bat needs changes → rewrite it as .ps1. Do not patch .bat.**
 
 ---
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## PowerShell (.ps1) 守則
+## PowerShell (.ps1) Rules
 
-### 1. 錯誤處理 ── 預設靜默吞錯
+### 1. Error Handling — Default Is Silent Swallow
 
-PowerShell cmdlet 預設 `$ErrorActionPreference = 'Continue'`，遇到錯誤不會拋出 exception，
-腳本繼續執行。任何需要 fail-fast 的腳本都應在開頭設定：
+PowerShell cmdlets default to `$ErrorActionPreference = 'Continue'`: errors do not throw exceptions and the script keeps running. Any script that needs fail-fast behavior must set this at the top:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
 ```
 
-或針對單一指令：
+Or per-command:
 ```powershell
 Get-Item "nonexistent" -ErrorAction Stop
 ```
 
-外部程式（`git`, `go` 等）的失敗不觸發 `$ErrorActionPreference`，需要手動檢查：
+Failures of external programs (`git`, `go`, etc.) do **not** trigger `$ErrorActionPreference`; check manually:
 ```powershell
 git merge $source
 if ($LASTEXITCODE -ne 0) { throw "merge failed: exit $LASTEXITCODE" }
@@ -54,89 +54,85 @@ if ($LASTEXITCODE -ne 0) { throw "merge failed: exit $LASTEXITCODE" }
 
 ---
 
-### 2. $? vs $LASTEXITCODE
+### 2. `$?` vs `$LASTEXITCODE`
 
-| 變數 | 適用對象 | 說明 |
-|------|---------|------|
-| `$?` | PowerShell cmdlet | `$true` / `$false` |
-| `$LASTEXITCODE` | 外部執行檔（.exe / .bat） | 整數 exit code |
+| Variable | Applies to | Type |
+|----------|-----------|------|
+| `$?` | PowerShell cmdlets | `$true` / `$false` |
+| `$LASTEXITCODE` | External executables (.exe / .bat) | Integer exit code |
 
 ```powershell
-git fetch            # 外部程式
-$LASTEXITCODE        # ✅ 用這個
+git fetch            # external program
+$LASTEXITCODE        # use this
 
 Get-Item "..."       # cmdlet
-$?                   # ✅ 用這個
+$?                   # use this
 ```
 
 ---
 
-### 3. 字串引號
+### 3. String Quotes
 
-- **單引號** `'...'`：字面值，不展開變數
-- **雙引號** `"..."`：展開 `$var` 和 `` `n `` 等 escape
+- **Single quotes** `'...'`: literal — variables are NOT expanded
+- **Double quotes** `"..."`: interpolated — `$var` and escape sequences like `` `n `` are expanded
 
 ```powershell
 $name = "World"
-Write-Host 'Hello $name'   # 印 Hello $name
-Write-Host "Hello $name"   # 印 Hello World
+Write-Host 'Hello $name'   # prints: Hello $name
+Write-Host "Hello $name"   # prints: Hello World
 ```
 
-路徑含空格時必須加引號；呼叫含空格路徑的執行檔需用 `&`：
+Paths with spaces must be quoted; invoke executables with spaces using `&`:
 ```powershell
 & "C:\Program Files\Git\bin\git.exe" status
 ```
 
 ---
 
-### 4. Exit Code 傳遞
+### 4. Exit Code Propagation
 
-PowerShell script 結束時預設 exit code 為 0，即使內部出錯。
-呼叫端（.bat 或 CI）需要正確 exit code 時：
+A PowerShell script exits with code 0 by default, even if internal errors occurred. When the caller (.bat or CI) needs a meaningful exit code:
 
 ```powershell
-# 腳本最後
+# at end of script
 exit $LASTEXITCODE
 
-# 或明確傳遞
+# or explicit
 if ($failed) { exit 1 }
 exit 0
 ```
 
 ---
 
-### 5. 陣列邊界
+### 5. Array Boundaries
 
-空陣列用 `@()` 宣告，否則 `$null` 會讓 `.Count` 拋 NullReference：
+Declare empty arrays with `@()`, otherwise `$null` causes `.Count` to return null and throws in strict mode:
 
 ```powershell
-$items = @()              # ✅ 空陣列，$items.Count = 0
-$items = $null            # ❌ $items.Count 會是 null，在 strict mode 報錯
+$items = @()              # safe: $items.Count = 0
+$items = $null            # unsafe: $items.Count is null, errors in strict mode
 ```
 
-只有一個元素時，pipeline 可能把陣列「展開」成純物件：
+When a pipeline returns a single element it may be unwrapped into a plain object; force array type with `@()`:
 ```powershell
-$result = @(Get-ChildItem "." -Filter "*.go")   # 用 @() 強制保留陣列型別
+$result = @(Get-ChildItem "." -Filter "*.go")   # always an array
 ```
 
 ---
 
-### 6. 檔案 encoding / BOM ── 不要把需要支援 5.1 的 `.ps1` 存成 UTF-8 無 BOM
+### 6. File Encoding / BOM — Do Not Save 5.1-Compatible `.ps1` as UTF-8 Without BOM
 
-`pwsh` 7+ 能正常讀取 UTF-8 無 BOM，**不代表** `powershell.exe`（Windows PowerShell
-5.1）也能正確讀取。只要 `.ps1` 檔案裡有中文、註解、本地化訊息、banner、錯誤訊息或任何
-非 ASCII 字元，5.1 就可能因為檔案是 **UTF-8 無 BOM** 而誤判編碼，進而出現 parse error、
-字串截斷或亂碼。
+`pwsh` 7+ handles UTF-8 without BOM correctly. **This does not mean** `powershell.exe` (Windows PowerShell 5.1) does. If a `.ps1` file contains any non-ASCII characters (localized messages, banners, error strings, comments), 5.1 may misdetect the encoding when the file is **UTF-8 without BOM**, causing parse errors, string truncation, or garbled output.
 
-**鐵則：**
+**Hard rules:**
 
-- 只要腳本需要支援 `powershell.exe` 5.1，且檔案內容含非 ASCII 字元，**預設保存為 UTF-8 with BOM**
-- 不要因為 editor、formatter、normalizer 或「全 repo 都 UTF-8 no BOM」的習慣，順手把這類 `.ps1` 改掉
-- **BOM 與 line ending 是兩件事**：需要 BOM 不代表要改成 CRLF；line ending 仍優先遵循 repo 內 `.gitattributes` / `.editorconfig`
-- 若 repo 已明確規定 `*.ps1` 的 `charset` / `eol`，必須遵守；沒有規定時，遇到 5.1 相容性需求就保守選 **UTF-8 with BOM**
-- 除非能明確確認腳本只支援 `pwsh` 7+ 且全檔 ASCII，否則不要自行降成 UTF-8 無 BOM
+- If the script must support `powershell.exe` 5.1 **and** the file contains non-ASCII characters, **save as UTF-8 with BOM** by default.
+- Do not let an editor, formatter, normalizer, or a "whole repo is UTF-8 no BOM" convention silently strip the BOM from such `.ps1` files.
+- **BOM and line endings are independent concerns**: needing a BOM does not mean switching to CRLF; line endings still follow the repo's `.gitattributes` / `.editorconfig`.
+- If the repo explicitly defines `charset` / `eol` for `*.ps1`, obey that. When undefined, choose **UTF-8 with BOM** conservatively for any 5.1 compatibility requirement.
+- Unless you can confirm the script targets `pwsh` 7+ only and the entire file is ASCII, do not downgrade to UTF-8 without BOM.
 
-修改這類檔案後，若環境允許，至少做一次 5.1 驗證：
+After editing such a file, verify with 5.1 when the environment allows:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\script.ps1
@@ -144,103 +140,96 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\script.ps1
 
 ---
 
-### 7. 讀取外部 UTF-8 文字檔 ── `Get-Content` 必須指定 `-Encoding UTF8`
+### 7. Reading External UTF-8 Text Files — Always Use `-Encoding UTF8`
 
-`Get-Content` 在 Windows PowerShell 5.1 預設使用系統 OEM 編碼（繁中機器為 CP950/Big5，
-簡中機器為 GBK）讀檔，即使目標檔案實際上是 UTF-8。這個行為在讀取含非 ASCII 內容
-（中文注解、中文欄位值）的設定檔、規則檔、資料檔時，會造成**靜默性行內容錯亂**。
+`Get-Content` in Windows PowerShell 5.1 defaults to the system OEM encoding (CP950/Big5 on Traditional Chinese machines, GBK on Simplified Chinese machines) even when the target file is UTF-8. Reading config files, rule files, or data files that contain non-ASCII content without specifying encoding causes **silent content corruption**.
 
-#### 危險核心：Big5/GBK decoder 會「吃掉」換行符號
+#### The Core Danger: Big5/GBK Decoder Consumes Newlines
 
-當 Big5/GBK decoder 遇到 UTF-8 中文字節序列時，可能會誤認為某個雙位元組字元的第二
-byte 是 `0x0A`（LF），進而**把換行符號當成字元的一部分消耗掉**。兩個實體行因此合併成一行，
-行尾的換行消失，下一行的內容直接拼在後面。
+When the Big5/GBK decoder encounters a UTF-8 multibyte sequence, it may misinterpret a byte as the second half of a double-byte character whose value is `0x0A` (LF), **consuming the newline as part of a character**. Two physical lines are silently merged into one.
 
 ```
-# 設定檔（UTF-8，實際上是兩行）
-# 這是注解，說明下面的設定項目。
+# Config file (UTF-8, two separate lines):
+# This comment describes the setting below.
 some-key    some-value
 
-# Get-Content 不加 -Encoding UTF8，系統用 Big5 解碼 →
-# "# 這是注解，說明下面的設定項目。some-key    some-value"   ← 合併成一行！
+# Get-Content without -Encoding UTF8 decoded as Big5:
+# "# This comment describes the setting below.some-key    some-value"  <- merged into one line!
 ```
 
-**後果**：合併後的行以 `#` 開頭 → 被注解過濾邏輯（`StartsWith('#')` / `continue`）靜默跳過
-→ 設定項目**從未被載入**，防護/功能形同虛設，程式行為異常但無任何錯誤訊息。
+**Consequence**: the merged line starts with `#` → silently skipped by comment-filter logic (`StartsWith('#')` / `continue`) → the config entry **is never loaded**, the feature or guard becomes a no-op with no error message.
 
-#### 鐵則：所有讀取外部文字檔的 `Get-Content` 一律加 `-Encoding UTF8`
+#### Hard Rule: Always Add `-Encoding UTF8` to Every `Get-Content` That Reads External Files
 
 ```powershell
-# ❌ 危險：依賴系統預設 OEM 編碼，含中文的 UTF-8 檔案行內容可能被吃掉
+# unsafe: relies on system OEM encoding; non-ASCII UTF-8 files may have lines eaten
 foreach ($line in Get-Content $configFile) { ... }
 
-# ✅ 安全：明確指定 UTF-8，UTF-8 byte 序列才會被正確解析，換行不會被吃掉
+# safe: explicit UTF-8; byte sequences are decoded correctly, newlines are preserved
 foreach ($line in Get-Content $configFile -Encoding UTF8) { ... }
 ```
 
-適用範圍：任何由腳本讀取、內容可能含非 ASCII 字元（包含 UTF-8 中文注解）的外部檔案，
-無論是`.txt`、`.json`、`.yaml`、`.csv`、設定檔、規則檔還是其他文字檔。
+Applies to any external file the script reads whose content may contain non-ASCII characters (including UTF-8 comments): `.txt`, `.json`, `.yaml`, `.csv`, config files, rule files, and any other text file.
 
-> **注意**：這個問題與第 6 節的 `.ps1` 腳本 BOM 問題相互獨立：
-> - 第 6 節：`.ps1` 腳本檔案本身需要 BOM，5.1 才能正確**解析腳本語法**
-> - 本節：讀取**外部文字資料檔**時，必須主動指定 `-Encoding UTF8`，與腳本本身用什麼 encoding 儲存無關
+> **Note**: This issue is independent of Rule 6's `.ps1` BOM issue:
+> - Rule 6: The `.ps1` script file itself needs a BOM so 5.1 can **parse the script syntax** correctly.
+> - This rule: When **reading external data files**, you must explicitly specify `-Encoding UTF8` — unrelated to how the script file itself is saved.
 
 ---
 
-### 8. 中文 / UTF-8 輸出
+### 8. Non-ASCII / UTF-8 Console Output
 
-Windows PowerShell（5.x）預設 console encoding 是 CP950（繁中）或 GBK（簡中），
-可能讓中文輸出亂碼或讓 `git` 輸出被截斷：
+Windows PowerShell (5.x) defaults to CP950 (Traditional Chinese) or GBK (Simplified Chinese) for console encoding, which may garble non-ASCII output or truncate `git` output:
 
 ```powershell
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding          = [System.Text.Encoding]::UTF8
 ```
 
-PowerShell 7+ 預設 UTF-8，通常不需要手動設定。
+PowerShell 7+ defaults to UTF-8; this is typically not needed there.
 
 ---
 
-### 9. CWD 保護 ── 禁止污染呼叫端目錄
+### 9. CWD Protection — Do Not Pollute the Caller's Working Directory
 
-腳本頂層直接呼叫 `Set-Location` 會**永久改變呼叫端（termial）的工作目錄**，用完腳本後 CWD 已不是原始位置，使用者需要手動 `cd` 回去。
+A bare `Set-Location` at the top level of a script **permanently changes the caller's (terminal's) working directory**. After the script exits, the CWD is no longer the original location and the user must manually `cd` back.
 
-**正確做法**：在腳本最頂層先儲存原始位置，用 `try/finally` 確保還原：
+**Correct approach**: save the original location at the top and restore it in a `try/finally`:
 
 ```powershell
 $originalLocation = Get-Location
 Set-Location (Join-Path $PSScriptRoot "..")
 try {
-    # ... 腳本主體 ...
+    # ... script body ...
 } finally {
     Set-Location $originalLocation
 }
 ```
 
-> `exit` 在 `try` 塊內仍會執行 `finally`，所以這個模式在任何退出路徑下都安全。
+> `exit` inside a `try` block still executes `finally`, so this pattern is safe on all exit paths.
 
-**❌ 不要用 `Push-Location` / `Pop-Location`**：腳本內部若有針對子模組的 `Push-Location $sub`，一旦遇到 `exit`、`return` 或錯誤提前退出，這些 inner push 不會被 pop，導致 `finally` 中的 `Pop-Location` 彈出的是 inner push 而非原始位置，CWD 仍然被污染。`$originalLocation` 方法完全不依賴 location stack，任何執行路徑都正確。
+**Do not use `Push-Location` / `Pop-Location`**: if the script has inner `Push-Location $sub` calls for submodules and then exits early via `exit`, `return`, or an error, those inner pushes are not popped, and the `Pop-Location` in `finally` pops the inner push instead of the original location — CWD is still polluted. The `$originalLocation` pattern does not rely on the location stack and is correct on any execution path.
 
 ---
 
-### 10. 彩色輸出 ── 所有互動式腳本必須使用
+### 10. Colored Output — Required for All Interactive Scripts
 
-**凡是使用者會在 terminal 直接執行的腳本，都必須使用 `-ForegroundColor` 讓輸出可讀**。純後台 / CI 腳本例外。
+**Any script that users run directly in a terminal must use `-ForegroundColor` to make output readable.** Pure background / CI scripts are exempt.
 
-**色彩使用標準（必須遵循）：**
+**Color standard (must follow):**
 
-| 場景 | 色彩 | 範例 |
-|------|------|------|
-| 大標題 / Banner | `Cyan` | `=== Switch Branch ===` |
-| 小節標題 | `Blue` | `--- Summary ---` |
-| 成功 `[OK]` | `Green` | `[OK] Switched to develop` |
-| 錯誤 `[X] ERROR` | `Red` | `[X] ERROR: checkout failed` |
-| 警告 `[!]` / 取消 | `Yellow` | `[!] Cancelled` |
-| Repo / 資源名稱列 | `Cyan` | `  game-go-common` |
-| 選單項目數字 `[1]` | `Green` | `[1] develop` |
-| 選單特殊選項 `[e]` | `Cyan` | `[e] enter branch name` |
-| Summary 成功計數 | `Green` | `Success: 6` |
-| Summary 失敗計數 | `Red` | `Failed: 1` |
+| Scenario | Color | Example |
+|----------|-------|---------|
+| Main title / Banner | `Cyan` | `=== Switch Branch ===` |
+| Section header | `Blue` | `--- Summary ---` |
+| Success `[OK]` | `Green` | `[OK] Switched to develop` |
+| Error `[X] ERROR` | `Red` | `[X] ERROR: checkout failed` |
+| Warning `[!]` / Cancel | `Yellow` | `[!] Cancelled` |
+| Repo / resource name row | `Cyan` | `  game-go-common` |
+| Menu item number `[1]` | `Green` | `[1] develop` |
+| Menu special option `[e]` | `Cyan` | `[e] enter branch name` |
+| Summary success count | `Green` | `Success: 6` |
+| Summary failure count | `Red` | `Failed: 1` |
 
 ```powershell
 Write-Host "=== Switch Branch ===" -ForegroundColor Cyan
@@ -254,58 +243,60 @@ Write-Host "Failed:  $failCount"  -ForegroundColor Red
 
 ---
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 腳本開頭 Checklist
+## Script Header Checklist
 
 ```powershell
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding          = [System.Text.Encoding]::UTF8
 
-# 若腳本需要支援 powershell.exe 5.1 且檔案含非 ASCII，檔案本身必須保存為 UTF-8 with BOM
-# CWD 保護：必須用 $originalLocation + try/finally，禁止裸 Set-Location
+# If the script must support powershell.exe 5.1 and the file contains non-ASCII, save as UTF-8 with BOM.
+# CWD protection: use $originalLocation + try/finally; bare Set-Location is forbidden.
 $originalLocation = Get-Location
 Set-Location (Join-Path $PSScriptRoot "..")
 try {
-    # ... 腳本主體 ...
+    # ... script body ...
 } finally {
     Set-Location $originalLocation
 }
 ```
 
-**讀取外部文字檔一律加 `-Encoding UTF8`（見第 7 節）：**
+**Always add `-Encoding UTF8` when reading external text files (see Rule 7):**
 
 ```powershell
-# ✅ 正確：讀取可能含非 ASCII 內容的設定檔
+# correct: reading a config file that may contain non-ASCII content
 foreach ($line in Get-Content $configFile -Encoding UTF8) { ... }
 $content = Get-Content $dataFile -Raw -Encoding UTF8
 ```
 
-### 路徑分隔符
+### Path Separators
 
-用 `Join-Path` 或 `/`（PowerShell 兼容），含空格必須加引號。
+Use `Join-Path` or `/` (both work in PowerShell); always quote paths that contain spaces.
 
 ```powershell
 $path = Join-Path $PSScriptRoot ".." "scripts" "go-mod.ps1"
 & "C:\Program Files\Git\bin\git.exe" status
 ```
 
-[返回開頭](#快速導覽)
+[Back to top](#quick-navigation)
 
-## 常見誤區
+## Common Pitfalls
 
-1. **「`pwsh` 跑得動，所以 `powershell.exe` 也一定沒問題」**  
-   錯。`pwsh` 7+ 對 UTF-8 無 BOM 友善很多，5.1 不是。
-2. **「我已經把 console OutputEncoding 設成 UTF-8，所以檔案 encoding 不重要」**  
-   錯。console 輸出 encoding 與 `.ps1` 檔案本身的儲存 encoding 是兩件事。
-3. **「需要 BOM 就順手改成 CRLF」**  
-   錯。BOM 與 line ending 無關，line ending 仍然遵循 repo 規則。
-4. **「只是改一行註解 / 中文字串，不會影響腳本執行」**  
-   錯。只要檔案從全 ASCII 變成含非 ASCII，5.1 的風險就上來了。
-5. **「`Get-Content` 讀 UTF-8 設定檔不用指定 encoding，反正看起來都是 ASCII 欄位」**  
-   錯。**檔案裡的中文注解**就已足夠讓 Big5/GBK decoder 在解析時吃掉換行符號（`0x0A`），
-   導致注解行和下一行的設定項目合併成一行，被注解過濾邏輯靜默跳過，設定項目從未生效。
-   一律加 `-Encoding UTF8`。
+1. **"`pwsh` runs fine, so `powershell.exe` must be fine too."**  
+   Wrong. `pwsh` 7+ is much more forgiving about UTF-8 without BOM; 5.1 is not.
 
-[返回開頭](#快速導覽)
+2. **"I already set console `OutputEncoding` to UTF-8, so file encoding doesn't matter."**  
+   Wrong. Console output encoding and the storage encoding of the `.ps1` file itself are separate concerns.
+
+3. **"If I need a BOM I should also switch to CRLF."**  
+   Wrong. BOM and line endings are unrelated; line endings still follow repo rules.
+
+4. **"It's just a one-line comment or Chinese string change — it won't affect script execution."**  
+   Wrong. The moment a file changes from all-ASCII to containing non-ASCII, the 5.1 risk applies.
+
+5. **"`Get-Content` reading a UTF-8 config file doesn't need encoding specified — all the meaningful fields look like ASCII anyway."**  
+   Wrong. **Chinese comments in the file** are sufficient to cause the Big5/GBK decoder to consume a newline (`0x0A`), merging the comment line with the next config line, which is then silently skipped by comment-filter logic so the config entry never takes effect. Always add `-Encoding UTF8`.
+
+[Back to top](#quick-navigation)
