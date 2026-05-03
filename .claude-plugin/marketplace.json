@@ -1,0 +1,31 @@
+{
+  "name": "aery-plugins",
+  "owner": {
+    "name": "Aery Lin"
+  },
+  "metadata": {
+    "description": "將自己開發經驗與習慣收斂成 skill or agent.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "aery-design",
+      "source": "./skills",
+      "strict": false,
+      "skills": [
+        "./write-md",
+        "./image-to-html"
+      ]
+    },
+    {
+      "name": "aery-go-dev",
+      "source": "./skills",
+      "strict": false,
+      "skills": [
+        "./windows-script",
+        "./write-md",
+        "./go-mongo-rules"
+      ]
+    }
+  ]
+}
