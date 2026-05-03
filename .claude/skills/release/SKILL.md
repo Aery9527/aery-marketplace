@@ -12,7 +12,7 @@ description: >-
 
 ## 概覽
 
-將此 repo 的 release 流程標準化：從上一個 semver tag 之後的 commit subjects 推薦下一版版本號，以繁體中文整理 release note，更新 version 關聯檔案，並完成 `develop -> main -> tag -> push`。
+將此 repo 的 release 流程標準化：從上一個 semver tag 之後的 commit subjects 推薦下一版版本號，生成 release note，更新 version 關聯檔案，並完成 `develop -> main -> tag -> push -> develop`。
 
 ## 前置檢查
 
@@ -44,6 +44,7 @@ description: >-
 2. merge `develop` 到 `main`。
 3. 在 `main` 建立 `vX.Y.Z` tag。
 4. push `develop`、`main` 與 tag。
+5. 只有在上述步驟全部成功完成後，才自動切換回 `develop`。
 
 ## 停止條件
 

@@ -48,6 +48,7 @@
 6. 執行 `git push origin develop`
 7. 執行 `git push origin main`
 8. 執行 `git push origin vX.Y.Z`
+9. 只有在上述步驟全部成功後，執行 `git checkout develop`
 
 ## 失敗分支
 
@@ -56,3 +57,4 @@
 - tag 已存在：立即停止
 - merge conflict：立即停止並保留衝突現場
 - push 失敗：立即停止並回報 push 失敗的 ref
+- 成功切回 `develop` 前若任一步失敗：停止在當前分支，不主動切換回 `develop`
