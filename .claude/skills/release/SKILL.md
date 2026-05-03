@@ -55,4 +55,4 @@ description: >-
 
 ## 參考文件
 
-- 詳細流程、release note 格式、首次 release 與失敗分支，讀 `references/workflow.md`
+- 需要完整命令順序、首次 release、release note 結構或失敗分支時，讀 `references/workflow.md`
