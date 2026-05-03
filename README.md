@@ -6,124 +6,57 @@
 
 - [專案結構](#專案結構)
 - [Plugin Bundle](#plugin-bundle)
-- [Skills 清單](#skills-清單)
+- [Skills 探索方式](#skills-探索方式)
+- [維護原則](#維護原則)
 
 ## 專案結構
 
-本 repo 以 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 定義兩個 Plugin Bundle，每個 Bundle 各自聚合適合該情境的 Skills。Skills 本體放在 [`skills/`](skills/) 目錄下，部分 Skill 同時被多個 Bundle 引用。
+本 repo 以 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 定義 Plugin Bundle；Skills 本體放在 [`skills/`](skills/) 目錄下。README 只描述探索方式，不手動列舉每個 skill，避免文件與 `SKILL.md` frontmatter 不同步。
 
 ```mermaid
 flowchart TD
-    subgraph Bundles["Plugin Bundles"]
-        B1["aery-design"]
-        B2["aery-go-dev"]
-    end
+    Agent["AI agent / 使用者"] -->|查看 bundle 定義| Marketplace[".claude-plugin/marketplace.json"]
+    Agent -->|掃描 skill metadata| Frontmatter["skills/*/SKILL.md YAML frontmatter"]
+    Marketplace -->|宣告 bundle 與 skill 組合| Bundle["Plugin Bundle"]
+    Frontmatter -->|提供 name / description| Discovery["Skill 探索與觸發判斷"]
+    Bundle --> Discovery
 
-    subgraph Skills["Skills"]
-        S1["write-md"]
-        S2["image-to-html"]
-        S3["windows-script"]
-        S4["engineering-principles"]
-        S5["go-mongo-rules"]
-    end
-
-    B1 -->|包含| S1
-    B1 -->|包含| S2
-    B2 -->|包含| S1
-    B2 -->|包含| S3
-    B2 -->|包含| S4
-    B2 -->|包含| S5
-
-    style S1 fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
+    style Frontmatter fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
+    style Discovery fill:#d4edda,stroke:#28a745,color:#155724
 ```
 
-> `write-md` 被兩個 Bundle 共享；藍色表示共用 Skill。
+[`skills/`](skills/) 底下每個 skill 的 `SKILL.md` frontmatter 是 skill 名稱、用途與觸發條件的來源；需要了解有哪些 skills 時，應讀取這些 frontmatter，而不是依賴 README 的手動清單。
 
 [返回開頭](#快速導覽)
 
 ## Plugin Bundle
 
-| Bundle | 適用情境 | 包含 Skills |
-|--------|---------|------------|
-| `aery-design` | UI 刻版、視覺稿還原、文件撰寫 | write-md、image-to-html |
-| `aery-go-dev` | Go 後端開發、MongoDB、Windows 腳本自動化、文件撰寫 | windows-script、write-md、engineering-principles、go-mongo-rules |
+Plugin Bundle 是情境化的 skill 組合，實際 bundle 定義與包含關係以 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 為準。README 只保留機制說明，不複製 bundle 內的 skills 清單。
+
+| 資訊 | 來源 |
+|------|------|
+| Bundle 名稱與描述 | [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) |
+| Bundle 包含哪些 skills | [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) |
+| Skill 名稱、描述與觸發語意 | [`skills/*/SKILL.md`](skills/) 的 YAML frontmatter |
+| Skill 詳細規則與 references | 各 skill 目錄內的 `SKILL.md` 與 `references/` |
 
 [返回開頭](#快速導覽)
 
-## Skills 清單
+## Skills 探索方式
 
-### [write-md](skills/write-md/SKILL.md)
+AI agent 需要掌握可用 skills 時，應掃描 [`skills/`](skills/) 底下所有 `SKILL.md` 的 YAML frontmatter，讀取 `name` 與 `description`。`description` 應提供足夠短而明確的用途、觸發時機與任務邊界，讓 agent 能判斷何時載入該 skill。
 
-撰寫或編輯任何 Markdown 文件——包含功能文件、模組文件、架構總覽、README 與技術規格。
+建議流程：
 
-**觸發時機**：使用者要求撰寫、建立、更新或整理 Markdown 檔案時。
-
-**特色**：
-- 產出文件必須包含可快速跳轉的章節導覽，且每個主要章節提供返回開頭的 link
-- 內建 Mermaid 判斷關卡，僅在視覺化能明顯降低理解難度時才嵌入圖表
-- 語言規範：正文一律繁體中文，專有術語維持原文
-- 附 [references/diagram-examples.md](skills/write-md/references/diagram-examples.md) 提供各圖表類型詳細語法範例
-
----
-
-### [image-to-html](skills/image-to-html/SKILL.md)
-
-將 PNG、JPG、screenshot、poster、banner、landing page mockup 等單張視覺稿轉成高擬真 HTML/CSS。
-
-**觸發時機**：「把圖片轉成 html」「照圖刻版」「pixel perfect 對齊」「跟原稿差在哪」等任務。
-
-**特色**：
-- 內建三支 Python 工具（位於 [`skills/image-to-html/scripts/`](skills/image-to-html/scripts/)）：
-  - `image_info.py` — 讀取圖片尺寸與 mode
-  - `crop_image.py` — 精準裁切局部資產
-  - `visual_diff.py` — 原圖與 render 的像素級視覺 diff
-- 提供完整排錯流程，參見 [references/pixel-alignment-playbook.md](skills/image-to-html/references/pixel-alignment-playbook.md)
-- 附 [evals/evals.json](skills/image-to-html/evals/evals.json) 與單元測試（[tests/](skills/image-to-html/tests/)）
-
----
-
-### [windows-script](skills/windows-script/SKILL.md)
-
-撰寫、修改、review 任何 Windows 腳本（`.ps1`、`.bat`、`.cmd`）。
-
-**觸發時機**：任務涉及 `.ps1`、PowerShell encoding、BOM、line ending、Windows PowerShell 5.1 相容性、中文／非 ASCII 內容、hook script 或 Windows CLI 自動化時。
-
-**核心守則摘要**：
-- `.bat` / `.cmd` 一律改寫為 `.ps1`，不修補舊版 batch script
-- 腳本開頭必須設定 `$ErrorActionPreference = 'Stop'` 與 UTF-8 console encoding
-- 支援 PowerShell 5.1 且含非 ASCII 內容的 `.ps1` 必須以 **UTF-8 with BOM** 儲存
-- `Get-Content` 讀取外部文字檔一律加 `-Encoding UTF8`，防止 Big5/GBK decoder 吃掉換行
-- 禁止直接 `Set-Location` 污染呼叫端 CWD，改用 `$originalLocation + try/finally`
-
----
-
-### [engineering-principles](skills/engineering-principles/SKILL.md)
-
-軟體設計與架構的核心守則速查——涵蓋 SOLID、CUPID、Code-level 原則、架構層 HA／容錯模式、Observability 與工程哲學。
-
-**觸發時機**：System design、code review、重構、技術選型、模組切分、API 設計、微服務拆分、評估技術債，或任何「怎麼寫才好」「架構怎麼切」「為什麼要這樣寫」的設計判斷場景。
-
-**內容章節**：
-- Code-Level 原則（SOLID、DRY、KISS、Law of Demeter 等）
-- 架構層級（12-Factor、DDD、Hexagonal、CAP、容錯模式）
-- 可維運性（Observability 三本柱、SLI/SLO、IaC）
-- 安全與韌性（Least Privilege、Zero Trust、Secret Management）
-- 開發流程紀律（Boy Scout Rule、Test Pyramid、Trunk-Based）
-- 套用判準（Decision Framework）與 Anti-Patterns 警示
-
----
-
-### [go-mongo-rules](skills/go-mongo-rules/SKILL.md)
-
-MongoDB 開發守則與陷阱防範，專門針對 Go `mongo-go-driver` 與 MongoDB shell 腳本（`.js`）。
-
-**觸發時機**：任何涉及 MongoDB 查詢、aggregation pipeline、Go `mongo-go-driver` 程式碼或 MongoDB shell 腳本的開發任務。
-
-**四大守則**：
-1. **型別安全** — JS shell 中 `NumberLong` / `ISODate` 的隱性轉型陷阱；Go 中 BSON 型別對應
-2. **`bson.M` vs `bson.D`** — 依賴宣告順序的 stage（`$sort`、`$group`）必須用 `bson.D`
-3. **查詢策略評估** — 按情境選擇 aggregation 單次 pipeline 或多次指令
-4. **策略聲明** — 每個 MongoDB 任務必須在 comment 中聲明查詢策略與原因
+1. 列出 [`skills/`](skills/) 底下所有第一層 skill 目錄。
+2. 讀取每個 `SKILL.md` 開頭的 YAML frontmatter。
+3. 用 `name` 作為 skill 識別名稱。
+4. 用 `description` 判斷適用任務、觸發條件與是否需要進一步讀完整 `SKILL.md`。
 
 [返回開頭](#快速導覽)
 
+## 維護原則
+
+新增、刪除或修改 [`skills/`](skills/) 內容時，必須同步檢查 [README.md](README.md) 是否仍能正確描述專案層級用途與探索方式。README 不應複製每個 skill 的完整描述；只需保留簡短說明，詳細資訊以各 `SKILL.md` frontmatter 與內容為準。
+
+[返回開頭](#快速導覽)
