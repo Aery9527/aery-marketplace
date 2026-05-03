@@ -118,4 +118,3 @@
 | 資訊（橙） | `#fff8e1` | `#f9a825` | `#e65100` |
 
 範例：`style NodeId fill:#d4edda,stroke:#28a745,color:#155724`
-
