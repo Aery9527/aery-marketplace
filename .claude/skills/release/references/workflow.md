@@ -17,7 +17,7 @@
 1. 找出最新 semver tag
 2. 收集 `tag..HEAD` 間的 commit subjects
 3. 依 major / minor / patch 規則提出建議版本
-4. 詢問使用者確認版本
+4. 先詢問使用者確認版本
 
 ## release note 格式
 
@@ -34,7 +34,7 @@
 
 1. 列出 `release-note/v*.md`
 2. 按 semver 由新到舊排序
-3. 保留前 5 份
+3. 只保留最新 5 份
 4. 刪除其餘檔案
 
 ## branch / tag / push
