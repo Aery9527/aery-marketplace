@@ -13,12 +13,6 @@ description: >-
 
 將目前工作樹轉化為一個高品質 commit。優先考量可用於 release note 的歷史紀錄：subject 應描述對 skill 行為、規格或文件的意義，而非描述哪些檔案被編輯。
 
-每次 commit 都必須在 footer 加入 Co-authored-by trailer：
-
-```
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
-```
-
 ## 工作流程
 
 1. 執行 `git status --short`，同時檢視已暫存與未暫存的差異。
@@ -28,7 +22,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 5. 根據變更的語意選擇 `type` 與可選的 `scope`（見下方規範）。
 6. 以英文、祈使語氣、高層次措辭撰寫 `type(scope): summary`。
 7. 若 diff 只揭示底層實作細節而無法可靠推斷高層次意圖，在最終確定訊息前先問一個明確的問題。
-8. 僅在有遷移說明、重大變更或 issue 參考時才加入 body；footer 則永遠加入 Co-authored-by trailer。
+8. 僅在有遷移說明、重大變更或 issue 參考時才加入 body。
 9. 建立本地 commit。
 
 ## Scope 規範
@@ -68,7 +62,6 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 - 撰寫以檔案名稱描述的 subject，例如 `docs: update SKILL.md`
 - 使用 `chore: update skills` 這類模糊摘要
 - 忽略 `git add -p`，將屬於不同意圖的 hunk 一起暫存
-- 遺漏 footer 的 Co-authored-by trailer
 
 ## 範例
 
