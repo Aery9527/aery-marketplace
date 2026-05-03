@@ -5,7 +5,20 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 
 # Engineering Principles
 
-語言無關的軟體設計守則。預設讀者是經驗豐富的工程師 —— 只列項目，不解釋基礎概念，不舉例。
+語言無關的軟體設計守則。預設讀者是經驗豐富的工程師 —— 只列項目與決策規則，不解釋基礎概念，不放長例子。
+
+## 快速導覽
+
+- [0. 核心心態（先於一切）](#0-核心心態先於一切)
+- [1. Agent 套用規則](#1-agent-套用規則)
+- [2. Code-Level 原則](#2-code-level-原則)
+- [3. 架構層級](#3-架構層級)
+- [4. 可維運性（Operability）](#4-可維運性operability)
+- [5. 安全與韌性](#5-安全與韌性)
+- [6. 開發流程紀律](#6-開發流程紀律)
+- [7. 套用判準（Decision Framework）](#7-套用判準decision-framework)
+- [8. Review Checklist](#8-review-checklist)
+- [9. Anti-Patterns 警示](#9-anti-patterns-警示)
 
 ---
 
@@ -16,9 +29,26 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - 任何違反原則的決定必須是「明確選擇」而非「沒想過」。
 - 讀的次數遠多於寫的次數。一切設計以可讀性與可變更性為終極指標。
 
+[返回開頭](#快速導覽)
+
 ---
 
-## 1. Code-Level 原則
+## 1. Agent 套用規則
+
+- 預設選擇最簡單、可讀、可驗證的方案；不要為了展示設計能力而增加結構。
+- 先沿用專案既有 pattern、命名、錯誤處理與測試風格；只有既有做法明顯阻礙需求時才局部改善。
+- 不為未證實的未來需求預先引入 abstraction、interface、framework、background job、cache 或 event system；但在明確架構邊界、外部副作用邊界、測試替身需求或已知多實作場景，應使用小而穩定的 interface。
+- 行為變更必須可測試或可驗證；不可只改實作而不確認對外行為。
+- 錯誤處理不得 silent fallback、broad catch、吞錯或偽裝成功；錯誤要依專案慣例向上傳遞、記錄或回報。
+- 外部輸入、I/O、network、database、time、randomness 都是邊界；邊界要驗證、timeout、可觀測。
+- 當 correctness、simplicity、maintainability、performance、extensibility 衝突時，優先序為：correctness → simplicity → maintainability → performance → extensibility。
+- 只重構與當前任務強相關的區域；不要把「順手改善」擴張成無邊界重寫。
+
+[返回開頭](#快速導覽)
+
+---
+
+## 2. Code-Level 原則
 
 ### SOLID
 - **SRP** — 一個 class 只能有一個改變的理由。
@@ -44,9 +74,11 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - **CUPID**（Dan North）— Composable / Unix philosophy / Predictable / Idiomatic / Domain-based。從規則導向轉為特質導向。
 - **GRASP**（Larman）— Information Expert、Creator、Controller、Low Coupling、High Cohesion、Polymorphism、Pure Fabrication、Indirection、Protected Variations。
 
+[返回開頭](#快速導覽)
+
 ---
 
-## 2. 架構層級
+## 3. 架構層級
 
 ### 結構性原則
 - **12-Factor App** — 雲原生服務的部署 / 設定 / 狀態紀律。
@@ -80,9 +112,11 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - **Cache Strategy** — 明確 TTL、失效時機與一致性語義。
 - **Read / Write Path 分離** — 高負載系統的基本動作。
 
+[返回開頭](#快速導覽)
+
 ---
 
-## 3. 可維運性（Operability）
+## 4. 可維運性（Operability）
 
 - **Observability 三本柱** — Metrics、Logs、Traces；缺一不可。
 - **Structured Logging** — 機器可解析優於人類可讀。
@@ -93,9 +127,11 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - **Blue/Green、Canary、Feature Flag** — 降低部署風險的標配。
 - **Runbook / Postmortem 文化** — 失敗是組織知識來源。
 
+[返回開頭](#快速導覽)
+
 ---
 
-## 4. 安全與韌性
+## 5. 安全與韌性
 
 - **Principle of Least Privilege**。
 - **Defense in Depth** — 多層防禦，不依賴單一邊界。
@@ -105,9 +141,11 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - **Input Validation at Boundary** — 所有外部輸入皆敵意輸入。
 - **Audit Trail** — 重要操作可追溯。
 
+[返回開頭](#快速導覽)
+
 ---
 
-## 5. 開發流程紀律
+## 6. 開發流程紀律
 
 - **Boy Scout Rule** — 離開時讓 code 比進來時乾淨。
 - **Code Review as Knowledge Transfer** — 不只是抓 bug。
@@ -117,9 +155,11 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - **Trunk-Based / Short-Lived Branches** — 減少 merge 地獄。
 - **Conventional Commits / 明確變更語義**。
 
+[返回開頭](#快速導覽)
+
 ---
 
-## 6. 套用判準（Decision Framework）
+## 7. 套用判準（Decision Framework）
 
 每次套用任何原則前自問：
 
@@ -134,9 +174,26 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - 高生命週期 / 高變動 / 多人 / 高風險 → 嚴格套用，接受抽象成本。
 - 不可逆決策 → 永遠採取最保守路線。
 
+[返回開頭](#快速導覽)
+
 ---
 
-## 7. Anti-Patterns 警示
+## 8. Review Checklist
+
+Review、重構或實作完成前，快速掃過：
+
+- **Correctness** — happy path、edge case、錯誤路徑、concurrency / retry / idempotency 是否合理。
+- **Boundary** — input validation、permission、timeout、resource cleanup、I/O failure 是否有處理。
+- **Design Fit** — 是否符合既有架構邊界；是否新增了不必要 abstraction 或耦合。
+- **Change Safety** — 行為變更是否有測試、回滾方式、相容性與 migration 考量。
+- **Operability** — 重要失敗是否可觀測；log / metric / trace 是否足以定位問題。
+- **Performance** — 是否引入 N+1、無界迴圈 / 查詢 / goroutine / queue、過度 allocation 或不受控 cache。
+
+[返回開頭](#快速導覽)
+
+---
+
+## 9. Anti-Patterns 警示
 
 當以下訊號出現，停下來重新思考：
 
@@ -147,6 +204,10 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - 「以後會用到」「未來可能擴展」作為設計理由。
 - 為了 DRY 而把不相關但長得像的邏輯合併。
 - 強行套用設計模式而非解決實際問題。
+- 為了避免破壞既有流程而加入 silent fallback，讓錯誤延後到更難追的位置。
+- 為了「保持彈性」而延後 schema、API 或錯誤語義的明確決策。
+
+[返回開頭](#快速導覽)
 
 ---
 
