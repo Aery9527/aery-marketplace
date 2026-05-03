@@ -12,7 +12,7 @@ description: >-
 
 ## 概覽
 
-將此 repo 的 release 流程標準化：從上一個 semver tag 之後的 commit subjects 推薦下一版版本號，生成 release note，更新 version 關聯檔案，並完成 `develop -> main -> tag -> push`。
+將此 repo 的 release 流程標準化：從上一個 semver tag 之後的 commit subjects 推薦下一版版本號，以繁體中文整理 release note，更新 version 關聯檔案，並完成 `develop -> main -> tag -> push`。
 
 ## 前置檢查
 
@@ -34,6 +34,8 @@ description: >-
 - 更新 `.claude-plugin/marketplace.json` 的 `metadata.version`
 - 在 `README.md` 最上方加入 `Current version: vX.Y.Z`
 - 建立 `release-note/vX.Y.Z.md`
+- `release-note/vX.Y.Z.md` 的固定文字、章節標題與條列摘要必須使用繁體中文
+- 若原始 commit subject 為英文，必須整理成繁體中文敘述；必要時可在括號補充原始 subject
 - 只保留最新 5 份 release note
 
 ## git 流程
