@@ -36,6 +36,13 @@ For human-reader documents that need Mermaid syntax details or diagram-type exam
 - Keep proper nouns as-is: product names, service names, library names, API names, command names, CLI flags, environment variables, filenames, paths, and programming-language keywords.
 - When referencing files, directories, or other docs: prefer Markdown links in human-reader docs; prefer the most precise, context-efficient representation in AI-agent docs.
 
+## Content Selection Rules
+
+- Write down stable information that helps the target reader complete a task: usage, prerequisites, inputs, outputs, side effects, limits, and failure behavior.
+- Do not write down one-off correction context, author reminders, or patch notes that only exist to prevent the specific mistake made in the current edit.
+- Before adding a sentence, check whether it describes the system or workflow itself, or merely explains why the writer made this edit. If it only explains the current edit, leave it out of the document.
+- If removing a sentence would not cause the target reader to lose any actionable understanding, it usually does not belong in the final document.
+
 ## YAML Frontmatter
 
 - If a Markdown file has YAML frontmatter and a field value contains `: ` (colon followed by space), never use an unquoted plain scalar.
