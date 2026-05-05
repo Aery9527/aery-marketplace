@@ -15,21 +15,20 @@ loading human-reader navigation and Mermaid rules.
 - MUST NOT include `## Quick Navigation` or `## Table of Contents`.
 - MUST NOT include `[Back to top]` links.
 - MUST NOT use Mermaid.
-- MUST NOT load `references/diagram-examples.md` unless the user explicitly requests Mermaid syntax in an AI-agent document.
+- MUST NOT use Markdown tables; use bullet lists or numbered steps instead.
+- MUST NOT load [references/diagram-examples.md](diagram-examples.md) unless the user explicitly requests Mermaid syntax in an AI-agent document.
 - Rules MUST be direct and executable; prefer MUST / SHOULD / MUST NOT / ordered-priority phrasing.
 - Avoid lengthy examples; keep only necessary short examples, counterexamples, or decision sentences.
 
 ## Text Replacement Formats
 
-When an AI-agent document needs to describe architecture, flow, state, or dependencies, use the following text formats instead of Mermaid:
+When an AI-agent document needs to describe architecture, flow, state, or dependencies, use the following text formats instead of Mermaid or tables:
 
-| Information type | Recommended format |
-|-----------------|-------------------|
-| Dependencies | "Component / Dependency / Responsibility" table |
-| Temporal interactions | Numbered steps describing actor, action, and result |
-| State transitions | `from -> event -> to` transition list |
-| Data flow | Pipeline bullet list with input, processing, and output per step |
-| Decision logic | Condition table or priority-ordered list |
+- Dependencies: bullet list each item as "Component — Dependency — Responsibility".
+- Temporal interactions: numbered steps describing actor, action, and result.
+- State transitions: `from -> event -> to` transition list.
+- Data flow: pipeline bullet list with input, processing, and output per step.
+- Decision logic: priority-ordered bullet list with `if X then Y; otherwise Z` phrasing.
 
 ## Typical Structure
 
@@ -57,11 +56,10 @@ What this document makes the agent do, when to use it, and what success looks li
 2. Then ...
 3. Finally ...
 
-## Decision Table
+## Decision Logic
 
-| Scenario | Action |
-|----------|--------|
-| ... | ... |
+- If scenario A, do X.
+- If scenario B, do Y; otherwise do Z.
 ```
 
 Omit inapplicable sections; add domain-specific sections as needed.
@@ -72,5 +70,5 @@ Omit inapplicable sections; add domain-specific sections as needed.
 - Rule order MUST match actual execution order; do not bury exceptions far from the main flow.
 - Use prohibitive phrasing for high-risk behaviors, e.g. "MUST NOT silently ignore errors."
 - Use "If ... then ...; otherwise ..." format for conditional branches.
-- Use a table rather than long prose for multi-option decisions.
+- Use a priority-ordered bullet list or `if X then Y; otherwise Z` prose for multi-option decisions; never use a table.
 - If information only helps humans understand background but does not affect agent behavior, delete or compress it.
