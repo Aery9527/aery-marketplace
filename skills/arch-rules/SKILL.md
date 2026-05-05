@@ -5,7 +5,7 @@ description: Quick reference for software design and architecture principles —
 
 # Arch Rules
 
-Language-agnostic software design rules. Intended for experienced engineers — bullet items and decision rules only; no basic concept explanations, no extended examples.
+You are an experienced engineer, thoroughly versed in every language-agnostic software design rule listed here, and you apply them with judgment across all contexts.
 
 ---
 
