@@ -55,32 +55,12 @@ Plugin Bundle 是情境化的 skill 組合，實際 bundle 定義與包含關係
 
 本 repo 目前提供兩套 marketplace / plugin 入口：**Claude Code** 與 **GitHub Copilot CLI** 使用 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)；**Codex** 使用 [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) 搭配 [`codex-plugins/`](codex-plugins/) 底下各自的 `.codex-plugin/plugin.json`。以下 GitHub Copilot 以 **GitHub Copilot CLI** 為準；若你主要在 VS Code 使用 GitHub Copilot，也可參考官方的 [agent plugins](https://code.visualstudio.com/docs/copilot/customization/agent-plugins) 說明。
 
-| 平台 | 官方文件 | 原生支援 marketplace / plugin | 建議做法 |
+| 維度 | Claude Code | GitHub Copilot CLI | Codex |
 |------|------|------|------|
-| Claude Code | [Install Claude Code](https://code.claude.com/docs/en/install)、[Discover and install plugins](https://code.claude.com/docs/en/discover-plugins) | 是 | 直接把此 repo 加成 marketplace，再安裝需要的 plugin |
-| GitHub Copilot CLI | [Installing GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli)、[CLI plugin reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference) | 是 | 直接把此 repo 加成 marketplace，再安裝需要的 plugin |
-| Codex | [Codex CLI](https://developers.openai.com/codex/cli)、[CLI reference](https://developers.openai.com/codex/cli/reference)、[Plugins](https://developers.openai.com/codex/plugins)、[Build plugins](https://developers.openai.com/codex/plugins/build) | 是（plugin / marketplace 為官方功能，`codex plugin marketplace` 目前為 Experimental） | 先加入 repo root 的 Codex marketplace，再從 Codex plugin browser 安裝 `aery-design` 或 `aery-go-dev` |
-
-### Claude Code
-
-| 類型 | 內容 |
-|------|------|
-| 說明 | 在 Claude Code session 內加入這個 marketplace；可直接使用遠端 repo，或在本機 clone 的 repo 根目錄執行。接著依 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 安裝需要的 plugin，安裝或更新後再重新載入 plugins。 |
-| cmd | `/plugin marketplace add Aery9527/aery-marketplace`<br>`/plugin marketplace add .`<br>`/plugin install aery-design@aery-plugins`<br>`/plugin install aery-go-dev@aery-plugins`<br>`/reload-plugins` |
-
-### GitHub Copilot CLI
-
-| 類型 | 內容 |
-|------|------|
-| 說明 | 在 repo 根目錄加入這個 marketplace。GitHub 官方文件明確寫到 Copilot CLI 會讀取 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)。加入後即可安裝需要的 plugin，並可隨時查看已註冊 marketplace 與已安裝 plugin。 |
-| cmd | `copilot plugin marketplace add .`<br>`copilot plugin install aery-design@aery-plugins`<br>`copilot plugin marketplace list`<br>`copilot plugin list` |
-
-### Codex
-
-| 類型 | 內容 |
-|------|------|
-| 說明 | 此 repo 提供 Codex-compatible marketplace manifest [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json)，以及兩個 Codex-native plugin：[`codex-plugins/aery-design`](codex-plugins/aery-design) 與 [`codex-plugins/aery-go-dev`](codex-plugins/aery-go-dev)。先在 repo 根目錄或直接用遠端 repo 加入 marketplace，再進入 plugin browser，從 `Aery Codex Plugins` 安裝 `aery-design` 或 `aery-go-dev`。 |
-| cmd | `codex plugin marketplace add .`<br>`codex plugin marketplace add Aery9527/aery-marketplace`<br>`codex`<br>`/plugins` |
+| 說明 | 依官方 [Discover and install plugins](https://code.claude.com/docs/en/discover-plugins) 與 [Create and distribute a plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces) 說明，Claude Code 可加入 GitHub repo、Git URL、local path 或 remote `marketplace.json`；此 repo 使用 `.claude-plugin/marketplace.json`，marketplace 名稱是 `aery-plugins`。 | 依官方 [Finding and installing plugins](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-finding-installing) 與 [CLI plugin reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference) 說明，Copilot CLI 可註冊 marketplace 並用 `plugin@marketplace` 安裝；此 repo 使用 `.claude-plugin/marketplace.json`，marketplace 名稱是 `aery-plugins`。 | 依官方 [Plugins](https://developers.openai.com/codex/plugins) 與 [Build plugins](https://developers.openai.com/codex/plugins/build) 說明，Codex 可讀 `$REPO_ROOT/.agents/plugins/marketplace.json`；此 repo 提供 `Aery Codex Plugins`，並把 plugin package 放在 [`codex-plugins/`](codex-plugins/)。 |
+| 安裝 | `/plugin marketplace add Aery9527/aery-marketplace`<br>`/plugin marketplace add .`<br>`/plugin install aery-design@aery-plugins`<br>`/plugin install aery-go-dev@aery-plugins`<br>`/reload-plugins` | `copilot plugin marketplace add Aery9527/aery-marketplace`<br>`copilot plugin marketplace add .`<br>`copilot plugin install aery-design@aery-plugins`<br>`copilot plugin install aery-go-dev@aery-plugins`<br>`copilot plugin list` | `codex plugin marketplace add Aery9527/aery-marketplace`<br>`codex plugin marketplace add .`<br>`codex`<br>`/plugins` |
+| 更新 | `/plugin marketplace update aery-plugins`<br>`/reload-plugins`<br>或在 `/plugin` 的 Marketplaces tab 對 `aery-plugins` 啟用 auto-update。 | `copilot plugin update aery-design`<br>`copilot plugin update aery-go-dev`<br>`copilot plugin update --all`<br>官方 CLI reference 未列出 marketplace update 指令；若 marketplace source 本身變更，先移除再重新加入。 | `codex plugin marketplace upgrade aery-codex-plugins`<br>或更新全部：`codex plugin marketplace upgrade`<br>再進入 `codex` 的 `/plugins` 確認已安裝 plugin 狀態。 |
+| 移除 | `/plugin uninstall aery-design@aery-plugins`<br>`/plugin uninstall aery-go-dev@aery-plugins`<br>`/plugin marketplace remove aery-plugins`<br>官方文件說移除 marketplace 會同時移除從它安裝的 plugins。 | `copilot plugin uninstall aery-design`<br>`copilot plugin uninstall aery-go-dev`<br>`copilot plugin marketplace remove aery-plugins`<br>若 marketplace 仍有已安裝 plugin，官方文件說可用 `--force` 一併移除。 | `codex plugin marketplace remove aery-codex-plugins`<br>若只要停用單一 plugin，進入 `codex` 後用 `/plugins` 管理。 |
 
 [返回開頭](#快速導覽)
 
