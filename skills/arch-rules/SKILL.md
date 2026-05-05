@@ -7,19 +7,6 @@ description: Quick reference for software design and architecture principles —
 
 Language-agnostic software design rules. Intended for experienced engineers — bullet items and decision rules only; no basic concept explanations, no extended examples.
 
-## Table of Contents
-
-- [0. Core Mindset (above all else)](#0-core-mindset-above-all-else)
-- [1. Agent Application Rules](#1-agent-application-rules)
-- [2. Code-Level Principles](#2-code-level-principles)
-- [3. Architecture Level](#3-architecture-level)
-- [4. Operability](#4-operability)
-- [5. Security and Resilience](#5-security-and-resilience)
-- [6. Development Process Discipline](#6-development-process-discipline)
-- [7. Decision Framework](#7-decision-framework)
-- [8. Review Checklist](#8-review-checklist)
-- [9. Anti-Pattern Warnings](#9-anti-pattern-warnings)
-
 ---
 
 ## 0. Core Mindset (above all else)
@@ -28,8 +15,6 @@ Language-agnostic software design rules. Intended for experienced engineers — 
 - Premature abstraction is worse than duplication. Complexity is driven by requirements, not by "might be needed later".
 - Any decision that violates a principle must be an **explicit choice**, not an oversight.
 - Code is read far more often than it is written. All design optimizes for readability and changeability.
-
-[Back to top](#table-of-contents)
 
 ---
 
@@ -43,8 +28,6 @@ Language-agnostic software design rules. Intended for experienced engineers — 
 - External input, I/O, network, database, time, and randomness are all boundaries; boundaries require validation, timeouts, and observability.
 - When correctness, simplicity, maintainability, performance, and extensibility conflict, priority order is: **correctness → simplicity → maintainability → performance → extensibility**.
 - Refactor only areas strongly related to the current task; do not let "while I'm here" cleanup expand into unbounded rewrites.
-
-[Back to top](#table-of-contents)
 
 ---
 
@@ -76,8 +59,6 @@ Language-agnostic software design rules. Intended for experienced engineers — 
 
 - **CUPID** (Dan North) — Composable / Unix philosophy / Predictable / Idiomatic / Domain-based. Shifts from rule-oriented to property-oriented thinking.
 - **GRASP** (Larman) — Information Expert, Creator, Controller, Low Coupling, High Cohesion, Polymorphism, Pure Fabrication, Indirection, Protected Variations.
-
-[Back to top](#table-of-contents)
 
 ---
 
@@ -119,8 +100,6 @@ Language-agnostic software design rules. Intended for experienced engineers — 
 - **Cache Strategy** — Define explicit TTL, invalidation timing, and consistency semantics.
 - **Read / Write Path Separation** — Standard practice for high-load systems.
 
-[Back to top](#table-of-contents)
-
 ---
 
 ## 4. Operability
@@ -134,8 +113,6 @@ Language-agnostic software design rules. Intended for experienced engineers — 
 - **Blue/Green, Canary, Feature Flag** — Standard tools for reducing deployment risk.
 - **Runbook / Postmortem Culture** — Failures are a source of organizational knowledge.
 
-[Back to top](#table-of-contents)
-
 ---
 
 ## 5. Security and Resilience
@@ -148,8 +125,6 @@ Language-agnostic software design rules. Intended for experienced engineers — 
 - **Input Validation at Boundary** — Treat all external input as hostile.
 - **Audit Trail** — Critical operations must be traceable.
 
-[Back to top](#table-of-contents)
-
 ---
 
 ## 6. Development Process Discipline
@@ -161,8 +136,6 @@ Language-agnostic software design rules. Intended for experienced engineers — 
 - **Reversibility-Aware Decision Making** — Irreversible decisions require more caution; reversible ones can be tried and corrected quickly.
 - **Trunk-Based / Short-Lived Branches** — Reduce merge hell.
 - **Conventional Commits / Explicit Change Semantics**.
-
-[Back to top](#table-of-contents)
 
 ---
 
@@ -182,8 +155,6 @@ Before applying any principle, ask:
 - High lifecycle / high change rate / multi-person / high risk → apply strictly; accept the cost of abstraction.
 - Irreversible decision → always take the most conservative path.
 
-[Back to top](#table-of-contents)
-
 ---
 
 ## 8. Review Checklist
@@ -196,8 +167,6 @@ Quick scan before finishing a review, refactor, or implementation:
 - **Change Safety** — Behavioral changes have tests, a rollback plan, compatibility considerations, and migration coverage.
 - **Operability** — Important failures are observable; logs / metrics / traces are sufficient to locate problems.
 - **Performance** — No N+1 queries, unbounded loops / queries / goroutines / queue growth, excessive allocation, or uncontrolled caches introduced.
-
-[Back to top](#table-of-contents)
 
 ---
 
@@ -214,8 +183,6 @@ Stop and reconsider when you see:
 - A design pattern forced in without addressing an actual problem.
 - A silent fallback added to avoid breaking existing flow, pushing errors to a harder-to-trace location.
 - Deferred decisions on schema, API, or error semantics justified as "keeping flexibility".
-
-[Back to top](#table-of-contents)
 
 ---
 

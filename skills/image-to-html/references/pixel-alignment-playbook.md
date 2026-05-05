@@ -1,19 +1,8 @@
 # Pixel Alignment Playbook
 
-## Quick Navigation
-
-- [Goal](#goal)
-- [Establishing Baselines](#establishing-baselines)
-- [Asset Cropping Strategy](#asset-cropping-strategy)
-- [Visual Comparison Workflow](#visual-comparison-workflow)
-- [Interpreting Diff Results](#interpreting-diff-results)
-- [Acceptance Checklist](#acceptance-checklist)
-
 ## Goal
 
 This reference document supplements [SKILL.md](../SKILL.md) with hands-on details. The focus is moving "image-to-HTML" past "roughly looks right" and converging quickly to a high-fidelity, evidence-backed result.
-
-[Back to top](#quick-navigation)
 
 ## Establishing Baselines
 
@@ -27,8 +16,6 @@ Suggested command:
 ```bash
 python scripts/image_info.py --image source.png --json
 ```
-
-[Back to top](#quick-navigation)
 
 ## Asset Cropping Strategy
 
@@ -61,8 +48,6 @@ Suggested command:
 python scripts/crop_image.py --source source.png --output asset.png --box 120,40,381,350 --json
 ```
 
-[Back to top](#quick-navigation)
-
 ## Visual Comparison Workflow
 
 1. Start a local preview server
@@ -83,8 +68,6 @@ python scripts/visual_diff.py ^
   --json
 ```
 
-[Back to top](#quick-navigation)
-
 ## Interpreting Diff Results
 
 ### `changed_pixels`
@@ -103,8 +86,6 @@ python scripts/visual_diff.py ^
 - A narrow bbox usually points to a specific bar, border, font size, or single image position issue
 - A bbox that covers nearly the full canvas usually means overall dimensions, spacing, fonts, or a large background area is wrong
 
-[Back to top](#quick-navigation)
-
 ## Acceptance Checklist
 
 1. First verify:
@@ -118,5 +99,3 @@ python scripts/visual_diff.py ^
    - No double bars or double headings
    - No unexpected white gaps, odd boundaries, or proportion squashing
    - Repeated elements have consistent visual weight across all three columns
-
-[Back to top](#quick-navigation)

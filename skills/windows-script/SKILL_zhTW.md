@@ -9,13 +9,6 @@ description: >-
 
 # Windows Script 開發守則
 
-## 快速導覽
-
-- [禁止使用 .bat / .cmd](#禁止使用-bat--cmd--一律改寫為-ps1)
-- [PowerShell (.ps1) 守則](#powershell-ps1-守則)
-- [腳本開頭 Checklist](#腳本開頭-checklist)
-- [常見誤區](#常見誤區)
-
 ## ⛔ 禁止使用 .bat / .cmd — 一律改寫為 .ps1
 
 > **這不是建議，是強制規範。**
@@ -27,8 +20,6 @@ description: >-
 **遇到現有 .bat 需要修改時 → 直接改寫成 .ps1，不要修補 .bat。**
 
 ---
-
-[返回開頭](#快速導覽)
 
 ## PowerShell (.ps1) 守則
 
@@ -56,10 +47,8 @@ if ($LASTEXITCODE -ne 0) { throw "merge failed: exit $LASTEXITCODE" }
 
 ### 2. $? vs $LASTEXITCODE
 
-| 變數 | 適用對象 | 說明 |
-|------|---------|------|
-| `$?` | PowerShell cmdlet | `$true` / `$false` |
-| `$LASTEXITCODE` | 外部執行檔（.exe / .bat） | 整數 exit code |
+- `$?` — 適用於 PowerShell cmdlet；值為 `$true` / `$false`
+- `$LASTEXITCODE` — 適用於外部執行檔（.exe / .bat）；值為整數 exit code
 
 ```powershell
 git fetch            # 外部程式
@@ -229,18 +218,16 @@ try {
 
 **色彩使用標準（必須遵循）：**
 
-| 場景 | 色彩 | 範例 |
-|------|------|------|
-| 大標題 / Banner | `Cyan` | `=== Switch Branch ===` |
-| 小節標題 | `Blue` | `--- Summary ---` |
-| 成功 `[OK]` | `Green` | `[OK] Switched to develop` |
-| 錯誤 `[X] ERROR` | `Red` | `[X] ERROR: checkout failed` |
-| 警告 `[!]` / 取消 | `Yellow` | `[!] Cancelled` |
-| Repo / 資源名稱列 | `Cyan` | `  game-go-common` |
-| 選單項目數字 `[1]` | `Green` | `[1] develop` |
-| 選單特殊選項 `[e]` | `Cyan` | `[e] enter branch name` |
-| Summary 成功計數 | `Green` | `Success: 6` |
-| Summary 失敗計數 | `Red` | `Failed: 1` |
+- 大標題 / Banner — `Cyan` — 例如 `=== Switch Branch ===`
+- 小節標題 — `Blue` — 例如 `--- Summary ---`
+- 成功 `[OK]` — `Green` — 例如 `[OK] Switched to develop`
+- 錯誤 `[X] ERROR` — `Red` — 例如 `[X] ERROR: checkout failed`
+- 警告 `[!]` / 取消 — `Yellow` — 例如 `[!] Cancelled`
+- Repo / 資源名稱列 — `Cyan` — 例如 `  game-go-common`
+- 選單項目數字 `[1]` — `Green` — 例如 `[1] develop`
+- 選單特殊選項 `[e]` — `Cyan` — 例如 `[e] enter branch name`
+- Summary 成功計數 — `Green` — 例如 `Success: 6`
+- Summary 失敗計數 — `Red` — 例如 `Failed: 1`
 
 ```powershell
 Write-Host "=== Switch Branch ===" -ForegroundColor Cyan
@@ -253,8 +240,6 @@ Write-Host "Failed:  $failCount"  -ForegroundColor Red
 ```
 
 ---
-
-[返回開頭](#快速導覽)
 
 ## 腳本開頭 Checklist
 
@@ -291,8 +276,6 @@ $path = Join-Path $PSScriptRoot ".." "scripts" "go-mod.ps1"
 & "C:\Program Files\Git\bin\git.exe" status
 ```
 
-[返回開頭](#快速導覽)
-
 ## 常見誤區
 
 1. **「`pwsh` 跑得動，所以 `powershell.exe` 也一定沒問題」**  
@@ -307,5 +290,3 @@ $path = Join-Path $PSScriptRoot ".." "scripts" "go-mod.ps1"
    錯。**檔案裡的中文注解**就已足夠讓 Big5/GBK decoder 在解析時吃掉換行符號（`0x0A`），
    導致注解行和下一行的設定項目合併成一行，被注解過濾邏輯靜默跳過，設定項目從未生效。
    一律加 `-Encoding UTF8`。
-
-[返回開頭](#快速導覽)

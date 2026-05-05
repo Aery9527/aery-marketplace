@@ -1,19 +1,8 @@
 # Pixel Alignment Playbook
 
-## 快速導覽
-
-- [目標](#目標)
-- [基準建立](#基準建立)
-- [資產裁切策略](#資產裁切策略)
-- [視覺比對流程](#視覺比對流程)
-- [如何解讀 diff 結果](#如何解讀-diff-結果)
-- [驗收建議](#驗收建議)
-
 ## 目標
 
 這份參考文件補充 [SKILL_zhTW.md](../SKILL_zhTW.md) 的實戰細節，重點是讓「圖片轉 HTML」不是停在大概像，而是能快速收斂到有依據的高擬真版本。
-
-[返回開頭](#快速導覽)
 
 ## 基準建立
 
@@ -27,8 +16,6 @@
 ```bash
 python scripts/image_info.py --image source.png --json
 ```
-
-[返回開頭](#快速導覽)
 
 ## 資產裁切策略
 
@@ -61,8 +48,6 @@ python scripts/image_info.py --image source.png --json
 python scripts/crop_image.py --source source.png --output asset.png --box 120,40,381,350 --json
 ```
 
-[返回開頭](#快速導覽)
-
 ## 視覺比對流程
 
 1. 啟動本地預覽
@@ -83,8 +68,6 @@ python scripts/visual_diff.py ^
   --json
 ```
 
-[返回開頭](#快速導覽)
-
 ## 如何解讀 diff 結果
 
 ### `changed_pixels`
@@ -103,8 +86,6 @@ python scripts/visual_diff.py ^
 - 若 bbox 很窄，通常是某條 bar、邊框、字級或單一圖片位置問題
 - 若 bbox 幾乎包住全畫面，通常是整體尺寸、間距、字體或大面積背景錯
 
-[返回開頭](#快速導覽)
-
 ## 驗收建議
 
 1. 先確認：
@@ -118,5 +99,3 @@ python scripts/visual_diff.py ^
    - 沒有雙重 bar / 雙重標題
    - 沒有奇怪白縫、邊界、比例壓縮
    - 重複元素在三欄中的視覺權重一致
-
-[返回開頭](#快速導覽)

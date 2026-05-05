@@ -7,19 +7,6 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 
 語言無關的軟體設計守則。預設讀者是經驗豐富的工程師 —— 只列項目與決策規則，不解釋基礎概念，不放長例子。
 
-## 快速導覽
-
-- [0. 核心心態（先於一切）](#0-核心心態先於一切)
-- [1. Agent 套用規則](#1-agent-套用規則)
-- [2. Code-Level 原則](#2-code-level-原則)
-- [3. 架構層級](#3-架構層級)
-- [4. 可維運性（Operability）](#4-可維運性operability)
-- [5. 安全與韌性](#5-安全與韌性)
-- [6. 開發流程紀律](#6-開發流程紀律)
-- [7. 套用判準（Decision Framework）](#7-套用判準decision-framework)
-- [8. Review Checklist](#8-review-checklist)
-- [9. Anti-Patterns 警示](#9-anti-patterns-警示)
-
 ---
 
 ## 0. 核心心態（先於一切）
@@ -28,8 +15,6 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - 過早抽象比重複更糟。複雜度由需求驅動，不由「未來可能會用到」驅動。
 - 任何違反原則的決定必須是「明確選擇」而非「沒想過」。
 - 讀的次數遠多於寫的次數。一切設計以可讀性與可變更性為終極指標。
-
-[返回開頭](#快速導覽)
 
 ---
 
@@ -43,8 +28,6 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - 外部輸入、I/O、network、database、time、randomness 都是邊界；邊界要驗證、timeout、可觀測。
 - 當 correctness、simplicity、maintainability、performance、extensibility 衝突時，優先序為：correctness → simplicity → maintainability → performance → extensibility。
 - 只重構與當前任務強相關的區域；不要把「順手改善」擴張成無邊界重寫。
-
-[返回開頭](#快速導覽)
 
 ---
 
@@ -73,8 +56,6 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 ### 替代視角
 - **CUPID**（Dan North）— Composable / Unix philosophy / Predictable / Idiomatic / Domain-based。從規則導向轉為特質導向。
 - **GRASP**（Larman）— Information Expert、Creator、Controller、Low Coupling、High Cohesion、Polymorphism、Pure Fabrication、Indirection、Protected Variations。
-
-[返回開頭](#快速導覽)
 
 ---
 
@@ -112,8 +93,6 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - **Cache Strategy** — 明確 TTL、失效時機與一致性語義。
 - **Read / Write Path 分離** — 高負載系統的基本動作。
 
-[返回開頭](#快速導覽)
-
 ---
 
 ## 4. 可維運性（Operability）
@@ -127,8 +106,6 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - **Blue/Green、Canary、Feature Flag** — 降低部署風險的標配。
 - **Runbook / Postmortem 文化** — 失敗是組織知識來源。
 
-[返回開頭](#快速導覽)
-
 ---
 
 ## 5. 安全與韌性
@@ -141,8 +118,6 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - **Input Validation at Boundary** — 所有外部輸入皆敵意輸入。
 - **Audit Trail** — 重要操作可追溯。
 
-[返回開頭](#快速導覽)
-
 ---
 
 ## 6. 開發流程紀律
@@ -154,8 +129,6 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - **Reversibility-Aware Decision Making** — 不可逆決策需更謹慎；可逆決策可快試錯。
 - **Trunk-Based / Short-Lived Branches** — 減少 merge 地獄。
 - **Conventional Commits / 明確變更語義**。
-
-[返回開頭](#快速導覽)
 
 ---
 
@@ -174,8 +147,6 @@ description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CU
 - 高生命週期 / 高變動 / 多人 / 高風險 → 嚴格套用，接受抽象成本。
 - 不可逆決策 → 永遠採取最保守路線。
 
-[返回開頭](#快速導覽)
-
 ---
 
 ## 8. Review Checklist
@@ -188,8 +159,6 @@ Review、重構或實作完成前，快速掃過：
 - **Change Safety** — 行為變更是否有測試、回滾方式、相容性與 migration 考量。
 - **Operability** — 重要失敗是否可觀測；log / metric / trace 是否足以定位問題。
 - **Performance** — 是否引入 N+1、無界迴圈 / 查詢 / goroutine / queue、過度 allocation 或不受控 cache。
-
-[返回開頭](#快速導覽)
 
 ---
 
@@ -206,8 +175,6 @@ Review、重構或實作完成前，快速掃過：
 - 強行套用設計模式而非解決實際問題。
 - 為了避免破壞既有流程而加入 silent fallback，讓錯誤延後到更難追的位置。
 - 為了「保持彈性」而延後 schema、API 或錯誤語義的明確決策。
-
-[返回開頭](#快速導覽)
 
 ---
 

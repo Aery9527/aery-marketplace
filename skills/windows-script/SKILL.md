@@ -10,13 +10,6 @@ description: >-
 
 # Windows Script Development Guidelines
 
-## Quick Navigation
-
-- [Ban .bat / .cmd — Always Rewrite as .ps1](#-ban-bat--cmd--always-rewrite-as-ps1)
-- [PowerShell (.ps1) Rules](#powershell-ps1-rules)
-- [Script Header Checklist](#script-header-checklist)
-- [Common Pitfalls](#common-pitfalls)
-
 ## ⛔ Ban .bat / .cmd — Always Rewrite as .ps1
 
 > **This is a hard rule, not a suggestion.**
@@ -28,8 +21,6 @@ description: >-
 **If an existing .bat needs changes → rewrite it as .ps1. Do not patch .bat.**
 
 ---
-
-[Back to top](#quick-navigation)
 
 ## PowerShell (.ps1) Rules
 
@@ -56,10 +47,8 @@ if ($LASTEXITCODE -ne 0) { throw "merge failed: exit $LASTEXITCODE" }
 
 ### 2. `$?` vs `$LASTEXITCODE`
 
-| Variable | Applies to | Type |
-|----------|-----------|------|
-| `$?` | PowerShell cmdlets | `$true` / `$false` |
-| `$LASTEXITCODE` | External executables (.exe / .bat) | Integer exit code |
+- `$?` — applies to PowerShell cmdlets; value is `$true` / `$false`
+- `$LASTEXITCODE` — applies to external executables (.exe / .bat); value is an integer exit code
 
 ```powershell
 git fetch            # external program
@@ -218,18 +207,16 @@ try {
 
 **Color standard (must follow):**
 
-| Scenario | Color | Example |
-|----------|-------|---------|
-| Main title / Banner | `Cyan` | `=== Switch Branch ===` |
-| Section header | `Blue` | `--- Summary ---` |
-| Success `[OK]` | `Green` | `[OK] Switched to develop` |
-| Error `[X] ERROR` | `Red` | `[X] ERROR: checkout failed` |
-| Warning `[!]` / Cancel | `Yellow` | `[!] Cancelled` |
-| Repo / resource name row | `Cyan` | `  game-go-common` |
-| Menu item number `[1]` | `Green` | `[1] develop` |
-| Menu special option `[e]` | `Cyan` | `[e] enter branch name` |
-| Summary success count | `Green` | `Success: 6` |
-| Summary failure count | `Red` | `Failed: 1` |
+- Main title / Banner — `Cyan` — e.g. `=== Switch Branch ===`
+- Section header — `Blue` — e.g. `--- Summary ---`
+- Success `[OK]` — `Green` — e.g. `[OK] Switched to develop`
+- Error `[X] ERROR` — `Red` — e.g. `[X] ERROR: checkout failed`
+- Warning `[!]` / Cancel — `Yellow` — e.g. `[!] Cancelled`
+- Repo / resource name row — `Cyan` — e.g. `  game-go-common`
+- Menu item number `[1]` — `Green` — e.g. `[1] develop`
+- Menu special option `[e]` — `Cyan` — e.g. `[e] enter branch name`
+- Summary success count — `Green` — e.g. `Success: 6`
+- Summary failure count — `Red` — e.g. `Failed: 1`
 
 ```powershell
 Write-Host "=== Switch Branch ===" -ForegroundColor Cyan
@@ -242,8 +229,6 @@ Write-Host "Failed:  $failCount"  -ForegroundColor Red
 ```
 
 ---
-
-[Back to top](#quick-navigation)
 
 ## Script Header Checklist
 
@@ -280,8 +265,6 @@ $path = Join-Path $PSScriptRoot ".." "scripts" "go-mod.ps1"
 & "C:\Program Files\Git\bin\git.exe" status
 ```
 
-[Back to top](#quick-navigation)
-
 ## Common Pitfalls
 
 1. **"`pwsh` runs fine, so `powershell.exe` must be fine too."**  
@@ -298,5 +281,3 @@ $path = Join-Path $PSScriptRoot ".." "scripts" "go-mod.ps1"
 
 5. **"`Get-Content` reading a UTF-8 config file doesn't need encoding specified — all the meaningful fields look like ASCII anyway."**  
    Wrong. **Chinese comments in the file** are sufficient to cause the Big5/GBK decoder to consume a newline (`0x0A`), merging the comment line with the next config line, which is then silently skipped by comment-filter logic so the config entry never takes effect. Always add `-Encoding UTF8`.
-
-[Back to top](#quick-navigation)
