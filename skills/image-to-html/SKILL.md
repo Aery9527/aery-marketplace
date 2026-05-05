@@ -13,17 +13,6 @@ description: >-
 
 # Image to HTML
 
-## Quick Navigation
-
-- [Use Cases](#use-cases)
-- [Working Principles](#working-principles)
-- [Workflow](#workflow)
-- [Python Tools](#python-tools)
-- [Common Distortions & Debugging](#common-distortions--debugging)
-- [Output Format](#output-format)
-- [References](#references)
-- [Example Prompts](#example-prompts)
-
 ## Use Cases
 
 This skill handles **reconstructing a visual mockup as HTML/CSS**, including:
@@ -36,8 +25,6 @@ This skill handles **reconstructing a visual mockup as HTML/CSS**, including:
 
 If the core task is OCR, full-page PDF text extraction, or pure image compression, this skill is not the primary choice.
 
-[Back to top](#quick-navigation)
-
 ## Working Principles
 
 1. **Reconstruct structure first, then chase pixels.** Get blocks, hierarchy, text, colors, and major dimensions right before converging with diff.
@@ -47,8 +34,6 @@ If the core task is OCR, full-page PDF text extraction, or pure image compressio
 5. **Default to a precise static version.** Unless the user asks for responsive, lock down widths, heights, spacing, font sizes, and crops before considering fluid refactoring.
 6. **Compare only same-size screenshots.** Visual diff must use a screenshot that matches the source image dimensions; comparing against a `fullPage` tall image is meaningless.
 7. **Find the root cause before adjusting.** Double color bars, weird crop boundaries, or wrong proportions have a specific cause — do not blindly adjust offsets.
-
-[Back to top](#quick-navigation)
 
 ## Workflow
 
@@ -81,8 +66,6 @@ If the core task is OCR, full-page PDF text extraction, or pure image compressio
 9. **Wrap up**
    - Deliver the HTML and any required assets
    - If a diff was run, keep the diff / overlay images for future regression
-
-[Back to top](#quick-navigation)
 
 ## Python Tools
 
@@ -119,8 +102,6 @@ pip install Pillow
      python scripts/visual_diff.py --expected poster.png --actual render.png --diff-out diff.png --overlay-out overlay.png --json
      ```
 
-[Back to top](#quick-navigation)
-
 ## Common Distortions & Debugging
 
 1. **Double color bar / double heading**
@@ -139,8 +120,6 @@ pip install Pillow
 
 For a more complete debugging rhythm and decision criteria, see [references/pixel-alignment-playbook.md](references/pixel-alignment-playbook.md).
 
-[Back to top](#quick-navigation)
-
 ## Output Format
 
 Default deliverables:
@@ -155,19 +134,13 @@ If the task includes alignment verification, also deliver:
 - Metric summary from `visual_diff.py`
 - Diff image or overlay image (if useful for subsequent iteration)
 
-[Back to top](#quick-navigation)
-
 ## References
 
 - [references/pixel-alignment-playbook.md](references/pixel-alignment-playbook.md)
 - [evals/evals.json](evals/evals.json)
-
-[Back to top](#quick-navigation)
 
 ## Example Prompts
 
 1. `Convert this PNG to HTML — desktop version at 1:1 scale matching the original dimensions, text must be selectable.`
 2. `The layout looks close now, but can the three complex illustrations be cropped from the source? Please don't use the whole column as a background image.`
 3. `I suspect the HTML differs from the original in the header and image crop areas — use the Python visual diff tool to tell me what's wrong.`
-
-[Back to top](#quick-navigation)

@@ -8,6 +8,7 @@
 - [腳本關係圖](#腳本關係圖)
 - [腳本清單](#腳本清單)
 - [sync-codex-plugins](#sync-codex-plugins)
+- [verify-codex-plugins](#verify-codex-plugins)
 - [link-agent-skills](#link-agent-skills)
 - [平台說明](#平台說明)
 - [維護規則](#維護規則)
@@ -52,6 +53,7 @@ flowchart TD
 | ------ | ---- | -------- |
 | `sync-codex-plugins.ps1` | 同步 `.claude-plugin/marketplace.json` 到 `.agents/plugins/marketplace.json` 與 `codex-plugins/*/skills` | 任何 skill、plugin 分組或 Codex plugin package 結構有變動時 |
 | `sync-codex-plugins.sh` | `sync-codex-plugins.ps1` 的 shell wrapper | 在 macOS、Linux 或 Git Bash 上觸發同步時 |
+| `verify_codex_plugins.py` | 驗證 `codex-plugins/*/skills` 是否與 source `skills` 完全一致 | release 前，或懷疑同步產物殘留/漏同步時 |
 | `link-agent-skills.ps1` | 互動式管理 `.agents/skills` 的 Windows junction | 本機 Windows 開發環境需要讓 `.agents/skills` 指向 `.claude/skills` 時 |
 | `link-agent-skills.sh` | 互動式管理 `.agents/skills` 的 Unix symlink | 本機 Unix-like 開發環境需要讓 `.agents/skills` 指向 `.claude/skills` 時 |
 
@@ -64,6 +66,7 @@ flowchart TD
 ### 會更新什麼
 
 - `.agents/plugins/marketplace.json`
+- `codex-plugins/*/.codex-plugin/plugin.json` 的 `version`
 - `codex-plugins/*/skills`
 
 ### 會讀取什麼
@@ -80,10 +83,14 @@ flowchart TD
 2. 驗證 plugin 名稱、skill 路徑、source 目錄，以及 Codex plugin package
    目錄是否存在。
 3. 把宣告的 skill 目錄複製到各自的 `codex-plugins/<plugin>/skills`。
-4. 從同步後的 package tree 中刪除所有 `*_zhTW.md`，讓 Codex package 只保
+4. 用 `.claude-plugin/marketplace.json` 的 `metadata.version` 回寫每個
+   `codex-plugins/<plugin>/.codex-plugin/plugin.json` 的 `version`。
+5. 從同步後的 package tree 中刪除所有 `*_zhTW.md`，讓 Codex package 只保
    留英文主檔。
-5. 重寫 `.agents/plugins/marketplace.json`，使其指向
+6. 重寫 `.agents/plugins/marketplace.json`，使其指向
    `./codex-plugins/<plugin>`。
+7. 執行 `verify_codex_plugins.py`，確認 `codex-plugins/*/skills` 與 source
+   `skills` 完全一致，唯一允許的差異是移除 `*_zhTW.md`。
 
 ### 前置條件
 
@@ -92,6 +99,7 @@ flowchart TD
 - 每個宣告的 skill 目錄都必須存在。
 - 每個目標 `codex-plugins/<plugin>` 目錄都必須事先建立。
 - 每個目標 `codex-plugins/<plugin>/.codex-plugin/plugin.json` 都必須已存在。
+- 環境中必須有 `python`，用於穩定格式化 JSON 與執行同步後驗證。
 - 若透過 `.sh` wrapper 執行，環境中必須有 `pwsh`。
 
 ### 用法
@@ -108,6 +116,33 @@ flowchart TD
 
 這個腳本採用 fail fast，而不是靜默跳過錯誤。這個取捨是合理的，因為它維
 護的是封裝產物；若腳本默默容錯，只會把壞掉的 plugin 定義包進產物裡。
+
+[Back to top](#quick-navigation)
+
+## verify-codex-plugins
+
+`verify_codex_plugins.py` 是 `codex-plugins` 封裝產物的一致性檢查工具。
+
+### 會驗證什麼
+
+- 每個 plugin 只包含 `.claude-plugin/marketplace.json` 宣告的 skill
+- 每個 `codex-plugins/<plugin>/skills/<skill>` 都存在
+- 相對於 source `skills`，target 不可多檔、不可少檔、不可多目錄、不可少目錄
+- 所有對應檔案內容必須 byte-for-byte 完全一致
+- 唯一允許的差異是 source `skills` 端的 `*_zhTW.md` 不納入比對
+
+### 用法
+
+```powershell
+python .\scripts\verify_codex_plugins.py
+```
+
+### 失敗行為
+
+- 任一 plugin 有額外 skill 目錄即失敗
+- 任一 skill 有缺漏或殘留檔案/目錄即失敗
+- 任一對應檔案內容不同即失敗
+- exit code 非 `0` 時，release 不得繼續
 
 [Back to top](#quick-navigation)
 
