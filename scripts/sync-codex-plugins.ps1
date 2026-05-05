@@ -49,7 +49,7 @@ function Read-JsonFile {
         throw "Required JSON file not found: $Path"
     }
 
-    return ConvertTo-PlainData -InputObject (Get-Content $Path -Raw | ConvertFrom-Json)
+    return ConvertTo-PlainData -InputObject (Get-Content $Path -Raw -Encoding UTF8 | ConvertFrom-Json)
 }
 
 function Write-Utf8File {
@@ -89,6 +89,15 @@ try {
     $claudeMarketplace = Read-JsonFile -Path $claudeMarketplacePath
     $agentsMarketplace = Read-JsonFile -Path $agentsMarketplacePath
 
+    if (-not $claudeMarketplace.Contains('metadata') -or -not $claudeMarketplace['metadata'].Contains('version')) {
+        throw '.claude-plugin\marketplace.json metadata.version is required.'
+    }
+
+    $marketplaceVersion = [string]$claudeMarketplace['metadata']['version']
+    if ([string]::IsNullOrWhiteSpace($marketplaceVersion)) {
+        throw '.claude-plugin\marketplace.json metadata.version cannot be empty.'
+    }
+
     $existingAgentsPlugins = @{}
     foreach ($plugin in @($agentsMarketplace['plugins'])) {
         $existingAgentsPlugins[$plugin['name']] = $plugin
@@ -122,6 +131,7 @@ try {
 
         $codexPluginManifestPath = Join-Path $codexPluginRoot '.codex-plugin\plugin.json'
         $codexPluginManifest = Read-JsonFile -Path $codexPluginManifestPath
+        $codexPluginManifest['version'] = $marketplaceVersion
 
         $seenSkillNames = @{}
         $skillPlans = @()
@@ -186,6 +196,8 @@ try {
         $syncPlans += [ordered]@{
             name = $pluginName
             codexPluginRoot = $codexPluginRoot
+            codexPluginManifestPath = $codexPluginManifestPath
+            codexPluginManifest = $codexPluginManifest
             targetSkillsRoot = (Join-Path $codexPluginRoot 'skills')
             tempSkillsRoot = (Join-Path $codexPluginRoot 'skills.__sync_tmp')
             skills = $skillPlans
@@ -195,6 +207,7 @@ try {
     foreach ($plan in $syncPlans) {
         Write-Host "--- Syncing $($plan['name']) ---" -ForegroundColor Blue
 
+        $codexPluginManifestPath = [string]$plan['codexPluginManifestPath']
         $targetSkillsRoot = [string]$plan['targetSkillsRoot']
         $tempSkillsRoot = [string]$plan['tempSkillsRoot']
         if (Test-Path $tempSkillsRoot) {
@@ -223,6 +236,9 @@ try {
             }
 
             Move-Item -Path $tempSkillsRoot -Destination $targetSkillsRoot
+            $codexPluginManifestJson = $plan['codexPluginManifest'] | ConvertTo-Json -Depth 100
+            Write-Utf8File -Path $codexPluginManifestPath -Content $codexPluginManifestJson
+            Write-Host "  [OK] Updated manifest version to $marketplaceVersion" -ForegroundColor Green
             Write-Host "  [OK] Synced $(@($plan['skills']).Count) skill(s) for $($plan['name'])" -ForegroundColor Green
         } finally {
             if (Test-Path $tempSkillsRoot) {

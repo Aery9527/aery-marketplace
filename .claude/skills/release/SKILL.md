@@ -5,7 +5,8 @@ description: >-
   「發版」、「cut release」、「打 tag」、「版本升級」、「release note」、
   「publish marketplace version」或要從 commit messages 彙整版本說明時使用。
   此 skill 必須處理 `.claude-plugin/marketplace.json` 的 version、`README.md` 的當前版本描述、
-  `release-note/vX.X.X.md` 的建立、`develop -> main` 合併、tag 與 push。
+  `codex-plugins/*/.codex-plugin/plugin.json` 的 version、`release-note/vX.X.X.md`
+  的建立、`develop -> main` 合併、tag 與 push。
 ---
 
 # release
@@ -32,6 +33,9 @@ description: >-
 ## 輸出要求
 
 - 更新 `.claude-plugin/marketplace.json` 的 `metadata.version`
+- 執行 `scripts/sync-codex-plugins.ps1` 或 `scripts/sync-codex-plugins.sh`，同步
+  `.agents/plugins/marketplace.json`、`codex-plugins/*/skills`，以及
+  `codex-plugins/*/.codex-plugin/plugin.json` 的 `version`
 - 在 `README.md` 最上方加入 `Current version: vX.Y.Z`
 - 建立 `release-note/vX.Y.Z.md`
 - `release-note/vX.Y.Z.md` 的固定文字、章節標題與條列摘要必須使用繁體中文

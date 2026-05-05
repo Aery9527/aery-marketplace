@@ -64,6 +64,7 @@ flowchart TD
 ### 會更新什麼
 
 - `.agents/plugins/marketplace.json`
+- `codex-plugins/*/.codex-plugin/plugin.json` 的 `version`
 - `codex-plugins/*/skills`
 
 ### 會讀取什麼
@@ -80,9 +81,11 @@ flowchart TD
 2. 驗證 plugin 名稱、skill 路徑、source 目錄，以及 Codex plugin package
    目錄是否存在。
 3. 把宣告的 skill 目錄複製到各自的 `codex-plugins/<plugin>/skills`。
-4. 從同步後的 package tree 中刪除所有 `*_zhTW.md`，讓 Codex package 只保
+4. 用 `.claude-plugin/marketplace.json` 的 `metadata.version` 回寫每個
+   `codex-plugins/<plugin>/.codex-plugin/plugin.json` 的 `version`。
+5. 從同步後的 package tree 中刪除所有 `*_zhTW.md`，讓 Codex package 只保
    留英文主檔。
-5. 重寫 `.agents/plugins/marketplace.json`，使其指向
+6. 重寫 `.agents/plugins/marketplace.json`，使其指向
    `./codex-plugins/<plugin>`。
 
 ### 前置條件
