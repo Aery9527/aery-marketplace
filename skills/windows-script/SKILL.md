@@ -10,15 +10,9 @@ description: >-
 
 # Windows Script Development Guidelines
 
-## ⛔ Ban .bat / .cmd — Always Rewrite as .ps1
+## ⛔ Ban .bat / .cmd — Always Use .ps1
 
-> **This is a hard rule, not a suggestion.**
-
-`.bat` / `.cmd` are legacy technology not worth further investment. When asked to modify, extend, debug, or review a batch script, the default strategy is **not to patch it** — rewrite it as `.ps1` instead.
-
-**PowerShell is the default replacement**: consistent syntax and error handling, UTF-8 friendly, far more readable and maintainable, and better suited for modern CLI, CI, and automation workflows.
-
-**If an existing .bat needs changes → rewrite it as .ps1. Do not patch .bat.**
+MUST NOT use `.bat` or `.cmd`. Always use `.ps1`. If an existing `.bat` needs changes, rewrite it as `.ps1`; do not patch it.
 
 ---
 
