@@ -1,9 +1,9 @@
 ---
-name: engineering-principles
+name: arch-rules
 description: Quick reference for software design and architecture principles — covering SOLID, CUPID, code-level rules, architectural HA / fault-tolerance patterns, Observability, and engineering philosophy. Load this skill for system design, code review, refactoring, technology selection, module decomposition, API design, microservice splitting, technical-debt evaluation, and any discussion of maintainability, scalability, or high availability. Also load when the task involves design judgment such as "how should this be written", "how to split the architecture", or "why write it this way" — even if the user does not explicitly mention "design principles".
 ---
 
-# Engineering Principles
+# Arch Rules
 
 Language-agnostic software design rules. Intended for experienced engineers — bullet items and decision rules only; no basic concept explanations, no extended examples.
 
