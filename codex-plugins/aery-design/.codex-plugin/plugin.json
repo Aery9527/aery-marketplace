@@ -1,0 +1,16 @@
+{
+  "name": "aery-design",
+  "version": "0.1.0",
+  "description": "Design-oriented Aery skills packaged for Codex.",
+  "author": {
+    "name": "Aery Lin"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Aery Design",
+    "shortDescription": "Markdown authoring and image-to-HTML workflows for design tasks.",
+    "longDescription": "Packages the Aery design bundle for Codex with reusable markdown writing and image-to-HTML conversion skills.",
+    "developerName": "Aery Lin",
+    "category": "Productivity"
+  }
+}

@@ -10,7 +10,7 @@
 
 1. 找不到任何 semver tag 時，讀取 `.claude-plugin/marketplace.json` 的 `metadata.version`
 2. 用該 version 作為第一次 release version
-3. release note 收錄全部歷史 commit subjects
+3. release note 以繁體中文整理全部歷史 commit subjects
 
 ## 一般 release
 
@@ -22,9 +22,10 @@
 ## release note 格式
 
 - 標題：`# vX.Y.Z`
-- 範圍：`From: <previous-tag or repository start>`
-- 摘要區塊：`## Features`、`## Fixes`、`## Docs`、`## Refactors`、`## Chores`
-- 每一區塊列出對應 commit subjects
+- 範圍：`來源：<上一個 tag 或專案起始點>`
+- 摘要區塊：`## 功能`、`## 修正`、`## 文件`、`## 重構`、`## 維護`
+- 所有固定文字、章節標題與條列摘要一律使用繁體中文
+- 若原始 commit subject 為英文，需整理成繁體中文描述；必要時可在括號保留原始 subject
 
 ## README 更新
 
@@ -47,6 +48,7 @@
 6. 執行 `git push origin develop`
 7. 執行 `git push origin main`
 8. 執行 `git push origin vX.Y.Z`
+9. 只有在上述步驟全部成功後，執行 `git checkout develop`
 
 ## 失敗分支
 
@@ -55,3 +57,4 @@
 - tag 已存在：立即停止
 - merge conflict：立即停止並保留衝突現場
 - push 失敗：立即停止並回報 push 失敗的 ref
+- 成功切回 `develop` 前若任一步失敗：停止在當前分支，不主動切換回 `develop`

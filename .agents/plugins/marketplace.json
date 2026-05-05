@@ -1,0 +1,32 @@
+{
+  "name": "aery-codex-plugins",
+  "interface": {
+    "displayName": "Aery Codex Plugins"
+  },
+  "plugins": [
+    {
+      "name": "aery-design",
+      "source": {
+        "source": "local",
+        "path": "./codex-plugins/aery-design"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "aery-go-dev",
+      "source": {
+        "source": "local",
+        "path": "./codex-plugins/aery-go-dev"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

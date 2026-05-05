@@ -1,9 +1,9 @@
 ---
-name: engineering-principles
+name: arch-rules
 description: 軟體設計與架構的核心守則速查 —— 涵蓋 SOLID、CUPID、code-level 原則、架構層 HA / 容錯模式、Observability 與工程哲學。當使用者要做 system design、code review、重構、技術選型、模組切分、API 設計、微服務拆分、評估技術債，或討論可維護性、可擴展性、高可用性時都應載入這個 skill。即使使用者沒明確說「設計原則」，只要任務牽涉到「怎麼寫才好」、「架構怎麼切」、「為什麼要這樣寫」這類設計判斷，也應主動參照。
 ---
 
-# Engineering Principles
+# Arch Rules
 
 語言無關的軟體設計守則。預設讀者是經驗豐富的工程師 —— 只列項目與決策規則，不解釋基礎概念，不放長例子。
 

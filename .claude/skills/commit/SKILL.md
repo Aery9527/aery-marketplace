@@ -13,12 +13,6 @@ description: >-
 
 將目前工作樹轉化為一個高品質 commit。優先考量可用於 release note 的歷史紀錄：subject 應描述對 skill 行為、規格或文件的意義，而非描述哪些檔案被編輯。
 
-每次 commit 都必須在 footer 加入 Co-authored-by trailer：
-
-```
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
-```
-
 ## 工作流程
 
 1. 執行 `git status --short`，同時檢視已暫存與未暫存的差異。
@@ -28,8 +22,9 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 5. 根據變更的語意選擇 `type` 與可選的 `scope`（見下方規範）。
 6. 以英文、祈使語氣、高層次措辭撰寫 `type(scope): summary`。
 7. 若 diff 只揭示底層實作細節而無法可靠推斷高層次意圖，在最終確定訊息前先問一個明確的問題。
-8. 僅在有遷移說明、重大變更或 issue 參考時才加入 body；footer 則永遠加入 Co-authored-by trailer。
-9. 建立本地 commit。
+8. 若 `git add`、`git diff`、`git commit` 過程出現 line-ending / encoding 警告（例如 `LF will be replaced by CRLF`），不得忽略；先查明 repo 規則與目標檔案預期格式，修正後再提交。
+9. 僅在有遷移說明、重大變更或 issue 參考時才加入 body。
+10. 建立本地 commit。
 
 ## Scope 規範
 
@@ -68,7 +63,15 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 - 撰寫以檔案名稱描述的 subject，例如 `docs: update SKILL.md`
 - 使用 `chore: update skills` 這類模糊摘要
 - 忽略 `git add -p`，將屬於不同意圖的 hunk 一起暫存
+- 看到 `LF will be replaced by CRLF`、encoding、BOM 相關警告仍直接 commit
 - 遺漏 footer 的 Co-authored-by trailer
+
+## Line Ending / Encoding Warnings
+
+- Treat Git warnings about line endings or encoding as a correctness issue, not cosmetic noise.
+- Before committing, verify whether the repo already defines the expected format via `.gitattributes`, `.editorconfig`, or neighboring files with the same role.
+- If the warning is caused by an accidental conversion, normalize the file before commit instead of shipping the warning forward.
+- If the repo has no explicit rule and the intended format cannot be inferred safely, stop and ask rather than guessing.
 
 ## 範例
 

@@ -24,7 +24,7 @@
       "skills": [
         "./windows-script",
         "./write-md",
-        "./engineering-principles",
+        "./arch-rules",
         "./go-mongo-rules"
       ]
     }
