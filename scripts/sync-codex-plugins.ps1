@@ -64,6 +64,31 @@ function Write-Utf8File {
     [System.IO.File]::WriteAllText($Path, $Content + [Environment]::NewLine, $utf8NoBom)
 }
 
+function ConvertTo-StableJson {
+    param(
+        [Parameter(Mandatory)]
+        $InputObject
+    )
+
+    $compactJson = $InputObject | ConvertTo-Json -Depth 100 -Compress
+    $tempPath = [System.IO.Path]::GetTempFileName()
+    try {
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($tempPath, $compactJson, $utf8NoBom)
+        $pythonCode = 'import json, sys; print(json.dumps(json.load(open(sys.argv[1], encoding=''utf-8'')), indent=2, ensure_ascii=False))'
+        $formattedLines = & python -c $pythonCode $tempPath
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to format JSON with python: exit $LASTEXITCODE"
+        }
+
+        return ($formattedLines -join [Environment]::NewLine)
+    } finally {
+        if (Test-Path $tempPath) {
+            Remove-Item $tempPath -Force
+        }
+    }
+}
+
 function Normalize-RelativePath {
     param(
         [Parameter(Mandatory)]
@@ -83,6 +108,7 @@ try {
     $claudeMarketplacePath = Join-Path $repoRoot '.claude-plugin\marketplace.json'
     $agentsMarketplacePath = Join-Path $repoRoot '.agents\plugins\marketplace.json'
     $codexPluginsRoot = Join-Path $repoRoot 'codex-plugins'
+    $verifyScriptPath = Join-Path $repoRoot 'scripts\verify_codex_plugins.py'
 
     Write-Host '=== Sync Codex Plugins ===' -ForegroundColor Cyan
 
@@ -236,7 +262,7 @@ try {
             }
 
             Move-Item -Path $tempSkillsRoot -Destination $targetSkillsRoot
-            $codexPluginManifestJson = $plan['codexPluginManifest'] | ConvertTo-Json -Depth 100
+            $codexPluginManifestJson = ConvertTo-StableJson -InputObject $plan['codexPluginManifest']
             Write-Utf8File -Path $codexPluginManifestPath -Content $codexPluginManifestJson
             Write-Host "  [OK] Updated manifest version to $marketplaceVersion" -ForegroundColor Green
             Write-Host "  [OK] Synced $(@($plan['skills']).Count) skill(s) for $($plan['name'])" -ForegroundColor Green
@@ -255,9 +281,15 @@ try {
     }
     $updatedAgentsMarketplace['plugins'] = $syncedPlugins
 
-    $agentsJson = $updatedAgentsMarketplace | ConvertTo-Json -Depth 100
+    $agentsJson = ConvertTo-StableJson -InputObject $updatedAgentsMarketplace
     Write-Utf8File -Path $agentsMarketplacePath -Content $agentsJson
     Write-Host "  [OK] Rewrote $agentsMarketplacePath" -ForegroundColor Green
+
+    & python $verifyScriptPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Codex plugin verification failed with exit code $LASTEXITCODE."
+    }
+    Write-Host "  [OK] Verified codex-plugins matches source skills" -ForegroundColor Green
 
     Write-Host '--- Summary ---' -ForegroundColor Blue
     Write-Host "Plugins synced: $($syncedPlugins.Count)" -ForegroundColor Green

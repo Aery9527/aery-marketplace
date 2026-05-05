@@ -36,6 +36,9 @@ description: >-
 - 執行 `scripts/sync-codex-plugins.ps1` 或 `scripts/sync-codex-plugins.sh`，同步
   `.agents/plugins/marketplace.json`、`codex-plugins/*/skills`，以及
   `codex-plugins/*/.codex-plugin/plugin.json` 的 `version`
+- 在 release commit 前執行 `python scripts/verify_codex_plugins.py`，確認
+  `codex-plugins/*/skills` 與 source `skills` 完全一致；規則是不可多、不可少，
+  且檔案內容必須完全相同，唯一允許的差異是移除 `*_zhTW.md`
 - 在 `README.md` 最上方加入 `Current version: vX.Y.Z`
 - 建立 `release-note/vX.Y.Z.md`
 - `release-note/vX.Y.Z.md` 的固定文字、章節標題與條列摘要必須使用繁體中文

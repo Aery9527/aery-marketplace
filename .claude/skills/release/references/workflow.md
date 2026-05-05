@@ -35,9 +35,12 @@
 
 1. 更新 `.claude-plugin/marketplace.json` 的 `metadata.version`
 2. 執行 `scripts/sync-codex-plugins.ps1` 或 `scripts/sync-codex-plugins.sh`
-3. 確認 `.agents/plugins/marketplace.json` 已重寫
-4. 確認每個 `codex-plugins/*/.codex-plugin/plugin.json` 的 `version` 已同步
-5. 確認 `codex-plugins/*/skills` 已完成同步且不含任何 `*_zhTW.md`
+3. 執行 `python scripts/verify_codex_plugins.py`
+4. 確認 `.agents/plugins/marketplace.json` 已重寫
+5. 確認每個 `codex-plugins/*/.codex-plugin/plugin.json` 的 `version` 已同步
+6. 確認 `codex-plugins/*/skills` 與 source `skills` 完全一致：不得有額外檔案、
+   缺漏檔案、額外目錄、缺漏目錄，且所有對應檔案內容必須完全相同；唯一允許
+   的差異是移除 `*_zhTW.md`
 
 ## release-note 清理
 
