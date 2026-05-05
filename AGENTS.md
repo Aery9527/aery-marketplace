@@ -1,20 +1,64 @@
 # Agent Instructions
 
-## 專案概覽
+## Project Overview
 
-這個 repo 是 AI Agent Skills marketplace，用來整理、維護並發布可重複使用的 agent skills。核心內容放在 `skills\`，每個 skill 以自己的 `SKILL.md` YAML frontmatter 定義 `name` 與 `description`，並在內文描述觸發條件、工作流程、規則與 references。`SKILL.md` 是英文主入口；若需要繁體中文版本，讀取同目錄的 `*_zhTW.md`。
+This repository is an AI Agent Skills marketplace for organizing, maintaining,
+and publishing reusable agent skills. The core content lives under `skills/`.
+Each skill defines `name` and `description` in the YAML frontmatter of its own
+`SKILL.md`, and the body describes triggers, workflow, rules, and references.
+`SKILL.md` is the English primary entrypoint. When a Traditional Chinese
+version exists, read the matching `*_zhTW.md` in the same directory.
 
-`.claude-plugin\marketplace.json` 定義 Plugin Bundle，負責把多個 skills 組成可安裝的情境化套件，且是 bundle 與 skill 分組的 source of truth。`.agents\plugins\marketplace.json` 與 `codex-plugins\` 是給 Codex 使用的同步產物；其中 `codex-plugins\*\skills\` 是 English-only packaged copy，不包含任何 `*_zhTW.md`。`README.md` 是給人快速理解專案用途與探索方式的文件，不是 skills 清單的來源。
+`.claude-plugin/marketplace.json` defines the Plugin Bundle layout and is the
+source of truth for bundle and skill grouping. `.agents/plugins/marketplace.json`
+and `codex-plugins/` are synchronized artifacts for Codex. Within
+`codex-plugins/*/skills/`, the packaged copy is English-only and must not
+contain any `*_zhTW.md`. `README.md` is a project-level guide for humans; it is
+not the source of truth for the skill list.
 
-## Skills 維護
+## Markdown Language Policy
 
-- 新增、刪除或修改 `skills\` 底下任何 skill 內容時，必須同步檢查並更新 `README.md`。
-- 新增、刪除或修改 `skills\` 底下任何 skill 內容時，也必須同步檢查 `.claude-plugin\marketplace.json` 是否仍正確反映 bundle 與 skill 分組；若 skill 的歸屬、命名或包裝清單有變動，先更新 `.claude-plugin\marketplace.json`。
-- `.agents\plugins\marketplace.json` 必須與 `.claude-plugin\marketplace.json` 保持同步；不要手動雙寫，應執行 `scripts\sync-codex-plugins.ps1` 或 `scripts/sync-codex-plugins.sh` 由腳本重寫 `.agents\plugins\marketplace.json`，並重新同步 `codex-plugins\*\skills\`。
-- 不要手動修改 `codex-plugins\*\skills\` 內的 skill 副本；正確流程是修改 `skills\` source 後重新執行同步腳本。同步後的 Codex 封裝只保留英文主檔，整棵目錄中的 `*_zhTW.md` 都不應存在。
-- `README.md` 只需要維持專案層級的簡短描述與探索指引，不要手動列舉 `skills\` 目前有哪些 skills。
-- 若需要知道目前有哪些 skills，讀取 `skills\*\SKILL.md` 的 YAML frontmatter，使用 `name` 與 `description` 判斷 skill 名稱、用途與觸發時機。
-- `skills\` 的實際清單與說明以各 `SKILL.md` frontmatter 為準，避免 README 與 skill 內容重複維護後不同步。
-- 新建 `skills\` 底下的 skill 時，`SKILL.md` 與所有 `references\` Markdown 都必須先以英文作為主檔，再額外提供同 basename 的 `*_zhTW.md` 繁體中文版本。
-- 若 skill 內容同時提供英文與繁體中文，保留 `SKILL.md` / 原檔名作為英文主檔，繁體中文版本使用同 basename 的 `*_zhTW.md`；`references\` 內的 Markdown 也遵循同樣規則。
-- 任何後續修改都必須同步更新英文主檔與對應的 `*_zhTW.md`，禁止只改單一語系後讓兩邊內容漂移。
+- For bilingual Markdown in this repository, keep the English file as the
+  primary file and use the same basename with `*_zhTW.md` for the Traditional
+  Chinese version.
+- This rule applies to `SKILL.md`, Markdown under `references/`, and
+  repository-level instruction docs such as `AGENTS.md`.
+- When modifying a bilingual Markdown file, update both the English primary
+  file and the corresponding `*_zhTW.md` in the same change. Do not let the two
+  versions drift.
+
+## Skill Maintenance
+
+- When adding, deleting, or modifying any skill content under `skills/`,
+  re-check and update `README.md` if the project-level guidance or exploration
+  instructions need to change.
+- When adding, deleting, or modifying any skill content under `skills/`,
+  re-check `.claude-plugin/marketplace.json` so bundle and skill grouping remain
+  correct. If a skill's ownership, naming, or packaging list changes, update
+  `.claude-plugin/marketplace.json` first.
+- `.agents/plugins/marketplace.json` must stay synchronized with
+  `.claude-plugin/marketplace.json`. Do not maintain both manually. Run
+  `scripts/sync-codex-plugins.ps1` or `scripts/sync-codex-plugins.sh` to rewrite
+  `.agents/plugins/marketplace.json` and re-sync `codex-plugins/*/skills`.
+- Do not edit the skill copies under `codex-plugins/*/skills` manually. The
+  correct flow is to modify the `skills/` source and rerun the sync script. The
+  synchronized Codex package keeps only the English primary files, and no
+  `*_zhTW.md` files should remain in that tree.
+- `README.md` should stay short and project-level. Do not manually enumerate
+  the current skill list there.
+- To discover the current skills, read the YAML frontmatter from
+  `skills/*/SKILL.md` and use `name` and `description` to determine skill
+  identity, purpose, and trigger timing.
+- The actual skill inventory and descriptions are defined by each
+  `SKILL.md` frontmatter. Do not duplicate that inventory inside `README.md`,
+  because duplicated lists drift.
+- When creating a new skill under `skills/`, create `SKILL.md` and every
+  Markdown file under `references/` in English first, then add a Traditional
+  Chinese `*_zhTW.md` version with the same basename.
+- When skill content exists in both English and Traditional Chinese, keep
+  `SKILL.md` or the original filename as the English primary file, and use the
+  same basename plus `*_zhTW.md` for the Traditional Chinese version. Apply the
+  same rule to Markdown files under `references/`.
+- Any later modification must update both the English primary file and the
+  corresponding `*_zhTW.md`. Never update only one language and leave them
+  diverged.
