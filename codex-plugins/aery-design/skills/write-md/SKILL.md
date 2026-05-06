@@ -16,25 +16,29 @@ the target audience is determined.
 
 ## Audience Routing
 
-1. Determine first whether the Markdown targets a **human reader** or an **AI agent**.
+1. Determine first whether the Markdown targets a **human reader** or an **AI agent**. AI-agent documents are any file loaded into an agent's context window to govern its behavior — for example `SKILL.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `CODEX.md`, system prompts, and workflow rules. Human-reader documents are anything written for people to read — READMEs, guides, design proposals, API references.
 2. Once determined, **load only the matching reference**; do not load both document strategies at once.
 3. If the target audience cannot be inferred from the user request, file location, filename, or content purpose, ask the user — do not guess.
 4. After loading the reference, generate or modify the Markdown according to its rules.
 
 ## Reference Selection
 
-| Target audience | Typical files / contexts | Required reference |
-|-----------------|--------------------------|-------------------|
-| Human reader | README, user guide, feature doc, architecture overview, API reference, design proposal, team technical doc | `references/human-reader-docs.md` |
-| AI agent | `SKILL.md`, agent instructions, system prompt, workflow rule, coding rule, eval spec, tool usage guideline | `references/ai-agent-docs.md` |
+For human-reader documents (README, user guide, feature doc, architecture overview, API reference, design proposal, team technical doc), load [references/human-reader-docs.md](references/human-reader-docs.md).
 
-For human-reader documents that need Mermaid syntax details or diagram-type examples, additionally load `references/diagram-examples.md`. Do not load the Mermaid examples for AI-agent documents to avoid unnecessary context.
+For AI-agent documents (`SKILL.md`, agent instructions, system prompt, workflow rule, coding rule, eval spec, tool usage guideline), load [references/ai-agent-docs.md](references/ai-agent-docs.md).
+
+For human-reader documents that need Mermaid syntax details or diagram-type examples, additionally load [references/diagram-examples.md](references/diagram-examples.md). Do not load the Mermaid examples for AI-agent documents to avoid unnecessary context.
+
+## Universal Rules
+
+These rules apply regardless of target audience.
+
+- Any reference to a file, directory, heading anchor, or external resource MUST use a Markdown link. Never use a bare path or URL; the link text should name the target clearly so the reader can tell where it leads without following it.
 
 ## Language Rules
 
 - Document body, headings, table captions, and general prose default to English.
 - Keep proper nouns as-is: product names, service names, library names, API names, command names, CLI flags, environment variables, filenames, paths, and programming-language keywords.
-- When referencing files, directories, or other docs: prefer Markdown links in human-reader docs; prefer the most precise, context-efficient representation in AI-agent docs.
 
 ## Content Selection Rules
 

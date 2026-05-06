@@ -1,5 +1,5 @@
 ---
-name: mongo-guidelines
+name: go-mongo-rules
 description: >-
   MongoDB development rules and pitfall prevention. Use this skill for any task
   involving MongoDB queries, aggregation pipelines, Go mongo-go-driver code, or
@@ -101,10 +101,8 @@ filter := bson.M{"_id": oid}
 
 ## Rule 2: bson.M vs bson.D — Use bson.D Only When Order Matters
 
-| Type     | Underlying Structure      | Characteristic | Use Case                                           |
-|----------|--------------------------|----------------|----------------------------------------------------|
-| `bson.M` | `map[string]any`         | **Unordered**  | filter, projection, `$match` conditions            |
-| `bson.D` | `[]bson.E` (ordered slice) | **Ordered**  | `$sort`, aggregation stages that depend on order   |
+- `bson.M` — underlying structure: `map[string]any` — **Unordered** — use for: filter, projection, `$match` conditions
+- `bson.D` — underlying structure: `[]bson.E` (ordered slice) — **Ordered** — use for: `$sort`, aggregation stages that depend on order
 
 **Decision criterion for bson.D: does the result depend on declaration order?**
 
@@ -146,21 +144,17 @@ the table below provides clear leanings and decision guidance.
 
 ### Clear Preference: Aggregation
 
-| Context                                             | Reason                                                            |
-|-----------------------------------------------------|-------------------------------------------------------------------|
-| Cross-collection join                               | `$lookup` completes on the server side, avoids N+1               |
-| Merging results across multiple collections         | `$unionWith` returns in one request, avoids multiple round-trips  |
-| Aggregated statistics (count/sum/avg)               | `$group` completes in a single scan; multiple queries cannot replace it |
-| Cross-collection queries with dynamic collection names | Only aggregation can dynamically assemble `$unionWith` stages  |
-| Pagination                                          | `$skip + $limit` limits data volume on the server side           |
+- Cross-collection join — `$lookup` completes on the server side, avoids N+1
+- Merging results across multiple collections — `$unionWith` returns in one request, avoids multiple round-trips
+- Aggregated statistics (count/sum/avg) — `$group` completes in a single scan; multiple queries cannot replace it
+- Cross-collection queries with dynamic collection names — only aggregation can dynamically assemble `$unionWith` stages
+- Pagination — `$skip + $limit` limits data volume on the server side
 
 ### Clear Preference: Multiple Commands
 
-| Context                                                  | Reason                                                                          |
-|----------------------------------------------------------|---------------------------------------------------------------------------------|
-| Transactional writes required                            | Aggregation cannot perform writes inside `session.WithTransaction`              |
-| Business logic depends on previous result to decide next action | e.g., "read version → conditional upsert" — branching logic cannot be expressed in a pipeline |
-| Simple CRUD (single-doc insert/update/delete)            | Direct commands are clearer; aggregation adds unnecessary complexity            |
+- Transactional writes required — aggregation cannot perform writes inside `session.WithTransaction`
+- Business logic depends on previous result to decide next action — e.g., "read version → conditional upsert"; branching logic cannot be expressed in a pipeline
+- Simple CRUD (single-doc insert/update/delete) — direct commands are clearer; aggregation adds unnecessary complexity
 
 ### No Clear Preference — Present Trade-offs for the User to Decide
 

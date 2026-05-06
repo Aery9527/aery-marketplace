@@ -10,17 +10,6 @@ description: >-
 
 # Image to HTML
 
-## 快速導覽
-
-- [適用情境](#適用情境)
-- [工作原則](#工作原則)
-- [操作流程](#操作流程)
-- [Python 工具](#python-工具)
-- [常見失真與排錯](#常見失真與排錯)
-- [輸出格式](#輸出格式)
-- [參考資料](#參考資料)
-- [範例 Prompt](#範例-prompt)
-
 ## 適用情境
 
 這個 skill 專門處理「**把一張視覺稿還原成 HTML/CSS**」的工作，包含但不限於：
@@ -33,8 +22,6 @@ description: >-
 
 若任務核心是 OCR、整頁 PDF 抽文字、或純圖片壓縮，這個 skill 不是首選。
 
-[返回開頭](#快速導覽)
-
 ## 工作原則
 
 1. **先還原結構，再追像素。** 先把區塊、層級、文字、配色與主要尺寸打對，之後再用 diff 收斂。
@@ -44,8 +31,6 @@ description: >-
 5. **預設先做精準 static 版。** 若使用者沒要求 responsive，先把寬高、間距、字級、裁切做準，再考慮流式重構。
 6. **驗證時只比同尺寸畫面。** 視覺 diff 必須拿與原圖同尺寸的 screenshot，比 `fullPage` 長圖沒有意義。
 7. **看到怪異結果先找 root cause。** 例如雙重色條、裁切邊界怪、比例錯，不要直接亂調 offset。
-
-[返回開頭](#快速導覽)
 
 ## 操作流程
 
@@ -78,8 +63,6 @@ description: >-
 9. **收尾**
    - 交付 HTML 與必要資產
    - 若有做 diff，保留 diff / overlay 方便後續回歸
-
-[返回開頭](#快速導覽)
 
 ## Python 工具
 
@@ -116,8 +99,6 @@ pip install Pillow
      python scripts/visual_diff.py --expected poster.png --actual render.png --diff-out diff.png --overlay-out overlay.png --json
      ```
 
-[返回開頭](#快速導覽)
-
 ## 常見失真與排錯
 
 1. **雙重色條 / 雙重標題**
@@ -136,8 +117,6 @@ pip install Pillow
 
 更完整的排錯節奏與決策準則，參考 [references/pixel-alignment-playbook_zhTW.md](references/pixel-alignment-playbook_zhTW.md)。
 
-[返回開頭](#快速導覽)
-
 ## 輸出格式
 
 預設交付物：
@@ -152,19 +131,13 @@ pip install Pillow
 - `visual_diff.py` 產生的指標摘要
 - diff 圖或 overlay 圖（若有助於後續迭代）
 
-[返回開頭](#快速導覽)
-
 ## 參考資料
 
 - [references/pixel-alignment-playbook_zhTW.md](references/pixel-alignment-playbook_zhTW.md)
 - [evals/evals.json](evals/evals.json)
-
-[返回開頭](#快速導覽)
 
 ## 範例 Prompt
 
 1. `這張 PNG 幫我轉成 html，桌面版先做 1:1，高度寬度都跟原圖一樣，文字要可選取。`
 2. `現在排版差不多了，但三個複雜插畫可以直接用原圖裁切嗎？請不要把整欄當背景圖。`
 3. `我懷疑現在的 html 跟原稿差在 header 和圖塊裁切，請用 Python 視覺 diff 告訴我哪裡怪。`
-
-[返回開頭](#快速導覽)

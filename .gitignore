@@ -1,2 +1,5 @@
 /.idea/
 .agents/skills
+__pycache__/
+/bash.exe.stackdump
+/.worktree/

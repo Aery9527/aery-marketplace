@@ -14,25 +14,29 @@ description: >-
 
 ## 分流原則
 
-1. 先判斷 Markdown 是給**人類讀者**看的，還是給 **AI agent** 使用的。
+1. 先判斷 Markdown 是給**人類讀者**看的，還是給 **AI agent** 使用的。AI agent 文件是指任何會被載入 agent context window 以控制其行為的檔案，例如 `SKILL.md`、`AGENTS.md`、`CLAUDE.md`、`GEMINI.md`、`CODEX.md`、system prompt 與 workflow rule。人類讀者文件是供人閱讀的內容，例如 README、使用指南、設計提案、API 說明。
 2. 若能判斷，**只讀取對應 reference**，不要同時載入兩種文件策略。
 3. 若無法從使用者需求、檔案位置、檔名或內容用途判斷目標讀者，先詢問使用者，不要自行猜測。
 4. 讀取 reference 後，依該 reference 的規則生成或修改 Markdown。
 
 ## Reference 選擇
 
-| 目標讀者 | 典型檔案 / 情境 | 必讀 reference |
-|----------|-----------------|----------------|
-| 人類讀者 | README、使用者指南、功能文件、架構總覽、API 說明、設計提案、團隊技術文件 | `references/human-reader-docs_zhTW.md` |
-| AI agent | `SKILL.md`、agent instructions、system prompt、workflow rule、coding rule、eval spec、tool usage guideline | `references/ai-agent-docs_zhTW.md` |
+人類讀者文件（README、使用者指南、功能文件、架構總覽、API 說明、設計提案、團隊技術文件），讀取 [references/human-reader-docs_zhTW.md](references/human-reader-docs_zhTW.md)。
 
-人類讀者文件若需要 Mermaid 語法細節或圖表類型範例，再額外讀取 `references/diagram-examples_zhTW.md`。AI agent 文件不要讀取 Mermaid 範例，避免載入不必要 context。
+AI agent 文件（`SKILL.md`、agent instructions、system prompt、workflow rule、coding rule、eval spec、tool usage guideline），讀取 [references/ai-agent-docs_zhTW.md](references/ai-agent-docs_zhTW.md)。
+
+人類讀者文件若需要 Mermaid 語法細節或圖表類型範例，再額外讀取 [references/diagram-examples_zhTW.md](references/diagram-examples_zhTW.md)。AI agent 文件不要讀取 Mermaid 範例，避免載入不必要 context。
+
+## 共通守則
+
+以下規則不分目標讀者，一律適用。
+
+- 任何指向檔案、目錄、標題錨點或外部資源的參照，一律使用 Markdown link，禁止使用裸路徑或裸 URL。link text 必須清楚說明目標名稱，讓讀者不點開也能知道連到哪裡。
 
 ## 通用語言規範
 
 - 文件正文、標題、表格說明與一般敘述，預設使用繁體中文。
 - 專有術語維持原文，例如產品名、服務名、library 名稱、API 名稱、command 名稱、CLI flags、environment variables、檔名、路徑與程式語言關鍵字。
-- 說明檔案、目錄或參考文件時，人類讀者文件優先使用 Markdown link；AI agent 文件優先使用最精準、最不佔 context 的表示法。
 
 ## 內容取捨守則
 

@@ -1,5 +1,5 @@
 ---
-name: mongo-guidelines
+name: go-mongo-rules
 description: >-
   MongoDB 開發守則與陷阱防範。任何涉及 MongoDB 查詢、aggregation pipeline、
   Go mongo-go-driver 程式碼、或 MongoDB shell 腳本（.js）的開發任務都應使用此 skill。
@@ -94,10 +94,8 @@ filter := bson.M{"_id": oid}
 
 ## 守則二：bson.M vs bson.D — 依賴順序才用 bson.D
 
-| 類型 | 底層結構 | 特性 | 用途 |
-|------|---------|------|------|
-| `bson.M` | `map[string]any` | **無序** | filter、projection、`$match` 條件 |
-| `bson.D` | `[]bson.E`（有序 slice） | **有序** | `$sort`、依賴宣告順序的 aggregation stage |
+- `bson.M` — 底層結構：`map[string]any` — **無序** — 用途：filter、projection、`$match` 條件
+- `bson.D` — 底層結構：`[]bson.E`（有序 slice） — **有序** — 用途：`$sort`、依賴宣告順序的 aggregation stage
 
 **使用 bson.D 的判斷標準：操作結果是否依賴宣告順序？**
 
@@ -137,21 +135,17 @@ pipeline := mongo.Pipeline{
 
 ### 明確傾向 Aggregation 的情境
 
-| 情境 | 原因 |
-|------|------|
-| 跨 collection join | `$lookup` 在 server 端完成，避免 N+1 |
-| 跨多個 collection 合併結果 | `$unionWith` 單次回傳，避免多次 round-trip |
-| 聚合統計（count/sum/avg） | `$group` 一次掃描即完成，多次查詢無法替代 |
-| 動態 collection 名稱的跨集合查詢 | 只有 aggregation 能動態組裝 `$unionWith` stages |
-| 分頁 | `$skip + $limit` 在 server 端限制資料量 |
+- 跨 collection join — `$lookup` 在 server 端完成，避免 N+1
+- 跨多個 collection 合併結果 — `$unionWith` 單次回傳，避免多次 round-trip
+- 聚合統計（count/sum/avg） — `$group` 一次掃描即完成，多次查詢無法替代
+- 動態 collection 名稱的跨集合查詢 — 只有 aggregation 能動態組裝 `$unionWith` stages
+- 分頁 — `$skip + $limit` 在 server 端限制資料量
 
 ### 明確傾向多次指令的情境
 
-| 情境 | 原因 |
-|------|------|
-| 需要 transaction 寫入 | aggregation 無法在 `session.WithTransaction` 中執行寫入 |
-| 業務邏輯依賴上一步結果再決定操作 | 例如「先查版本號 → 條件 upsert」，分支邏輯無法在 pipeline 表達 |
-| 單純 CRUD（單 doc insert/update/delete） | 直接指令更清晰，aggregation 反而增加複雜度 |
+- 需要 transaction 寫入 — aggregation 無法在 `session.WithTransaction` 中執行寫入
+- 業務邏輯依賴上一步結果再決定操作 — 例如「先查版本號 → 條件 upsert」，分支邏輯無法在 pipeline 表達
+- 單純 CRUD（單 doc insert/update/delete） — 直接指令更清晰，aggregation 反而增加複雜度
 
 ### 無明顯傾向時 — 列出優缺點供使用者抉擇
 

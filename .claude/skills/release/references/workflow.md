@@ -3,7 +3,7 @@
 ## 使用時機
 
 - 需要從上一個 version tag 收集 commit subjects
-- 需要同步更新 marketplace version、README version 與 release-note
+- 需要同步更新 marketplace version、README version、Codex plugin package version 與 release-note
 - 需要完成 `develop -> main -> tag -> push`
 
 ## 首次 release
@@ -30,6 +30,17 @@
 ## README 更新
 
 - 將 `Current version: vX.Y.Z` 放在 `README.md` 主標題下方
+
+## Codex 同步
+
+1. 更新 `.claude-plugin/marketplace.json` 的 `metadata.version`
+2. 執行 `scripts/sync-codex-plugins.ps1` 或 `scripts/sync-codex-plugins.sh`
+3. 執行 `python scripts/verify_codex_plugins.py`
+4. 確認 `.agents/plugins/marketplace.json` 已重寫
+5. 確認每個 `codex-plugins/*/.codex-plugin/plugin.json` 的 `version` 已同步
+6. 確認 `codex-plugins/*/skills` 與 source `skills` 完全一致：不得有額外檔案、
+   缺漏檔案、額外目錄、缺漏目錄，且所有對應檔案內容必須完全相同；唯一允許
+   的差異是移除 `*_zhTW.md`
 
 ## release-note 清理
 
