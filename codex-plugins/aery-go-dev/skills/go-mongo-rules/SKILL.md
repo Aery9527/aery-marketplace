@@ -1,5 +1,5 @@
 ---
-name: mongo-guidelines
+name: go-mongo-rules
 description: >-
   MongoDB development rules and pitfall prevention. Use this skill for any task
   involving MongoDB queries, aggregation pipelines, Go mongo-go-driver code, or
