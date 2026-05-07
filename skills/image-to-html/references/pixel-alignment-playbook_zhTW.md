@@ -1,12 +1,51 @@
 # Pixel Alignment Playbook
 
+## Quick Navigation
+
+- [目標](#目標)
+- [對齊流程](#對齊流程)
+- [基準建立](#基準建立)
+- [資產裁切策略](#資產裁切策略)
+- [視覺比對流程](#視覺比對流程)
+- [如何解讀 diff 結果](#如何解讀-diff-結果)
+- [驗收建議](#驗收建議)
+
+---
+
 ## 目標
 
 這份參考文件補充 [SKILL_zhTW.md](../SKILL_zhTW.md) 的實戰細節，重點是讓「圖片轉 HTML」不是停在大概像，而是能快速收斂到有依據的高擬真版本。
 
+[Back to top](#quick-navigation)
+
+---
+
+## 對齊流程
+
+```mermaid
+flowchart TD
+    Measure["量測原圖尺寸"] --> Baseline["建立一致的 HTML 基準"]
+    Baseline --> Crop{"需要裁切資產?"}
+    Crop -->|是| CropStep["裁最小必要 box"]
+    Crop -->|否| Preview["啟動預覽"]
+    CropStep --> Preview
+    Preview --> Screenshot["擷取 viewport screenshot"]
+    Screenshot --> Diff["執行 visual_diff.py"]
+    Diff --> Adjust["只修 root cause"]
+    Adjust --> Preview
+
+    style Baseline fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
+    style CropStep fill:#fff8e1,stroke:#f9a825,color:#e65100
+    style Diff fill:#d4edda,stroke:#28a745,color:#155724
+```
+
+[Back to top](#quick-navigation)
+
+---
+
 ## 基準建立
 
-1. 先用 [scripts/image_info.py](../scripts/image_info.py) 量原圖尺寸。
+1. 先用 [image_info.py](../scripts/image_info.py) 量原圖尺寸。
 2. HTML 初版若沒有 responsive 要求，直接以原圖寬高當基準。
 3. 預覽與 screenshot 必須共用同一組尺寸。
 4. 如果比較圖的高寬不同，先修尺寸，不要先看 diff。
@@ -16,6 +55,10 @@
 ```bash
 python scripts/image_info.py --image source.png --json
 ```
+
+[Back to top](#quick-navigation)
+
+---
 
 ## 資產裁切策略
 
@@ -48,12 +91,16 @@ python scripts/image_info.py --image source.png --json
 python scripts/crop_image.py --source source.png --output asset.png --box 120,40,381,350 --json
 ```
 
+[Back to top](#quick-navigation)
+
+---
+
 ## 視覺比對流程
 
 1. 啟動本地預覽
 2. 設定與原圖完全一致的 viewport
 3. 擷取 viewport screenshot
-4. 用 [scripts/visual_diff.py](../scripts/visual_diff.py) 比對
+4. 用 [visual_diff.py](../scripts/visual_diff.py) 比對
 5. 先看尺寸，再看 `diff_bbox`
 6. 只修造成差異的 root cause
 
@@ -67,6 +114,10 @@ python scripts/visual_diff.py ^
   --overlay-out overlay.png ^
   --json
 ```
+
+[Back to top](#quick-navigation)
+
+---
 
 ## 如何解讀 diff 結果
 
@@ -86,6 +137,10 @@ python scripts/visual_diff.py ^
 - 若 bbox 很窄，通常是某條 bar、邊框、字級或單一圖片位置問題
 - 若 bbox 幾乎包住全畫面，通常是整體尺寸、間距、字體或大面積背景錯
 
+[Back to top](#quick-navigation)
+
+---
+
 ## 驗收建議
 
 1. 先確認：
@@ -99,3 +154,5 @@ python scripts/visual_diff.py ^
    - 沒有雙重 bar / 雙重標題
    - 沒有奇怪白縫、邊界、比例壓縮
    - 重複元素在三欄中的視覺權重一致
+
+[Back to top](#quick-navigation)
