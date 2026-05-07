@@ -17,7 +17,9 @@ loading human-reader navigation and Mermaid rules.
 - MUST NOT use Mermaid.
 - MUST NOT use Markdown tables; use bullet lists or numbered steps instead.
 - MUST NOT load [references/diagram-examples.md](diagram-examples.md) unless the user explicitly requests Mermaid syntax in an AI-agent document.
-- Rules MUST be direct and executable; prefer MUST / SHOULD / MUST NOT / ordered-priority phrasing.
+- In the final output of an English AI-agent document, strict requirements MUST use `MUST` and strict prohibitions MUST use `MUST NOT`.
+- In the final output of a Traditional Chinese AI-agent document, strict requirements MUST use `必須` and strict prohibitions MUST use `嚴禁`.
+- Rules MUST be direct and executable. For English AI-agent documents, prefer MUST / SHOULD / MUST NOT / ordered-priority phrasing.
 - Avoid lengthy examples; keep only necessary short examples, counterexamples, or decision sentences.
 
 ## Text Replacement Formats
@@ -67,8 +69,8 @@ Omit inapplicable sections; add domain-specific sections as needed.
 ## Writing Guidelines
 
 - Separate "when to trigger" from "how to execute" to prevent the agent from applying rules in the wrong context.
-- Rule order MUST match actual execution order; do not bury exceptions far from the main flow.
-- Use prohibitive phrasing for high-risk behaviors, e.g. "MUST NOT silently ignore errors."
+- Rule order MUST match actual execution order; MUST NOT bury exceptions far from the main flow.
+- For high-risk behaviors, MUST use prohibitive phrasing, e.g. "MUST NOT silently ignore errors."
 - Use "If ... then ...; otherwise ..." format for conditional branches.
-- Use a priority-ordered bullet list or `if X then Y; otherwise Z` prose for multi-option decisions; never use a table.
-- If information only helps humans understand background but does not affect agent behavior, delete or compress it.
+- Use a priority-ordered bullet list or `if X then Y; otherwise Z` prose for multi-option decisions; MUST NOT use a table.
+- If information only helps humans understand background but does not affect agent behavior, MUST delete or compress it.
