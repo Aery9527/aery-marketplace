@@ -16,6 +16,8 @@ documents focus on scannability, navigability, and ease of building a mental mod
 - Default to listing all major `##` sections; for long or complex documents, extend to important `###` sections.
 - Each major section MUST end with a back-to-top link; default to `[Back to top](#quick-navigation)`.
 - If the document uses `## Table of Contents` instead of `## Quick Navigation`, use `[Back to top](#table-of-contents)`.
+- Each major section MUST be separated from the next section by a standalone `---` horizontal rule.
+- By default, place `---` after the section's back-to-top link and before the next heading.
 - When renaming headings or reordering sections, MUST update Quick Navigation and back-to-top links to avoid dead links or name mismatches.
 
 ## Normative Wording in Human Prose
@@ -64,11 +66,15 @@ Purpose, scope, key design decisions.
 
 [Back to top](#quick-navigation)
 
+---
+
 ## Architecture
 
 [Mermaid: one diagram showing core component relationships; even simple relationships deserve a minimal structural diagram.]
 
 [Back to top](#quick-navigation)
+
+---
 
 ## Flow
 
@@ -76,11 +82,15 @@ Purpose, scope, key design decisions.
 
 [Back to top](#quick-navigation)
 
+---
+
 ## Core Components
 
 Description of each component.
 
 [Back to top](#quick-navigation)
+
+---
 
 ## Notes
 
