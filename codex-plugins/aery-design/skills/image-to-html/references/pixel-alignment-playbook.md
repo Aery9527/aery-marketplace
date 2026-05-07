@@ -1,12 +1,51 @@
 # Pixel Alignment Playbook
 
+## Quick Navigation
+
+- [Goal](#goal)
+- [Alignment Flow](#alignment-flow)
+- [Establishing Baselines](#establishing-baselines)
+- [Asset Cropping Strategy](#asset-cropping-strategy)
+- [Visual Comparison Workflow](#visual-comparison-workflow)
+- [Interpreting Diff Results](#interpreting-diff-results)
+- [Acceptance Checklist](#acceptance-checklist)
+
+---
+
 ## Goal
 
 This reference document supplements [SKILL.md](../SKILL.md) with hands-on details. The focus is moving "image-to-HTML" past "roughly looks right" and converging quickly to a high-fidelity, evidence-backed result.
 
+[Back to top](#quick-navigation)
+
+---
+
+## Alignment Flow
+
+```mermaid
+flowchart TD
+    Measure["Measure source image"] --> Baseline["Set matching HTML baseline"]
+    Baseline --> Crop{"Need cropped asset?"}
+    Crop -->|Yes| CropStep["Crop minimal bounding box"]
+    Crop -->|No| Preview["Start preview"]
+    CropStep --> Preview
+    Preview --> Screenshot["Take viewport screenshot"]
+    Screenshot --> Diff["Run visual_diff.py"]
+    Diff --> Adjust["Fix root cause only"]
+    Adjust --> Preview
+
+    style Baseline fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
+    style CropStep fill:#fff8e1,stroke:#f9a825,color:#e65100
+    style Diff fill:#d4edda,stroke:#28a745,color:#155724
+```
+
+[Back to top](#quick-navigation)
+
+---
+
 ## Establishing Baselines
 
-1. Measure the source image with [scripts/image_info.py](../scripts/image_info.py).
+1. Measure the source image with [image_info.py](../scripts/image_info.py).
 2. If there is no responsive requirement, use the source image's width and height as the initial HTML baseline.
 3. Preview and screenshot must share the same dimensions.
 4. If the comparison images have different sizes, fix the dimensions first — do not look at the diff yet.
@@ -16,6 +55,10 @@ Suggested command:
 ```bash
 python scripts/image_info.py --image source.png --json
 ```
+
+[Back to top](#quick-navigation)
+
+---
 
 ## Asset Cropping Strategy
 
@@ -48,12 +91,16 @@ Suggested command:
 python scripts/crop_image.py --source source.png --output asset.png --box 120,40,381,350 --json
 ```
 
+[Back to top](#quick-navigation)
+
+---
+
 ## Visual Comparison Workflow
 
 1. Start a local preview server
 2. Set the viewport to exactly match the source image dimensions
 3. Take a viewport screenshot (no `fullPage`)
-4. Run [scripts/visual_diff.py](../scripts/visual_diff.py) to compare
+4. Run [visual_diff.py](../scripts/visual_diff.py) to compare
 5. Check dimensions first, then inspect `diff_bbox`
 6. Fix only the root cause of each difference
 
@@ -67,6 +114,10 @@ python scripts/visual_diff.py ^
   --overlay-out overlay.png ^
   --json
 ```
+
+[Back to top](#quick-navigation)
+
+---
 
 ## Interpreting Diff Results
 
@@ -86,6 +137,10 @@ python scripts/visual_diff.py ^
 - A narrow bbox usually points to a specific bar, border, font size, or single image position issue
 - A bbox that covers nearly the full canvas usually means overall dimensions, spacing, fonts, or a large background area is wrong
 
+[Back to top](#quick-navigation)
+
+---
+
 ## Acceptance Checklist
 
 1. First verify:
@@ -99,3 +154,5 @@ python scripts/visual_diff.py ^
    - No double bars or double headings
    - No unexpected white gaps, odd boundaries, or proportion squashing
    - Repeated elements have consistent visual weight across all three columns
+
+[Back to top](#quick-navigation)

@@ -13,20 +13,25 @@
 - [平台說明](#平台說明)
 - [維護規則](#維護規則)
 
+---
+
 ## 概覽
 
 這個目錄裡的腳本主要分成兩類：
 
-- `sync-codex-plugins.*`：把 Claude marketplace 定義同步成 Codex 會讀的
+- [`sync-codex-plugins.*`](./)：把 Claude marketplace 定義同步成 Codex 會讀的
   marketplace 與 plugin package 產物。
-- `link-agent-skills.*`：在本機開發環境建立 `.claude/skills` 與
-  `.agents/skills` 之間的 link，讓不同 agent 入口共用同一份 skills。
+- [`link-agent-skills.*`](./)：在本機開發環境建立 [`.claude/skills`](../.claude/)
+  與 [`.agents/skills`](../.agents/) 之間的 link，讓不同 agent 入口共用同一份
+  skills。
 
-最重要的邊界是：只有 `sync-codex-plugins.*` 屬於正式的封裝與同步流程；
-`link-agent-skills.*` 只是本機開發輔助工具，不該被當成 release automation
-的一部分。
+最重要的邊界是：只有 [`sync-codex-plugins.*`](./) 屬於正式的封裝與同步流程；
+[`link-agent-skills.*`](./) 只是本機開發輔助工具，不該被當成 release
+automation 的一部分。
 
 [Back to top](#quick-navigation)
+
+---
 
 ## 腳本關係圖
 
@@ -47,58 +52,64 @@ flowchart TD
     style AgentSkills fill:#fff8e1,stroke:#f9a825,color:#e65100
 ```
 
+[Back to top](#quick-navigation)
+
+---
+
 ## 腳本清單
 
 | Script | 用途 | 何時使用 |
 | ------ | ---- | -------- |
-| `sync-codex-plugins.ps1` | 同步 `.claude-plugin/marketplace.json` 到 `.agents/plugins/marketplace.json` 與 `codex-plugins/*/skills` | 任何 skill、plugin 分組或 Codex plugin package 結構有變動時 |
-| `sync-codex-plugins.sh` | `sync-codex-plugins.ps1` 的 shell wrapper | 在 macOS、Linux 或 Git Bash 上觸發同步時 |
-| `verify_codex_plugins.py` | 驗證 `codex-plugins/*/skills` 是否與 source `skills` 完全一致 | release 前，或懷疑同步產物殘留/漏同步時 |
-| `link-agent-skills.ps1` | 互動式管理 `.agents/skills` 的 Windows junction | 本機 Windows 開發環境需要讓 `.agents/skills` 指向 `.claude/skills` 時 |
-| `link-agent-skills.sh` | 互動式管理 `.agents/skills` 的 Unix symlink | 本機 Unix-like 開發環境需要讓 `.agents/skills` 指向 `.claude/skills` 時 |
+| [`sync-codex-plugins.ps1`](sync-codex-plugins.ps1) | 同步 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 到 [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json) 與 [`codex-plugins/*/skills`](../codex-plugins/) | 任何 skill、plugin 分組或 Codex plugin package 結構有變動時 |
+| [`sync-codex-plugins.sh`](sync-codex-plugins.sh) | [`sync-codex-plugins.ps1`](sync-codex-plugins.ps1) 的 shell wrapper | 在 macOS、Linux 或 Git Bash 上觸發同步時 |
+| [`verify_codex_plugins.py`](verify_codex_plugins.py) | 驗證 [`codex-plugins/*/skills`](../codex-plugins/) 是否與 source [`skills/`](../skills/) 完全一致 | release 前，或懷疑同步產物殘留/漏同步時 |
+| [`link-agent-skills.ps1`](link-agent-skills.ps1) | 互動式管理 [`.agents/skills`](../.agents/) 的 Windows junction | 本機 Windows 開發環境需要讓 [`.agents/skills`](../.agents/) 指向 [`.claude/skills`](../.claude/) 時 |
+| [`link-agent-skills.sh`](link-agent-skills.sh) | 互動式管理 [`.agents/skills`](../.agents/) 的 Unix symlink | 本機 Unix-like 開發環境需要讓 [`.agents/skills`](../.agents/) 指向 [`.claude/skills`](../.claude/) 時 |
 
 [Back to top](#quick-navigation)
 
+---
+
 ## sync-codex-plugins
 
-`sync-codex-plugins.ps1` 是面向 Codex 產物的正式同步腳本。
+[`sync-codex-plugins.ps1`](sync-codex-plugins.ps1) 是面向 Codex 產物的正式同步腳本。
 
 ### 會更新什麼
 
-- `.agents/plugins/marketplace.json`
-- `codex-plugins/*/.codex-plugin/plugin.json` 的 `version`
-- `codex-plugins/*/skills`
+- [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json)
+- [`codex-plugins/*/.codex-plugin/plugin.json`](../codex-plugins/) 的 `version`
+- [`codex-plugins/*/skills`](../codex-plugins/)
 
 ### 會讀取什麼
 
-- `.claude-plugin/marketplace.json`
-- 既有的 `.agents/plugins/marketplace.json`
+- [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json)
+- 既有的 [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json)
 - 每個 plugin 宣告所指向的 skill source 目錄
-- `codex-plugins/*/.codex-plugin/plugin.json`
+- [`codex-plugins/*/.codex-plugin/plugin.json`](../codex-plugins/)
 
 ### 會做什麼
 
-1. 以 `.claude-plugin/marketplace.json` 作為 plugin bundle 的 source of
+1. 以 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 作為 plugin bundle 的 source of
    truth。
 2. 驗證 plugin 名稱、skill 路徑、source 目錄，以及 Codex plugin package
    目錄是否存在。
-3. 把宣告的 skill 目錄複製到各自的 `codex-plugins/<plugin>/skills`。
-4. 用 `.claude-plugin/marketplace.json` 的 `metadata.version` 回寫每個
-   `codex-plugins/<plugin>/.codex-plugin/plugin.json` 的 `version`。
-5. 從同步後的 package tree 中刪除所有 `*_zhTW.md`，讓 Codex package 只保
+3. 把宣告的 skill 目錄複製到各自的 [`codex-plugins/<plugin>/skills`](../codex-plugins/)。
+4. 用 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 的 `metadata.version` 回寫每個
+   [`codex-plugins/<plugin>/.codex-plugin/plugin.json`](../codex-plugins/) 的 `version`。
+5. 從同步後的 package tree 中刪除所有 [`*_zhTW.md`](../skills/)，讓 Codex package 只保
    留英文主檔。
-6. 重寫 `.agents/plugins/marketplace.json`，使其指向
-   `./codex-plugins/<plugin>`。
-7. 執行 `verify_codex_plugins.py`，確認 `codex-plugins/*/skills` 與 source
-   `skills` 完全一致，唯一允許的差異是移除 `*_zhTW.md`。
+6. 重寫 [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json)，使其指向
+   [`./codex-plugins/<plugin>`](../codex-plugins/)。
+7. 執行 [`verify_codex_plugins.py`](verify_codex_plugins.py)，確認 [`codex-plugins/*/skills`](../codex-plugins/) 與 source
+   [`skills/`](../skills/) 完全一致，唯一允許的差異是移除 [`*_zhTW.md`](../skills/)。
 
 ### 前置條件
 
-- `.claude-plugin/marketplace.json` 內的 plugin 名稱必須唯一。
+- [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 內的 plugin 名稱必須唯一。
 - 每個宣告的 plugin `source` 目錄都必須存在。
 - 每個宣告的 skill 目錄都必須存在。
-- 每個目標 `codex-plugins/<plugin>` 目錄都必須事先建立。
-- 每個目標 `codex-plugins/<plugin>/.codex-plugin/plugin.json` 都必須已存在。
+- 每個目標 [`codex-plugins/<plugin>`](../codex-plugins/) 目錄都必須事先建立。
+- 每個目標 [`codex-plugins/<plugin>/.codex-plugin/plugin.json`](../codex-plugins/) 都必須已存在。
 - 環境中必須有 `python`，用於穩定格式化 JSON 與執行同步後驗證。
 - 若透過 `.sh` wrapper 執行，環境中必須有 `pwsh`。
 
@@ -119,17 +130,19 @@ flowchart TD
 
 [Back to top](#quick-navigation)
 
+---
+
 ## verify-codex-plugins
 
-`verify_codex_plugins.py` 是 `codex-plugins` 封裝產物的一致性檢查工具。
+[`verify_codex_plugins.py`](verify_codex_plugins.py) 是 [`codex-plugins/`](../codex-plugins/) 封裝產物的一致性檢查工具。
 
 ### 會驗證什麼
 
-- 每個 plugin 只包含 `.claude-plugin/marketplace.json` 宣告的 skill
-- 每個 `codex-plugins/<plugin>/skills/<skill>` 都存在
-- 相對於 source `skills`，target 不可多檔、不可少檔、不可多目錄、不可少目錄
+- 每個 plugin 只包含 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 宣告的 skill
+- 每個 [`codex-plugins/<plugin>/skills/<skill>`](../codex-plugins/) 都存在
+- 相對於 source [`skills/`](../skills/)，target 不可多檔、不可少檔、不可多目錄、不可少目錄
 - 所有對應檔案內容必須 byte-for-byte 完全一致
-- 唯一允許的差異是 source `skills` 端的 `*_zhTW.md` 不納入比對
+- 唯一允許的差異是 source [`skills/`](../skills/) 端的 [`*_zhTW.md`](../skills/) 不納入比對
 
 ### 用法
 
@@ -146,14 +159,16 @@ python .\scripts\verify_codex_plugins.py
 
 [Back to top](#quick-navigation)
 
+---
+
 ## link-agent-skills
 
-`link-agent-skills.*` 是本機開發輔助工具。它不會更新封裝產物，也不能取代
-`sync-codex-plugins.*`。
+[`link-agent-skills.*`](./) 是本機開發輔助工具。它不會更新封裝產物，也不能取代
+[`sync-codex-plugins.*`](./)。
 
 ### 互動模式
 
-1. 把整個 `.agents/skills` 連到 `.claude/skills`
+1. 把整個 [`.agents/skills`](../.agents/) 連到 [`.claude/skills`](../.claude/)
 2. 逐個 skill 目錄建立 link
 3. 移除既有 link
 
@@ -162,28 +177,32 @@ symlink。
 
 ### 副作用
 
-- 這組腳本會修改 `.agents/skills`。
-- 這組腳本也會同步新增或移除 `.gitignore` 裡對應的條目。
-- 如果 `.agents/skills` 已存在，腳本可能會先移除既有路徑，再建立要求的
+- 這組腳本會修改 [`.agents/skills`](../.agents/)。
+- 這組腳本也會同步新增或移除 [`.gitignore`](../.gitignore) 裡對應的條目。
+- 如果 [`.agents/skills`](../.agents/) 已存在，腳本可能會先移除既有路徑，再建立要求的
   link 結構。
 
 ### 限制
 
 - 這組腳本是互動式，不適合 CI。
-- 它不會更新 `.agents/plugins/marketplace.json`。
-- 它不會重建 `codex-plugins/*/skills`。
+- 它不會更新 [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json)。
+- 它不會重建 [`codex-plugins/*/skills`](../codex-plugins/)。
 - 若逐 skill 模式的目標路徑已存在且不是 link，腳本會直接略過，不會幫你
   merge 內容。
 
 [Back to top](#quick-navigation)
 
+---
+
 ## 平台說明
 
-- Windows：優先使用 `sync-codex-plugins.ps1` 與 `link-agent-skills.ps1`
-- macOS / Linux：使用對應的 `.sh` wrapper
-- `sync-codex-plugins.sh` 只是 wrapper，實際仍依賴 `pwsh`
+- Windows：優先使用 [`sync-codex-plugins.ps1`](sync-codex-plugins.ps1) 與 [`link-agent-skills.ps1`](link-agent-skills.ps1)
+- macOS / Linux：使用對應的 [`.sh` wrapper](./)
+- [`sync-codex-plugins.sh`](sync-codex-plugins.sh) 只是 wrapper，實際仍依賴 `pwsh`
 
 [Back to top](#quick-navigation)
+
+---
 
 ## 維護規則
 
