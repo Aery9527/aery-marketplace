@@ -1,6 +1,15 @@
 ---
 name: arch-rules
-description: Quick reference for software design and architecture principles — covering SOLID, CUPID, code-level rules, architectural HA / fault-tolerance patterns, Observability, and engineering philosophy. Load this skill for system design, code review, refactoring, technology selection, module decomposition, API design, microservice splitting, technical-debt evaluation, and any discussion of maintainability, scalability, or high availability. Also load when the task involves design judgment such as "how should this be written", "how to split the architecture", or "why write it this way" — even if the user does not explicitly mention "design principles".
+description: >-
+  Software design and architecture principles — SOLID, CUPID, GRASP,
+  fault-tolerance, Observability, and engineering philosophy. Load whenever
+  writing, modifying, or reviewing code of any size — a one-line bug fix is
+  still a design decision. Load when defining interfaces, types, classes,
+  functions, or module boundaries, and when making any naming choice. Also load
+  for system design, refactoring, code review, API design, technology selection,
+  technical-debt evaluation, and any "how should this be written / structured /
+  split" question. Load proactively — these principles apply whenever code is
+  being touched, not only during explicit architecture discussions.
 ---
 
 # Arch Rules
@@ -28,6 +37,9 @@ You are an experienced engineer, thoroughly versed in every language-agnostic so
 - External input, I/O, network, database, time, and randomness are all boundaries; boundaries require validation, timeouts, and observability.
 - When correctness, simplicity, maintainability, performance, and extensibility conflict, priority order is: **correctness → simplicity → maintainability → performance → extensibility**.
 - Refactor only areas strongly related to the current task; do not let "while I'm here" cleanup expand into unbounded rewrites.
+- When starting any code modification: first name (1) what observable behavior changes, (2) what must remain unchanged, and (3) how you will verify both. Write this down before writing a single line of code.
+- Public interfaces, exported types, and shared data structures are disproportionately costly to change once published. Default to the minimum viable surface area.
+- Keep additive changes (new capability), corrective changes (bug fix), and structural changes (refactoring) separate wherever possible — mixing them makes review and rollback harder.
 
 ---
 
@@ -183,6 +195,53 @@ Stop and reconsider when you see:
 - A design pattern forced in without addressing an actual problem.
 - A silent fallback added to avoid breaking existing flow, pushing errors to a harder-to-trace location.
 - Deferred decisions on schema, API, or error semantics justified as "keeping flexibility".
+- A function accepts three or more parameters; related ones should be grouped into a value object or request struct.
+- A boolean parameter selects between fundamentally different code paths — it should be split into two separate functions.
+- A unit test requires mocking five or more collaborators to exercise one small behavior — the unit under test is over-coupled.
+- Two pieces of code are kept separate "for different purposes" but solve the same sub-problem with nearly identical logic — a hidden DRY violation.
+
+---
+
+## 10. Code Modification Protocol
+
+When touching existing code, follow this sequence:
+
+1. **Orient** — read the existing tests and behavior first; understand the current contracts before changing anything.
+2. **Contract** — state explicitly: what new behavior is being added or changed? What existing guarantees must survive?
+3. **Blast Radius** — identify all callers, dependents, and integration points affected by the change.
+4. **Minimal Surface** — make the smallest change that satisfies the requirement; resist the pull to clean up tangentially related code.
+5. **Verify** — confirm old contracts still hold and new behavior is observable, testable, and logged where needed.
+
+**Type of change guides the approach:**
+- **Additive (new capability)**: prefer extension at natural seams; avoid modifying existing code paths.
+- **Corrective (bug fix)**: surgical precision — change exactly the defect source; reproduce the bug as a failing test first.
+- **Structural (refactoring)**: pure behavior-preserving transformation; never mix with functional changes in the same commit.
+
+---
+
+## 11. Interface & Type Design
+
+Interfaces encode roles; types encode domain reality. Both are hard to reverse once published.
+
+**Naming**
+- Interfaces: name by capability (`Reader`, `Validator`, `EventBus`), not by noun prefix (`IUserService`, `AbstractHandler`).
+- Types: name after the domain concept, not the storage or implementation detail (`Invoice`, not `InvoiceRecord` unless context requires the distinction).
+
+**Sizing interfaces**
+- Start from the consumer's perspective: what is the minimum contract each caller actually needs?
+- One-method interfaces are the most composable building block; prefer them when the role is single-purpose.
+- Merge methods into one interface only when every caller always uses every method.
+- If some callers need only a subset, split into smaller interfaces and let wider ones embed them.
+
+**Type contracts**
+- Zero / null / default value must be safe to use, or construction must be mandatory and enforced.
+- Make invalid states unrepresentable at the type level when practical — fewer runtime checks, fewer bugs.
+- Prefer accepting interfaces and returning concrete types: callers gain narrow dependencies; their callers gain full access to the concrete API.
+
+**Evolution**
+- Adding a method to a published interface is a breaking change: define a new interface that embeds the old one and adds the method.
+- Deprecate, don't delete. Mark old interfaces deprecated, provide migration guidance, remove only after all callers are migrated.
+- Adding optional capability: use a capability-check pattern (type assertion or optional interface) rather than widening the base interface.
 
 ---
 
