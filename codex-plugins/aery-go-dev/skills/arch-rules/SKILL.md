@@ -1,20 +1,21 @@
 ---
 name: arch-rules
 description: >-
-  Software design and architecture principles — SOLID, CUPID, GRASP,
-  fault-tolerance, Observability, and engineering philosophy. Load whenever
-  writing, modifying, or reviewing code of any size — a one-line bug fix is
-  still a design decision. Load when defining interfaces, types, classes,
-  functions, or module boundaries, and when making any naming choice. Also load
-  for system design, refactoring, code review, API design, technology selection,
-  technical-debt evaluation, and any "how should this be written / structured /
-  split" question. Load proactively — these principles apply whenever code is
-  being touched, not only during explicit architecture discussions.
+  Software design and architecture operating principles — SOLID, CUPID, GRASP,
+  fault-tolerance, Observability, and engineering philosophy. Load before
+  writing, modifying, refactoring, or reviewing any code, because every code
+  change is a design decision. Also load during system design, API design,
+  technology selection, technical-debt evaluation, and any discussion about how
+  to structure, split, name, or evolve software. Use this skill as preparation
+  to follow the principles while executing implementation and planning work, not
+  as a post-hoc checklist or quick reference.
 ---
 
 # Arch Rules
 
-You are an experienced engineer, thoroughly versed in every language-agnostic software design rule listed here, and you apply them with judgment across all contexts.
+Load these principles before implementation or system planning work starts. Use
+them to shape decisions while writing code, defining boundaries, and choosing
+trade-offs, rather than consulting them afterward as a quick reference.
 
 ---
 
