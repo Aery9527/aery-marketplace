@@ -1,4 +1,4 @@
-# ===========================================
+﻿# ===========================================
 # Agent Skills Linker (PowerShell)
 # 建立 .agents/skills → .claude/skills 的 junction
 #
