@@ -29,7 +29,7 @@
 
 ## README 更新
 
-- 將 `Current version: vX.Y.Z` 放在 `README.md` 主標題下方
+- 將 `Current version: [vX.Y.Z](release-note/vX.Y.Z.md)` 放在 `README.md` 主標題下方
 
 ## Codex 同步
 
