@@ -22,7 +22,7 @@
 1. 定位對應 `design.md`：依 `<DIRS>[-DC.SUBNAME]` 找到（規則見 [name-rules_zhTW.md](name-rules_zhTW.md)）。`leaf` design 必有對應 `plan.md`，且 `plan.md` 必須位於 `design.md` 同一個 `docs/sys/` 之下；缺失即代表功能未實現。
 2. 規劃所有 plan 檔案：依 `design.md` 中的 user story、系統面需求、`DC.SUBNAME` 拆分等，列出此 design 需要的所有 plan 檔；命名遵循 [name-rules_zhTW.md](name-rules_zhTW.md)，並 **必須** 加上 `-draft` 暫存後綴：`<DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]]-draft.md`。
 3. 建立每份 `-draft.md`：檔案實體建立即可（內容可空白或僅含一行 placeholder 標題），**禁止** 在此階段撰寫 SBE 規格等實際內容。
-4. 規範校驗：對每份 `-draft.md` 執行 `python <task-decomposition-skill-root>/scripts/check.py <檔案路徑>`，應回報 `PASS-NAME` + `PASS-DRAFT`。**嚴禁** AI 自行比對檔名、路徑，合法性一律以腳本回報為準。
+4. 規範校驗：對每份 `-draft.md` 執行 `python <SKILL_ROOT>/scripts/check.py <檔案路徑>`（`<SKILL_ROOT>` 解析方式見 SKILL「腳本執行慣例」），應回報 `PASS-NAME` + `PASS-DRAFT`。**嚴禁** AI 自行比對檔名、路徑，合法性一律以腳本回報為準。
     - 若涉及 `list.md` 或新增 `docs/sys/` 節點，**必須** 對相關 `docs/sys/` 目錄執行 `check.py` 驗證註冊表（`PASS-REGISTRY` / `FAIL-REGISTRY` / `FAIL-CYCLE`）。
 5. 暫停等候 skeleton review：**必須** 暫停，等待使用者檢視整個 skeleton 是否完整滿足 `design.md` 的 user story 與系統面需求。
     - 不滿足：回到步驟 2 補上缺漏。

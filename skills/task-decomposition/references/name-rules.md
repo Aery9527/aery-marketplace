@@ -212,7 +212,7 @@ module-b/
 Validation command:
 
 ```
-python <task-decomposition-skill-root>/scripts/check.py project-root/docs/sys
+python <SKILL_ROOT>/scripts/check.py project-root/docs/sys
 ```
 
 Possible output:

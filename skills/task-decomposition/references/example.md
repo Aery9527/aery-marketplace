@@ -244,7 +244,7 @@ Note: when a DC integrator design itself plays the god-view role, this directory
 ## `check.py` Validation Output
 
 ```bash
-python <task-decomposition-skill-root>/scripts/check.py \
+python <SKILL_ROOT>/scripts/check.py \
     docs/sys/order/order-design.md \
     docs/sys/order/create/order-create-design.md \
     docs/sys/order/create/order-create-plan-submit.01.md \

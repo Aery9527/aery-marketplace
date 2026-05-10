@@ -15,7 +15,6 @@ By enforcing a consistent functional structure and decomposition criteria, anyon
 ## Core Concepts
 
 - The terms `DIRS`, `DC`, `SUBNAME`, `SEQUENCE`, `draft` referenced below are defined in [name-rules.md](references/name-rules.md); load it on demand when you actually need the definitions.
-- `<task-decomposition-skill-root>` means the installed skill directory containing this `SKILL.md`; when a rule asks you to run [scripts/check.py](scripts/check.py), resolve the path from that skill root instead of assuming a fixed marketplace location.
 - All documents live under some `docs/sys/`. A directory name represents the meaning of a feature; its content is the detail of that feature. The content may be another directory (further subdivided into independent / oversized sub-features), or actual `design.md` / `plan.md` files.
 - `design.md` filename format: `<DIRS>[-DC.SUBNAME]-design[-draft].md`
     - Audience is humans; this is an SA document. Content is an abstract feature description, with `user story` as the main body, and includes system-level requirements (idempotency, concurrency control, scheduling, caveats, etc.).
@@ -32,6 +31,12 @@ By enforcing a consistent functional structure and decomposition criteria, anyon
     - One `plan.md` MUST NOT exceed 500 lines. Beyond that, the implementation burden is too large; you **MUST** split by `SUBNAME` (topic). If a single `SUBNAME` still has too many SBE test cases, further split by 2-digit sequence `.01`, `.02`, ...
 - `draft` is the file suffix marking a "planned but not yet started" item. Its purpose is to record what has been planned but not yet authored, eliminating the need for an extra list registry.
 - `docs/sys/list.md` registry: when a project already has multiple independent sub-modules (e.g. monorepo submodule, microservice, subsystem, subproject, etc.), this registers the `docs/sys/` paths of each sub-module so documents can be naturally distributed at the project structure level — achieving good decoupling and modularity, while the root `list.md` still gives the full feature picture at a glance.
+
+## Script Execution Convention
+
+- All references to `<SKILL_ROOT>/scripts/check.py` in reference documents are **relative to this skill's installation path** — the directory containing `SKILL.md`.
+- AI agents **MUST** dynamically resolve `<SKILL_ROOT>` to the actual installation path; **NEVER** hard-code any project-specific path like `.claude/skills/task-decomposition/...`. This skill is generic and may be placed anywhere.
+- Resolution rule: `<SKILL_ROOT>` = the absolute directory containing this SKILL file; the actual script path = `<SKILL_ROOT>/scripts/check.py`.
 
 ## Further Reading by Task
 

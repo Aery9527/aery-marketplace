@@ -53,7 +53,7 @@
     - `god-view`：為每個子模組建立目錄、`.metadata.md`（即使無內容，空檔也要存在）與 `<child-DIRS>-design-draft.md` 暫存檔（檔案實體建立即可，內容空白或僅含一行 placeholder 標題）。`<child-DIRS>` **必須** 是「本層 `DIRS` + 子目錄名」以 `-` 串接的完整結果（例：本層為 `docs/sys/ecommerce/`，子目錄 `catalog/` 的 child-DIRS = `ecommerce-catalog`，檔名為 `ecommerce-catalog-design-draft.md`，**禁止** 寫成 `catalog-design-draft.md`）。若本層需要在同目錄使用 `DC` 拆分而非向下拆子目錄，每份 DC 拆檔 **必須** 同時帶 `SUBNAME`（例：`ecommerce-1000.checkout-design.md`、`ecommerce-2000.fulfillment-design.md`）；命名規則完整定義於 [name-rules_zhTW.md](name-rules_zhTW.md)，由 `check.py` 校驗。
     - `leaf`：若本份是從上層 `-draft.md` 接過來的，rename 移除 `-draft` 後綴。
 
-5. 規範校驗：執行 `python <task-decomposition-skill-root>/scripts/check.py <檔案路徑>`：
+5. 規範校驗：執行 `python <SKILL_ROOT>/scripts/check.py <檔案路徑>`（`<SKILL_ROOT>` 解析方式見 SKILL「腳本執行慣例」）：
     - `god-view`：對本層 design.md（應 `PASS-NAME` + `PASS-LINES`）與每份 child `-draft.md`（應 `PASS-NAME` + `PASS-DRAFT`）逐一驗證；同時驗證所有新建子目錄含 `.metadata.md`（應 `PASS-METADATA`）。
     - `leaf`：對本份 design.md 驗證（應 `PASS-NAME` + `PASS-LINES`）；`FAIL-LINES` **必須** 拆分（見下方「拆分判斷」）。
     - **嚴禁** 自行比對檔名 / 路徑 / 行數，合法性一律以腳本回報為準。

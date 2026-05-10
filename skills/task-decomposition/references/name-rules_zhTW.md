@@ -226,7 +226,7 @@ module-b/
 驗證指令：
 
 ```
-python <task-decomposition-skill-root>/scripts/check.py project-root/docs/sys
+python <SKILL_ROOT>/scripts/check.py project-root/docs/sys
 ```
 
 可能輸出：

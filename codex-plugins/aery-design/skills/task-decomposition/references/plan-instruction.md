@@ -22,7 +22,7 @@ Entry condition: corresponding `design.md` is committed; user has approved enter
 1. Locate the corresponding `design.md`: find it by `<DIRS>[-DC.SUBNAME]` (rules in [name-rules.md](name-rules.md)). Every `leaf` design must have corresponding `plan.md` in the same `docs/sys/` as the design; missing it means the feature is unimplemented.
 2. Plan all plan files: per the design's user stories, system requirements, `DC.SUBNAME` splits, etc., list every plan file this design needs; naming follows [name-rules.md](name-rules.md), and the `-draft` placeholder suffix **MUST** be appended: `<DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]]-draft.md`.
 3. Create each `-draft.md`: just create the file (content can be empty or just a placeholder title); writing actual SBE specs at this stage is **FORBIDDEN**.
-4. Rule validation: run `python <task-decomposition-skill-root>/scripts/check.py <file path>` against each `-draft.md`; expect `PASS-NAME` + `PASS-DRAFT`. **NEVER** compare filenames / paths yourself; legality is determined by the script.
+4. Rule validation: run `python <SKILL_ROOT>/scripts/check.py <file path>` against each `-draft.md` (see SKILL "Script Execution Convention" for how `<SKILL_ROOT>` is resolved); expect `PASS-NAME` + `PASS-DRAFT`. **NEVER** compare filenames / paths yourself; legality is determined by the script.
     - If `list.md` or new `docs/sys/` nodes are involved, **MUST** also run `check.py` against the relevant `docs/sys/` (`PASS-REGISTRY` / `FAIL-REGISTRY` / `FAIL-CYCLE`).
 5. Pause for skeleton review: **MUST** pause and wait for the user to verify that the skeleton fully covers the design's user stories and system requirements.
     - Not satisfied: return to step 2 to fill gaps.

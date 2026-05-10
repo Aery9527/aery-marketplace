@@ -45,7 +45,7 @@ Every design follows this flow; steps 3 / 4 / 8 branch by `god-view` / `leaf` ty
     - `god-view`: for each sub-module, create the directory + `.metadata.md` (empty file is fine) + `<child-DIRS>-design-draft.md` placeholder (file existence is enough; content can be empty or just a placeholder title line). `<child-DIRS>` **MUST** be "this layer's `DIRS` + sub-directory name" joined by `-` (e.g. this layer is `docs/sys/ecommerce/`; sub-directory `catalog/` has child-DIRS = `ecommerce-catalog`; filename `ecommerce-catalog-design-draft.md`; **NEVER** write `catalog-design-draft.md`). If this layer needs same-layer `DC` split instead of downward sub-directories, each DC-split file **MUST** include `SUBNAME` (e.g. `ecommerce-1000.checkout-design.md`, `ecommerce-2000.fulfillment-design.md`); naming rules fully defined in [name-rules.md](name-rules.md), validated by `check.py`.
     - `leaf`: if this file was handed down from an upper-level `-draft.md`, rename to remove the `-draft` suffix.
 
-5. Rule validation: run `python <task-decomposition-skill-root>/scripts/check.py <file path>`:
+5. Rule validation: run `python <SKILL_ROOT>/scripts/check.py <file path>` (see SKILL "Script Execution Convention" for how `<SKILL_ROOT>` is resolved):
     - `god-view`: validate this layer's design.md (expect `PASS-NAME` + `PASS-LINES`) and each child `-draft.md` (expect `PASS-NAME` + `PASS-DRAFT`); also validate that all newly created sub-directories have `.metadata.md` (expect `PASS-METADATA`).
     - `leaf`: validate this design.md (expect `PASS-NAME` + `PASS-LINES`); `FAIL-LINES` **MUST** be split (see "Split Decision" below).
     - **NEVER** compare filenames / paths / line counts yourself; legality is determined by the script.

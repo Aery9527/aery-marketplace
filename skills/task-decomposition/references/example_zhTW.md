@@ -255,7 +255,7 @@ docs/sys/
 ## check.py 驗證輸出範例
 
 ```bash
-python <task-decomposition-skill-root>/scripts/check.py \
+python <SKILL_ROOT>/scripts/check.py \
     docs/sys/order/order-design.md \
     docs/sys/order/create/order-create-design.md \
     docs/sys/order/create/order-create-plan-submit.01.md \

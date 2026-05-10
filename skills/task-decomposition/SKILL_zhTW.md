@@ -15,7 +15,6 @@ description: >-
 ## 核心概念
 
 - 以下提到的 `DIRS`, `DC`, `SUBNAME`, `SEQUENCE`, `draft`， 涵義見 [name-rules_zhTW.md](references/name-rules_zhTW.md)，需要理解及使用時再載入即可
-- `<task-decomposition-skill-root>` 是包含此 `SKILL.md` 的已安裝 skill 目錄；當規則要求執行 [scripts/check.py](scripts/check.py) 時，必須從這個 skill root 解析路徑，嚴禁假設固定的 marketplace 安裝位置。
 - 所有文件皆放在 `docs/sys/` 底下，目錄名稱即是功能的意思，內容是該功能的細節。內容可能又是一個目錄(再細分有足夠獨立或 scope 過大的子功能)，也可能是實際的
   `design.md` 與
   `plan.md` 文件。
@@ -37,6 +36,12 @@ description: >-
 - `draft` 有這個後綴命名的檔案，表示為待規劃/實作的項目。主要用意是可用來記錄有那些東西已規劃但尚未開始，可避免維護額外的 list 紀錄。
 - `docs/sys/list.md` 註冊表，當專案內部已劃分多個獨立 scope 的子模組時（例如 monorepo 的 submodule、microservice、subsystem、subproject 等），在此註冊各子模組的
   `docs/sys/` 路徑，就可以以專案結構層級直接分散文件至各子模組內，達成良好的解偶性與模組化，同時又能從 root 的 `list.md` 一眼看出整體功能結構。
+
+## 腳本執行慣例
+
+- 所有 reference 文件中提到的 `<SKILL_ROOT>/scripts/check.py` 都是相對於 **此 skill 的安裝路徑**，也就是 `SKILL_zhTW.md` 所在的同一個目錄。
+- AI agent 執行時 **必須** 動態解析 `<SKILL_ROOT>` 為實際安裝位置，**禁止** 寫死任何特定專案的路徑（例如 `.claude/skills/task-decomposition/...`）— 此 skill 為通用型，可被放置於任何位置。
+- 推導方式：`<SKILL_ROOT>` = 本 SKILL 文件所在的絕對目錄；腳本實際路徑 = `<SKILL_ROOT>/scripts/check.py`。
 
 ## 當前任務延伸閱讀指引
 
