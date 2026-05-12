@@ -13,8 +13,9 @@
 
 - 一句話：買家可建立訂單、查詢自己訂單、取消尚未付款的訂單。
 - scope：`order` 為 god-view，含 `create` / `read` / `cancel` 三個必要子模組。
-- 假設目前 `create` 已完成 design + plan、`read` 仍是 god-view 建立的暫存 draft、
-  `cancel` 進入 leaf 後因內容過多用 `DC.SUBNAME` 同層拆分。
+- 假設目前 `create` 已完成 design + plan + review（已走完六階段），`read` 仍是
+  god-view 建立的暫存 draft，`cancel` 進入 leaf 後因內容過多用 `DC.SUBNAME` 同層拆分
+  並完成 plan，其中 1100 的 review 已寫完、1200 的 review 仍為 draft。
 
 ## 完整目錄樹
 
@@ -29,9 +30,13 @@ docs/sys/
             .metadata.md
             order-create-design.md                          ← leaf
             order-create-plan-add_item.md                   ← plan（func 主題）
+            order-create-plan-add_item-review.md            ← Phase 3 review；Phase 4 已追加 ## 主 agent 決議
             order-create-plan-submit.md                     ← plan（func 主題）
+            order-create-plan-submit-review.md              ← 對應 submit plan 的 review
             order-create-plan-submit.01.md                  ← plan（同 SUBNAME 第 1 批 SBE）
+            order-create-plan-submit.01-review.md           ← 對應 .01 那一批的 review
             order-create-plan-submit.02.md                  ← plan（同 SUBNAME 第 2 批 SBE）
+            order-create-plan-submit.02-review-draft.md     ← .02 的 review 尚未開始
         read/
             .metadata.md
             order-read-design-draft.md                      ← 尚未撰寫的暫存
@@ -42,7 +47,9 @@ docs/sys/
             order-cancel-1100.refund-design.md              ← 可與 1200 並行
             order-cancel-1200.notify-design.md              ← 可與 1100 並行
             order-cancel-1100.refund-plan.md                ← 對應 1100.refund
+            order-cancel-1100.refund-plan-review.md         ← 對應 1100.refund plan 的 review
             order-cancel-1200.notify-plan.md                ← 對應 1200.notify
+            order-cancel-1200.notify-plan-review-draft.md   ← 1200 review 尚在 draft
 ```
 
 註：`order-cancel-design.md` 因採同層 DC 整合，本層擔任 god-view 角色，故本目錄
@@ -221,6 +228,47 @@ docs/sys/
 - 儲存層 `orders`、`order_audit` 紀錄表
 ````
 
+### `docs/sys/order/create/order-create-plan-add_item-review.md`（已含 Phase 4 主 agent 決議）
+
+````markdown
+# order-create plan-add_item review
+
+> 對應 plan：[order-create-plan-add_item.md](order-create-plan-add_item.md)
+> 對應 design：[order-create-design.md](order-create-design.md)
+
+## 審查摘要
+
+整體 SBE 覆蓋 happy path 與一個 invalid quantity 邊界 case；唯獨對「同一商品再次加入」的 race 行為缺少並發場景的明確規範，建議補一組 SBE。
+
+## 發現與建議
+
+### 1. 並發加入同一商品
+
+- 觀察：plan 已用 transaction 包裹「讀 draft + 寫 item」，但 SBE 未呈現兩個 concurrent AddItem 同時對同一 sku 加入時的預期結果。
+- 建議：補一組 SBE — 兩個 goroutine 同時呼叫 `AddItem(sku-001, +2)`，預期 quantity 最終為 +4（不是部分覆蓋），任一方不得回傳 ErrConflict。
+- 影響範圍：僅本 plan。
+
+### 2. 數量上限未定義
+
+- 觀察：plan 只拒絕 quantity = 0；對極大值（如 INT_MAX）行為未定義。
+- 建議：與 catalog 模組對齊上限 1000，超過回 ErrInvalidQuantity。
+- 影響範圍：也需動到 design（catalog 邊界假設需補充）。
+
+## 主 agent 決議
+
+### 1. 並發加入同一商品
+
+- 決議：accept-modify-plan
+- 理由：plan 既已用 transaction 處理，補上對應 SBE 才能讓實作 / 驗收一致。
+- 套用動作：在「SBE 規格」中新增第 4 組 case「並發 AddItem 同一 sku」，input 為兩個 goroutine 同時 +2、output 為最終 qty=+4 且皆回傳 nil。
+
+### 2. 數量上限未定義
+
+- 決議：accept-modify-design
+- 理由：上限屬於 catalog 與 order 之間的邊界假設，應先在 design 的「前提與限制」明確列出後，再讓 plan 對應實作。
+- 套用動作：（轉 design 流程處理，本 Phase 5 不套用）
+````
+
 ### `docs/sys/order/cancel/order-cancel-design.md`（同層 DC 整合 god-view）
 
 ````markdown
@@ -259,8 +307,11 @@ python <SKILL_ROOT>/scripts/check.py \
     docs/sys/order/order-design.md \
     docs/sys/order/create/order-create-design.md \
     docs/sys/order/create/order-create-plan-submit.01.md \
+    docs/sys/order/create/order-create-plan-add_item-review.md \
+    docs/sys/order/create/order-create-plan-submit.02-review-draft.md \
     docs/sys/order/read/order-read-design-draft.md \
     docs/sys/order/cancel/order-cancel-1100.refund-design.md \
+    docs/sys/order/cancel/order-cancel-1200.notify-plan-review-draft.md \
     docs/sys
 ```
 
@@ -279,6 +330,14 @@ python <SKILL_ROOT>/scripts/check.py \
 [PASS-METADATA] docs/sys/order/create/order-create-plan-submit.01.md — 同目錄 .metadata.md 存在
 [PASS-LINES] docs/sys/order/create/order-create-plan-submit.01.md (plan) 120/500 行
 
+[PASS-NAME] docs/sys/order/create/order-create-plan-add_item-review.md (review) DIRS='order-create'
+[PASS-METADATA] docs/sys/order/create/order-create-plan-add_item-review.md — 同目錄 .metadata.md 存在
+[PASS-LINES] docs/sys/order/create/order-create-plan-add_item-review.md (review) 48/500 行
+
+[PASS-NAME] docs/sys/order/create/order-create-plan-submit.02-review-draft.md (review, draft) DIRS='order-create'
+[PASS-METADATA] docs/sys/order/create/order-create-plan-submit.02-review-draft.md — 同目錄 .metadata.md 存在
+[PASS-DRAFT] docs/sys/order/create/order-create-plan-submit.02-review-draft.md — 暫存檔，內容尚未撰寫，完成後 rename 移除 -draft 後綴
+
 [PASS-NAME] docs/sys/order/read/order-read-design-draft.md (design, draft) DIRS='order-read'
 [PASS-METADATA] docs/sys/order/read/order-read-design-draft.md — 同目錄 .metadata.md 存在
 [PASS-DRAFT] docs/sys/order/read/order-read-design-draft.md — 暫存檔，內容尚未撰寫，完成後 rename 移除 -draft 後綴
@@ -286,6 +345,10 @@ python <SKILL_ROOT>/scripts/check.py \
 [PASS-NAME] docs/sys/order/cancel/order-cancel-1100.refund-design.md (design) DIRS='order-cancel'
 [PASS-METADATA] docs/sys/order/cancel/order-cancel-1100.refund-design.md — 同目錄 .metadata.md 存在
 [PASS-LINES] docs/sys/order/cancel/order-cancel-1100.refund-design.md (design) 60/300 行
+
+[PASS-NAME] docs/sys/order/cancel/order-cancel-1200.notify-plan-review-draft.md (review, draft) DIRS='order-cancel'
+[PASS-METADATA] docs/sys/order/cancel/order-cancel-1200.notify-plan-review-draft.md — 同目錄 .metadata.md 存在
+[PASS-DRAFT] docs/sys/order/cancel/order-cancel-1200.notify-plan-review-draft.md — 暫存檔，內容尚未撰寫，完成後 rename 移除 -draft 後綴
 
 [PASS-REGISTRY] docs/sys — 1 個節點，無循環，所有 list.md 完備
 ```

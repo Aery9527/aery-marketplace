@@ -36,9 +36,10 @@
       `<DIRS>-0000-design.md`
       這樣命名的文件，此為避免兩種命名同時表達「最頂層」造成混淆。
     - 若 4 碼數字不夠用的話，則表示當前目錄的功能已經 **過大** 了，**必須** 向下拆分子目錄來劃分功能，**嚴禁** 直接增加位數來編碼。
-- `SUBNAME` 子名稱，**必須** 只能包含小寫英文/數字/底線(`[a-z0-9_]`)，**嚴禁** 包含其他符號。用於檔名上做次級主題區分。
+- `SUBNAME` 子名稱，**必須** 只能包含小寫英文/數字/底線(`[a-z0-9_]`)，**嚴禁** 包含其他符號。用於檔名上做次級主題區分。`SUBNAME` 不得單獨等於保留字 `review` 或 `draft`，因為這兩個字作為檔名後綴有專屬語意（取名 `reviewer` / `drafting` 等仍合法）。
 - `SEQUENCE` 純 2 碼序列號，主要是 `plan.md` 在使用。
 - `draft` 為檔案後綴命名，用於表示待規劃/實作的項目。主要用意是可用來記錄有那些東西已規劃但尚未開始，可避免維護額外的 list 紀錄。
+- `review` 為檔案後綴命名，專屬於 `plan` 的同儕審查產物，**只能** 出現在 `plan` 系列檔名上（見下方 `review.md` 章節）。`-review` 與 `-draft` 可組合：`<plan-base>-review-draft.md` 表示 review 已開啟但內容尚未寫完。
 
 ### `.metadata.md`
 
@@ -61,10 +62,20 @@
 - 受眾是 AI agent，屬 SD 文件，內容為具體實作計畫，**必須** 以 `SBE` 呈現規格；每組 input/output 範例同時作為實作目標與驗收標準。
 - **必須** 嚴格遵守命名規則 `<DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]][-draft].md`，內容不超過 500 行。
 - `plan.md` 檔名 prefix 區塊必須與 `design.md` 對應，有拆分 `DC` 時需對應 `<DIRS>-DC.SUBNAME-plan*.md`，無拆分 `DC` 時則對應 `<DIRS>-plan*.md`。
-- 當 `<DIRS>-design.md` 頂層文件則擔任 `god-view` 時，此目錄內 **嚴禁** 出現任何 `plan.md` 文件。
+- 當 `<DIRS>-design.md` 頂層文件則擔任 `god-view` 時，此目錄內 **嚴禁** 出現任何 `plan.md` 文件（連同對應的 `review.md` 也一併禁止）。
 - 當 `plan.md` 內容可能需要以 func name 作為實作細節描述時則可以使用 `-SUBNAME` 表示主題，但並不侷限是 func name，視當下實作細節分析而定。
 - 當使用了 `-SUBNAME` 劃分多個 `plan.md` 時，若該 plan 會有許多 `SBE` 的 test case 定義導致一個 `plan.md` 會超過 500 行時，**必須** 使用 `SEQUENCE`
   拆分多個文件，例如 `.01`, `.02`, ...等等，以此降低每次一個檔案的實作負擔。
+
+### `review.md`
+
+- 受眾是 AI agent，屬 plan 的同儕審查紀錄（peer-review artifact）；用於記錄對單一 `plan.md` 的審查發現、建議與決議。
+- **必須** 嚴格遵守命名規則 `<DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]]-review[-draft].md`，內容不超過 500 行（沿用 plan 的 500 行 WARN 規則）。
+- 一份 `review.md` **必須** 對應同目錄下唯一的一份 `plan.md`：
+    - 對應的 plan 為 `<plan-base>.md`，則 review 為 `<plan-base>-review.md`；尚未完成 review 時暫存為 `<plan-base>-review-draft.md`。
+    - review 自身 **嚴禁** 再帶 `-SUBNAME` / `.SEQUENCE` — review 之上的拆分已由其對應的 plan 本身承接。
+- review 的審查對象僅限該對應 plan；**嚴禁** 在單一 review 內談多個 plan 或跨 plan 比較。跨 plan 議題應記錄在最頂層 design 的層級。
+- 當 `<DIRS>-design.md` 擔任 god-view 整合（plan 被禁）時，對應的 review 檔同樣 **嚴禁** 出現在該目錄，由 `check.py` 的 god-view 互斥規則一併攔截。
 
 ## 多 docs/sys 註冊 (list.md)
 
@@ -172,6 +183,32 @@ docs/sys/record/
     record-1100.create-plan-validate.md     ← 對應 1100.create design + plan SUBNAME
 ```
 
+### `review.md` 命名
+
+review 檔一律緊接於其對應 plan 之後，**嚴禁** 自帶 SUBNAME / SEQUENCE：
+
+```
+docs/sys/record/
+    record-plan.md
+    record-plan-review.md                       ← 對應 record-plan.md
+    record-plan-review-draft.md                 ← 暫存中
+
+    record-plan-create_record.md
+    record-plan-create_record-review.md         ← 對應 record-plan-create_record.md
+
+    record-plan-create_record.01.md
+    record-plan-create_record.01-review.md      ← 對應 .01 那一批 SBE 的 review
+
+當 plan 有 DC.SUBNAME 拆分時：
+    record-1100.create-plan.md
+    record-1100.create-plan-review.md           ← 對應 1100.create plan
+    record-1100.create-plan-validate-review.md  ← 對應 1100.create plan + plan SUBNAME
+
+✗ record-plan-review-foo.md                     ← 嚴禁：review 不得再帶 SUBNAME
+✗ record-plan-review.01.md                      ← 嚴禁：review 不得再帶 SEQUENCE
+✗ record-review.md                              ← 嚴禁：review 必須附在 plan 之上
+```
+
 ### `DC` 編碼
 
 ```
@@ -242,8 +279,9 @@ python <SKILL_ROOT>/scripts/check.py project-root/docs/sys
 
 ```
 ✗ [FAIL-NAME]          catalog-design-draft.md — DIRS 不一致：檔名為 'catalog'，路徑推導為 'ecommerce-catalog'
-✗ [FAIL-NAME]          record-design.draft.md — 檔名不符 design / plan 命名規範（draft 後綴須為 -draft 不是 .draft）
+✗ [FAIL-NAME]          record-design.draft.md — 檔名不符 design / plan / review 命名規範（draft 後綴須為 -draft 不是 .draft）
 ✗ [FAIL-NAME]          record-0000.foo-design.md — DC 嚴禁使用 '0000'
 ✗ [FAIL-METADATA]      record-design.md — 同目錄缺少 .metadata.md
-✗ [FAIL-GODVIEW-PLAN]  record-plan.md — 同目錄同時存在 DC 拆分 design 與 plan*.md
+✗ [FAIL-GODVIEW-PLAN]  record-plan.md — 同目錄同時存在 DC 拆分 design 與 plan*.md / plan*-review*.md
+✗ [FAIL-GODVIEW-PLAN]  record-plan-review.md — 同上規則一併攔截 review 檔
 ```

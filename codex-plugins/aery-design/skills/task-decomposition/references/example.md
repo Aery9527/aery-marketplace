@@ -8,7 +8,7 @@
 
 - One sentence: buyers can create orders, query their own orders, and cancel orders that are not yet paid.
 - Scope: `order` is a god-view containing three required sub-modules: `create` / `read` / `cancel`.
-- Assumptions: `create` is fully done (design + plan); `read` is still a placeholder draft created by the parent god-view; `cancel` entered leaf and used `DC.SUBNAME` same-layer split because content was too large.
+- Assumptions: `create` is fully done (design + plan + review — completed all six phases); `read` is still a placeholder draft created by the parent god-view; `cancel` entered leaf and used `DC.SUBNAME` same-layer split, finished plan, with 1100's review done and 1200's review still in draft.
 
 ## Full Directory Tree
 
@@ -23,9 +23,13 @@ docs/sys/
             .metadata.md
             order-create-design.md                          ← leaf
             order-create-plan-add_item.md                   ← plan (function-name topic)
+            order-create-plan-add_item-review.md            ← Phase 3 review; Phase 4 already appended ## Main Agent Decision
             order-create-plan-submit.md                     ← plan (function-name topic)
+            order-create-plan-submit-review.md              ← review for the submit plan
             order-create-plan-submit.01.md                  ← plan (1st batch SBE under same SUBNAME)
+            order-create-plan-submit.01-review.md           ← review for the .01 batch
             order-create-plan-submit.02.md                  ← plan (2nd batch SBE under same SUBNAME)
+            order-create-plan-submit.02-review-draft.md     ← .02 review not yet started
         read/
             .metadata.md
             order-read-design-draft.md                      ← unfilled placeholder
@@ -36,7 +40,9 @@ docs/sys/
             order-cancel-1100.refund-design.md              ← parallel with 1200
             order-cancel-1200.notify-design.md              ← parallel with 1100
             order-cancel-1100.refund-plan.md                ← corresponds to 1100.refund
+            order-cancel-1100.refund-plan-review.md         ← review for 1100.refund plan
             order-cancel-1200.notify-plan.md                ← corresponds to 1200.notify
+            order-cancel-1200.notify-plan-review-draft.md   ← 1200 review still in draft
 ```
 
 Note: because `order-cancel-design.md` uses same-layer DC integration, this layer plays the god-view role; therefore this directory **MUST NOT** contain any `order-cancel-plan*.md`. Plan is fully handled by `order-cancel-1100.*` and `order-cancel-1200.*`.
@@ -212,6 +218,47 @@ When SBE test cases are too many, split into batches via the `.NN` sequence; thi
 - Storage layer `orders`, `order_audit` ledgers
 ````
 
+### `docs/sys/order/create/order-create-plan-add_item-review.md` (includes Phase 4 main-agent decision)
+
+````markdown
+# order-create plan-add_item review
+
+> Corresponds to plan: [order-create-plan-add_item.md](order-create-plan-add_item.md)
+> Corresponds to design: [order-create-design.md](order-create-design.md)
+
+## Review Summary
+
+SBE covers the happy path and one invalid-quantity boundary case; however the race behavior for "adding the same item again" is not specified for concurrent callers — an extra SBE is recommended.
+
+## Findings and Suggestions
+
+### 1. Concurrent add of the same item
+
+- Observation: the plan wraps "read draft + write item" in a transaction, but no SBE shows the expected outcome when two concurrent AddItem calls hit the same sku.
+- Suggestion: add an SBE — two goroutines simultaneously call `AddItem(sku-001, +2)`; expected final quantity is +4 (not partial overwrite); neither returns ErrConflict.
+- Impact: only this plan.
+
+### 2. Upper bound on quantity is undefined
+
+- Observation: the plan only rejects quantity = 0; behavior for extremely large values (e.g. INT_MAX) is undefined.
+- Suggestion: align with the catalog module — cap at 1000; exceeding values return ErrInvalidQuantity.
+- Impact: also touches design (catalog boundary assumption needs to be added to "Premises and Constraints").
+
+## Main Agent Decision
+
+### 1. Concurrent add of the same item
+
+- Decision: accept-modify-plan
+- Rationale: since the plan already uses a transaction, an SBE that pins down the concurrent expectation aligns implementation and acceptance.
+- Action: add a 4th SBE in "SBE Specs" titled "Concurrent AddItem on the same sku"; input is two goroutines simultaneously calling +2; output is final qty = +4 with both returning nil.
+
+### 2. Upper bound on quantity is undefined
+
+- Decision: accept-modify-design
+- Rationale: the upper bound is a boundary assumption between catalog and order; it should be made explicit in the design's "Premises and Constraints" first, then the plan can implement accordingly.
+- Action: (route to design flow; not applied in this Phase 5)
+````
+
 ### `docs/sys/order/cancel/order-cancel-design.md` (same-layer DC integrator god-view)
 
 ````markdown
@@ -248,8 +295,11 @@ python <SKILL_ROOT>/scripts/check.py \
     docs/sys/order/order-design.md \
     docs/sys/order/create/order-create-design.md \
     docs/sys/order/create/order-create-plan-submit.01.md \
+    docs/sys/order/create/order-create-plan-add_item-review.md \
+    docs/sys/order/create/order-create-plan-submit.02-review-draft.md \
     docs/sys/order/read/order-read-design-draft.md \
     docs/sys/order/cancel/order-cancel-1100.refund-design.md \
+    docs/sys/order/cancel/order-cancel-1200.notify-plan-review-draft.md \
     docs/sys
 ```
 
@@ -268,6 +318,14 @@ Expected output (one line per check):
 [PASS-METADATA] docs/sys/order/create/order-create-plan-submit.01.md — .metadata.md present in same directory
 [PASS-LINES] docs/sys/order/create/order-create-plan-submit.01.md (plan) 120/500 lines
 
+[PASS-NAME] docs/sys/order/create/order-create-plan-add_item-review.md (review) DIRS='order-create'
+[PASS-METADATA] docs/sys/order/create/order-create-plan-add_item-review.md — .metadata.md present in same directory
+[PASS-LINES] docs/sys/order/create/order-create-plan-add_item-review.md (review) 48/500 lines
+
+[PASS-NAME] docs/sys/order/create/order-create-plan-submit.02-review-draft.md (review, draft) DIRS='order-create'
+[PASS-METADATA] docs/sys/order/create/order-create-plan-submit.02-review-draft.md — .metadata.md present in same directory
+[PASS-DRAFT] docs/sys/order/create/order-create-plan-submit.02-review-draft.md — placeholder file, content not written; remove `-draft` suffix on rename when complete
+
 [PASS-NAME] docs/sys/order/read/order-read-design-draft.md (design, draft) DIRS='order-read'
 [PASS-METADATA] docs/sys/order/read/order-read-design-draft.md — .metadata.md present in same directory
 [PASS-DRAFT] docs/sys/order/read/order-read-design-draft.md — placeholder file, content not written; remove `-draft` suffix on rename when complete
@@ -275,6 +333,10 @@ Expected output (one line per check):
 [PASS-NAME] docs/sys/order/cancel/order-cancel-1100.refund-design.md (design) DIRS='order-cancel'
 [PASS-METADATA] docs/sys/order/cancel/order-cancel-1100.refund-design.md — .metadata.md present in same directory
 [PASS-LINES] docs/sys/order/cancel/order-cancel-1100.refund-design.md (design) 60/300 lines
+
+[PASS-NAME] docs/sys/order/cancel/order-cancel-1200.notify-plan-review-draft.md (review, draft) DIRS='order-cancel'
+[PASS-METADATA] docs/sys/order/cancel/order-cancel-1200.notify-plan-review-draft.md — .metadata.md present in same directory
+[PASS-DRAFT] docs/sys/order/cancel/order-cancel-1200.notify-plan-review-draft.md — placeholder file, content not written; remove `-draft` suffix on rename when complete
 
 [PASS-REGISTRY] docs/sys — 1 node, no cycles, all list.md / .metadata.md present
 ```

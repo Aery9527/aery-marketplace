@@ -6,16 +6,17 @@
     python check.py <target> [<target> ...]
 
 target 自動辨識：
-    符合 design.md / plan.md 命名規範的檔案 → 檔案層級驗證（檔名、DIRS 對齊、行數、同目錄附屬檔）
+    符合 design.md / plan.md / review.md 命名規範的檔案 → 檔案層級驗證（檔名、DIRS 對齊、行數、同目錄附屬檔）
     list.md                                  → 註冊表驗證（從該 list.md 所在 docs/sys 為起點）
     .metadata.md                             → 目錄附屬驗證（檢查所在目錄是否合法位置）
     docs/sys 目錄                             → 註冊表驗證（從該目錄為起點）
 
 檢查項目（規則固定於本腳本，AI 不得自行判斷）：
     [檔案層級]
-        1. 檔名格式：design / plan 命名規則
+        1. 檔名格式：design / plan / review 命名規則
            design:  <DIRS>[-DC.SUBNAME]-design[-draft].md
            plan:    <DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]][-draft].md
+           review:  <DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]]-review[-draft].md
            draft 後綴一律 -draft（hyphen），不是 .draft（dot）。
         2. 路徑對齊：檔名 DIRS 需等於 docs/sys 之下的實際目錄序列以 - 串接，
            且每層目錄名稱僅允許 [a-z0-9]+（不含底線）。
@@ -24,12 +25,14 @@ target 自動辨識：
         3. 行數限制（僅對非 -draft 檔案）:
            design  上限 300 行（超過：FAIL）
            plan    上限 500 行（超過：WARN）
+           review  上限 500 行（超過：WARN，沿用 plan 限制）
         4. -draft 暫存檔：僅檢查命名，不檢查行數（PASS-DRAFT）。
         5. 同目錄附屬檔：檔案所在目錄必須有 .metadata.md（PASS-METADATA / FAIL-METADATA）。
         6. god-view 互斥：若該目錄包含 DC 拆檔的 design 文件（頂層 <DIRS>-design.md
-           退化為 god-view），且該目錄內存在「無 DC 的 <DIRS>-plan*.md」，則回報
-           FAIL-GODVIEW-PLAN。對應到具體 DC 拆檔的 plan（<DIRS>-NNNN.SUB-plan*.md）
-           是允許的，不會觸發此錯誤。
+           退化為 god-view），且該目錄內存在「無 DC 的 <DIRS>-plan*.md」或對應的
+           「無 DC 的 <DIRS>-plan*-review*.md」，則回報 FAIL-GODVIEW-PLAN。對應到具體
+           DC 拆檔的 plan / review（<DIRS>-NNNN.SUB-plan*.md / -review*.md）是允許的，
+           不會觸發此錯誤。
 
     [註冊表層級]
         7. 每個 docs/sys 目錄必須存在 list.md（即使無下游節點，也要空檔存在）。
@@ -63,6 +66,12 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
+# 從腳本自身位置推導 skill root 與 project root，避免寫死路徑。
+#   check.py → scripts/ → task-decomposition/ → skills/ → .claude/ → project root
+_SKILL_ROOT = Path(__file__).resolve().parents[1]   # task-decomposition/
+_PROJECT_ROOT = _SKILL_ROOT.parents[2]              # skill root 往上 3 層 = project root
+DOCS_SYS_ROOT = _PROJECT_ROOT / "docs" / "sys"
+
 DESIGN_LIMIT = 300
 PLAN_LIMIT = 500
 
@@ -79,10 +88,13 @@ DESIGN_PATTERN = re.compile(
 )
 
 PLAN_PATTERN = re.compile(
+    # SUBNAME 名稱不得單獨等於 'review' 或 'draft'，避免與後綴衝突；
+    # negative lookahead 阻擋以 review/draft 起頭、後接 - / . / 結尾 的 SUBNAME。
     r"^(?P<dirs>[a-z0-9]+(?:-[a-z0-9]+)*?)"
     r"(?:-(?P<dc>\d{4})\.(?P<dc_subname>[a-z0-9_]+))?"
     r"-plan"
-    r"(?:-(?P<subname>[a-z0-9_]+)(?:\.(?P<sequence>\d{2}))?)?"
+    r"(?:-(?!(?:review|draft)(?:[-.]|$))(?P<subname>[a-z0-9_]+)(?:\.(?P<sequence>\d{2}))?)?"
+    r"(?P<review>-review)?"
     r"(?P<draft>-draft)?"
     r"\.md$"
 )
@@ -98,10 +110,18 @@ LIST_LINK_PATTERN = re.compile(r"^\s*-\s+\[[^\]]+\]\(([^)]+)\)")
 def extract_path_dirs(path: Path):
     """從路徑抽取 docs/sys 之下、檔案所在的目錄序列；不在 docs/sys 下則回傳 None。"""
     try:
-        parts = path.resolve().parts
+        resolved = path.resolve()
     except Exception:
-        parts = path.parts
+        resolved = path
 
+    # 優先比對 project-root 推導出的 DOCS_SYS_ROOT，再 fallback 至慣例字串比對。
+    try:
+        rel = resolved.relative_to(DOCS_SYS_ROOT)
+        return list(rel.parts[:-1])
+    except ValueError:
+        pass
+
+    parts = resolved.parts
     for i in range(len(parts) - 2):
         if parts[i] == "docs" and parts[i + 1] == "sys":
             return list(parts[i + 2 : -1])
@@ -119,11 +139,12 @@ def check_naming(arg: str, path: Path):
         is_draft = bool(design_m.group("draft"))
         dc = design_m.group("dc")
     elif plan_m:
-        kind, m = "plan", plan_m
+        kind = "review" if plan_m.group("review") else "plan"
+        m = plan_m
         is_draft = bool(plan_m.group("draft"))
         dc = plan_m.group("dc")
     else:
-        return False, None, f"[FAIL-NAME] {arg} — 檔名不符 design / plan 命名規範（draft 後綴須為 -draft 不是 .draft）"
+        return False, None, f"[FAIL-NAME] {arg} — 檔名不符 design / plan / review 命名規範（draft 後綴須為 -draft 不是 .draft）"
 
     file_dirs = m.group("dirs")
     path_dirs = extract_path_dirs(path)
@@ -148,8 +169,8 @@ def check_naming(arg: str, path: Path):
 
     if dc == "0000":
         return False, (kind, is_draft, dc), (
-            f"[FAIL-NAME] {arg} — DC 嚴禁使用 '0000'（最頂層整合一律由無 DC 的 "
-            f"<DIRS>-{kind}.md 擔任，不得用 0000 取代）"
+            f"[FAIL-NAME] {arg} — DC 嚴禁使用 '0000'（最頂層整合一律由無 DC 的對應檔案擔任，"
+            "不得用 0000 取代）"
         )
 
     if dc and dc[0] == "0":
@@ -230,7 +251,8 @@ def check_godview_plan_conflict(arg: str, path: Path):
     if has_dc_design and has_no_dc_plan:
         print(
             f"[FAIL-GODVIEW-PLAN] {arg} — 同目錄存在 DC 拆檔 design，頂層 <DIRS>-design.md 已退化為 "
-            "god-view，**嚴禁** 出現無 DC 的 <DIRS>-plan*.md；plan 必須對應具體 DC 拆檔"
+            "god-view，**嚴禁** 出現無 DC 的 <DIRS>-plan*.md / <DIRS>-plan*-review*.md；"
+            "plan 與 review 必須對應具體 DC 拆檔"
         )
         return True
     return False
@@ -283,6 +305,13 @@ def parse_list_md(list_md: Path):
 
 
 def is_docs_sys_dir(p: Path) -> bool:
+    # 先比對 project-root 推導出的 DOCS_SYS_ROOT；registry 含多倉庫子模組時，
+    # 仍 fallback 至慣例（name=="sys" 且 parent.name=="docs"）來相容任意位置。
+    try:
+        if p.resolve() == DOCS_SYS_ROOT.resolve():
+            return True
+    except Exception:
+        pass
     return p.name == "sys" and p.parent.name == "docs"
 
 
@@ -457,8 +486,11 @@ def check_one(arg: str):
 
 def main(argv):
     if not argv:
-        print(__doc__)
-        return 1
+        if DOCS_SYS_ROOT.is_dir():
+            argv = [str(DOCS_SYS_ROOT)]
+        else:
+            print(__doc__)
+            return 1
 
     has_blocker = False
     for arg in argv:

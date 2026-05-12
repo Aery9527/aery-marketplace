@@ -27,9 +27,10 @@ The keywords appearing in filename rules are defined as follows:
     - **Top-level entry MUST start at the thousands group**: when a directory first introduces `DC` encoding, the top-level split MUST start at the thousands group (`1000`, `2000`, `3000`...). Starting directly at hundreds or smaller (`0100`, `0010`) is **FORBIDDEN**; lower digits are reserved for later downward splits.
     - `0000` is **STRICTLY FORBIDDEN**. By the rules above, `0000` would be the topmost integration document; that role is filled solely by the file with no `DC` (`<DIRS>-design.md`). `<DIRS>-0000-design.md` is **STRICTLY FORBIDDEN** to avoid two filenames simultaneously expressing "topmost".
     - If 4 digits are not enough, the directory's scope is **already too large**; you **MUST** split into sub-directories. Adding more digits is **STRICTLY FORBIDDEN**.
-- `SUBNAME`: sub-name. **MUST** consist only of lowercase letters / digits / underscore (`[a-z0-9_]`); other characters **STRICTLY FORBIDDEN**. Used in filenames for secondary topic differentiation.
+- `SUBNAME`: sub-name. **MUST** consist only of lowercase letters / digits / underscore (`[a-z0-9_]`); other characters **STRICTLY FORBIDDEN**. Used in filenames for secondary topic differentiation. `SUBNAME` MUST NOT be exactly the reserved word `review` or `draft`, because those words carry dedicated suffix semantics (using `reviewer` / `drafting` etc. is still allowed).
 - `SEQUENCE`: a 2-digit sequence number, used mainly in `plan.md`.
 - `draft`: a filename suffix marking a planned-but-not-started item. Avoids the need for a separate list registry.
+- `review`: a filename suffix dedicated to a plan's peer-review artifact; **MUST** appear only on `plan`-series filenames (see the `review.md` section below). `-review` and `-draft` may combine: `<plan-base>-review-draft.md` means the review has been opened but its content is not yet written.
 
 ### `.metadata.md`
 
@@ -50,9 +51,19 @@ The keywords appearing in filename rules are defined as follows:
 - Audience is AI agents; this is an SD document. Content is a concrete implementation plan and **MUST** be expressed as `SBE`; each input/output example is simultaneously the implementation target and the acceptance criterion.
 - **MUST** strictly follow the naming rule `<DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]][-draft].md`; content MUST NOT exceed 500 lines.
 - The `plan.md` filename prefix MUST correspond to its `design.md`: when the design has `DC` split, the plan must be `<DIRS>-DC.SUBNAME-plan*.md`; without `DC` split, the plan must be `<DIRS>-plan*.md`.
-- When the top-level `<DIRS>-design.md` plays the `god-view` role, this directory **MUST NOT** contain any `plan.md`.
+- When the top-level `<DIRS>-design.md` plays the `god-view` role, this directory **MUST NOT** contain any `plan.md` (the corresponding `review.md` is forbidden as well).
 - When `plan.md` content benefits from organizing by function name, you may use `-SUBNAME` for the topic; not limited to function names — depends on the implementation analysis.
 - When `-SUBNAME` is used to split multiple `plan.md` files and a particular plan still has too many `SBE` test cases (>500 lines), you **MUST** further split using `SEQUENCE` (e.g. `.01`, `.02`, ...) to reduce per-file implementation burden.
+
+### `review.md`
+
+- Audience is AI agents; this is the peer-review artifact for a plan, recording findings, suggestions, and decisions about a single `plan.md`.
+- **MUST** strictly follow the naming rule `<DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]]-review[-draft].md`; content MUST NOT exceed 500 lines (reuses plan's 500-line WARN limit).
+- One `review.md` **MUST** correspond to exactly one `plan.md` in the same directory:
+    - For a plan named `<plan-base>.md`, the review is `<plan-base>-review.md`; while the review is not yet complete, it stays as `<plan-base>-review-draft.md`.
+    - The review itself **MUST NOT** carry an additional `-SUBNAME` / `.SEQUENCE` — splitting above review's level is already handled by the corresponding plan.
+- A review only addresses its corresponding plan; **STRICTLY FORBIDDEN** to discuss multiple plans or cross-plan comparisons in a single review. Cross-plan concerns belong at the upper-level design.
+- When `<DIRS>-design.md` plays the god-view integrator role (plans are forbidden), the corresponding review files are **EQUALLY FORBIDDEN** in that directory, jointly enforced by `check.py`'s god-view exclusion rule.
 
 ## Multiple `docs/sys` Registration (list.md)
 
@@ -158,6 +169,32 @@ When the design has DC.SUBNAME split:
     record-1100.create-plan-validate.md     ← corresponds to 1100.create design + plan SUBNAME
 ```
 
+### `review.md` naming
+
+The review file always appends to its corresponding plan; it **MUST NOT** carry its own SUBNAME / SEQUENCE:
+
+```
+docs/sys/record/
+    record-plan.md
+    record-plan-review.md                       ← corresponds to record-plan.md
+    record-plan-review-draft.md                 ← in draft
+
+    record-plan-create_record.md
+    record-plan-create_record-review.md         ← corresponds to record-plan-create_record.md
+
+    record-plan-create_record.01.md
+    record-plan-create_record.01-review.md      ← review of the .01 SBE batch
+
+When the plan has DC.SUBNAME split:
+    record-1100.create-plan.md
+    record-1100.create-plan-review.md           ← corresponds to 1100.create plan
+    record-1100.create-plan-validate-review.md  ← corresponds to 1100.create plan + plan SUBNAME
+
+✗ record-plan-review-foo.md                     ← FORBIDDEN: review must not carry its own SUBNAME
+✗ record-plan-review.01.md                      ← FORBIDDEN: review must not carry its own SEQUENCE
+✗ record-review.md                              ← FORBIDDEN: review must be attached to a plan
+```
+
 ### `DC` encoding
 
 ```
@@ -228,8 +265,9 @@ Possible output:
 
 ```
 ✗ [FAIL-NAME]          catalog-design-draft.md — DIRS mismatch: filename says 'catalog' but path-derived 'ecommerce-catalog'
-✗ [FAIL-NAME]          record-design.draft.md — does not match design / plan naming (draft suffix MUST be -draft, NOT .draft)
+✗ [FAIL-NAME]          record-design.draft.md — does not match design / plan / review naming (draft suffix MUST be -draft, NOT .draft)
 ✗ [FAIL-NAME]          record-0000.foo-design.md — DC '0000' is STRICTLY FORBIDDEN
 ✗ [FAIL-METADATA]      record-design.md — .metadata.md missing in same directory
-✗ [FAIL-GODVIEW-PLAN]  record-plan.md — same directory has both DC-split design and plan*.md
+✗ [FAIL-GODVIEW-PLAN]  record-plan.md — same directory has both DC-split design and plan*.md / plan*-review*.md
+✗ [FAIL-GODVIEW-PLAN]  record-plan-review.md — review files are caught by the same rule
 ```
