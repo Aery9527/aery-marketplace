@@ -102,6 +102,59 @@ flowchart TD
 - `god-view`：本層 scope 仍需向下拆分為獨立子目錄（每個子模組各自擁有自己的 `docs/sys/<sub>/` 視角，含各自 design / plan）。`god-view` 目錄內 **嚴禁** 出現任何 `plan.md` 與對應的 `plan*-review*.md`，本層僅做敘事整合。
 - `leaf`：本層 scope 不需要再向下拆分子目錄，可直接於本層撰寫實作型 design 並對應 plan；若本層內容過多需要同層 `DC.SUBNAME` 拆分時，本層 `<DIRS>-design.md` 退化為 god-view 整合（**不再對應 plan**），plan 全由各 DC 拆檔（`<DIRS>-NNNN.SUBNAME-plan*.md`）各自承接，此種同層拆分不視為向下拆分。
 
+### 拆分策略詢問 Gate（design-draft 階段必跑）
+
+> 只要 Step 2 判定結果指向「需要拆分」（god-view 向下拆子目錄、或 leaf 需同層 `DC.SUBNAME` 拆檔），**必須** 在動筆前先停下來詢問使用者要用哪個層級的拆分策略；**禁止** 僅依規則自動決定後直接執行。Pre-gate q3 即使已詢問過，仍需在此確認，因為 draft 階段的實際拆分粒度可能與最初想像不同。
+
+```mermaid
+flowchart TD
+    a{Step 2 結果<br/>需要拆分?} -->|否,單一 leaf| skip[略過此 gate<br/>直接進 Step 3-4]
+    a -->|是| ask[暫停,列出三層拆分手段供使用者選擇]
+    ask --> o1["1. 子目錄拆分<br/>(god-view + child docs/sys/)"]
+    ask --> o2["2. 同層 DC.SUBNAME 拆分<br/>(leaf,本層退化為整合)"]
+    ask --> o3["3. plan SUBNAME 拆分<br/>(同一份 design,plan 多檔)"]
+    o1 & o2 & o3 --> recap[一併附上判斷依據:<br/>各 sub-feature user story 是否獨立 /<br/>預估行數 / 實作時機差異]
+    recap --> wait[等待使用者明確選定<br/>禁止預設,禁止替使用者決定]
+    wait --> next[依使用者選擇繼續 Step 3-4]
+```
+
+詢問時 **必須** 提供：
+
+- 目前 Step 2 自動判定的結果與理由（讓使用者知道預設方向）。
+- 三層拆分手段的差異與後果（對應上方「拆分手段決策」表格）。
+- **每個選項套用後的實際檔案 / 目錄結構樣貌**（用當下 scope 的真實 `DIRS` 與 sub-feature 名稱代入，**不可** 用 `<DIRS>` / `<SUBNAME>` 之類佔位符；讓使用者一眼看清選下去會長什麼樣）。範例（假設本層為 `docs/sys/order/`，含 `checkout` / `fulfillment` 兩個 sub-feature）：
+
+    ```text
+    選項 1 — 子目錄拆分（god-view）
+    docs/sys/order/
+    ├── order-design.md                 ← god-view 整合,無 plan
+    ├── list.md
+    ├── checkout/
+    │   ├── .metadata.md
+    │   ├── order-checkout-design.md
+    │   └── order-checkout-plan.md
+    └── fulfillment/
+        ├── .metadata.md
+        ├── order-fulfillment-design.md
+        └── order-fulfillment-plan.md
+
+    選項 2 — 同層 DC.SUBNAME 拆分(leaf,本層退化為整合)
+    docs/sys/order/
+    ├── order-design.md                 ← 退化為整合視角,無 plan
+    ├── order-1000.checkout-design.md
+    ├── order-1000.checkout-plan.md
+    ├── order-2000.fulfillment-design.md
+    └── order-2000.fulfillment-plan.md
+
+    選項 3 — plan SUBNAME 拆分(同一份 design)
+    docs/sys/order/
+    ├── order-design.md                 ← 同一份 design 涵蓋 checkout + fulfillment
+    ├── order-plan-checkout.md
+    └── order-plan-fulfillment-draft.md ← 尚未實作的面向以 -draft 暫存
+    ```
+
+- 若使用者選擇與 Step 2 判定不同的策略（例如判定為 god-view 但使用者偏好 `plan` `SUBNAME`），**必須** 視為結構性偏好變更，回 Pre-gate 重跑相關問題後才動筆。
+
 ## Step 3-4: 撰寫內容 + 處理子檔 / rename
 
 ### god-view 流程

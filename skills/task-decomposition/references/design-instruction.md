@@ -102,6 +102,59 @@ flowchart TD
 - `god-view`: this layer's scope still requires further splitting into independent sub-directories (each sub-module gets its own `docs/sys/<sub>/` perspective with its own design / plan). A `god-view` directory **MUST NOT** contain any `plan.md` or any corresponding `plan*-review*.md`; it does narrative integration only.
 - `leaf`: this layer's scope does not require further splitting into sub-directories; you can directly write the implementation-type design here with corresponding plan. If content grows too large, you may use same-layer `DC.SUBNAME` split for multiple design / plan files. In that case, `<DIRS>-design.md` degenerates into a god-view integrator (**no longer corresponds to any plan**), and plan is handled by each DC-split file (`<DIRS>-NNNN.SUBNAME-plan*.md`). Same-layer split does NOT count as downward decomposition.
 
+### Split-Strategy Ask Gate (MANDATORY during design-draft)
+
+> Whenever the Step 2 decision points to "splitting is needed" (god-view downward into sub-directories, or leaf needing same-layer `DC.SUBNAME` split), you **MUST** pause and ask the user which level of split strategy to use **before** writing anything. **NEVER** silently apply the rule-derived split. Even if Pre-gate q3 was already answered, re-confirm here because the actual split granularity at draft time often diverges from the initial assumption.
+
+```mermaid
+flowchart TD
+    a{Step 2 result<br/>needs split?} -->|no, single leaf| skip[skip this gate<br/>proceed to Step 3-4]
+    a -->|yes| ask[pause; present the three split mechanisms to the user]
+    ask --> o1["1. sub-directory split<br/>(god-view + child docs/sys/)"]
+    ask --> o2["2. same-layer DC.SUBNAME split<br/>(still leaf; this layer degrades into integrator)"]
+    ask --> o3["3. plan SUBNAME split<br/>(one design, multiple plan files)"]
+    o1 & o2 & o3 --> recap[also surface the rationale:<br/>whether each sub-feature has independent user stories /<br/>estimated line count / differences in implementation timing]
+    recap --> wait[wait for explicit user choice<br/>NO default, NO deciding on the user's behalf]
+    wait --> next[continue Step 3-4 per user's choice]
+```
+
+When asking, you **MUST** include:
+
+- The Step 2 auto-derived decision and its reasoning (so the user knows the default direction).
+- The differences and consequences of the three split mechanisms (matches the "Split-Mechanism Decision" table above).
+- **The concrete resulting file / directory layout for each option** (substitute the real `DIRS` and sub-feature names from the current scope; **never** use placeholders like `<DIRS>` / `<SUBNAME>` — the user should immediately see what each choice will look like). Example (this layer is `docs/sys/order/`, with two sub-features `checkout` / `fulfillment`):
+
+    ```text
+    Option 1 — sub-directory split (god-view)
+    docs/sys/order/
+    ├── order-design.md                 ← god-view integrator, no plan
+    ├── list.md
+    ├── checkout/
+    │   ├── .metadata.md
+    │   ├── order-checkout-design.md
+    │   └── order-checkout-plan.md
+    └── fulfillment/
+        ├── .metadata.md
+        ├── order-fulfillment-design.md
+        └── order-fulfillment-plan.md
+
+    Option 2 — same-layer DC.SUBNAME split (still leaf; this layer degrades into integrator)
+    docs/sys/order/
+    ├── order-design.md                 ← degrades into integrator, no plan
+    ├── order-1000.checkout-design.md
+    ├── order-1000.checkout-plan.md
+    ├── order-2000.fulfillment-design.md
+    └── order-2000.fulfillment-plan.md
+
+    Option 3 — plan SUBNAME split (one shared design)
+    docs/sys/order/
+    ├── order-design.md                 ← one design covers both checkout + fulfillment
+    ├── order-plan-checkout.md
+    └── order-plan-fulfillment-draft.md ← unimplemented facet stays as -draft
+    ```
+
+- If the user picks a strategy different from Step 2's result (e.g. Step 2 says god-view but the user prefers `plan` `SUBNAME`), treat it as a structural-preference change: re-run the relevant Pre-gate questions before writing anything.
+
 ## Step 3-4: Write Content + Handle Child Files / Rename
 
 ### god-view flow
