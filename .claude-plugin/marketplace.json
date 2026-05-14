@@ -14,6 +14,7 @@
       "strict": false,
       "skills": [
         "./write-md",
+        "./task-decomposition",
         "./image-to-html"
       ]
     },
@@ -24,6 +25,7 @@
       "skills": [
         "./windows-script",
         "./write-md",
+        "./task-decomposition",
         "./arch-rules",
         "./go-mongo-rules"
       ]
