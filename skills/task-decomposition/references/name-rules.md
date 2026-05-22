@@ -27,10 +27,11 @@ The keywords appearing in filename rules are defined as follows:
     - **Top-level entry MUST start at the thousands group**: when a directory first introduces `DC` encoding, the top-level split MUST start at the thousands group (`1000`, `2000`, `3000`...). Starting directly at hundreds or smaller (`0100`, `0010`) is **FORBIDDEN**; lower digits are reserved for later downward splits.
     - `0000` is **STRICTLY FORBIDDEN**. By the rules above, `0000` would be the topmost integration document; that role is filled solely by the file with no `DC` (`<DIRS>-design.md`). `<DIRS>-0000-design.md` is **STRICTLY FORBIDDEN** to avoid two filenames simultaneously expressing "topmost".
     - If 4 digits are not enough, the directory's scope is **already too large**; you **MUST** split into sub-directories. Adding more digits is **STRICTLY FORBIDDEN**.
-- `SUBNAME`: sub-name. **MUST** consist only of lowercase letters / digits / underscore (`[a-z0-9_]`); other characters **STRICTLY FORBIDDEN**. Used in filenames for secondary topic differentiation. `SUBNAME` MUST NOT be exactly the reserved word `review` or `draft`, because those words carry dedicated suffix semantics (using `reviewer` / `drafting` etc. is still allowed).
+- `SUBNAME`: sub-name. **MUST** consist only of lowercase letters / digits / underscore (`[a-z0-9_]`); other characters **STRICTLY FORBIDDEN**. Used in filenames for secondary topic differentiation. `SUBNAME` MUST NOT be exactly the reserved words `review` / `draft` / `visual`, because those words carry dedicated suffix semantics (using `reviewer` / `drafting` / `viewer` etc. is still allowed).
 - `SEQUENCE`: a 2-digit sequence number, used mainly in `plan.md`.
 - `draft`: a filename suffix marking a planned-but-not-started item. Avoids the need for a separate list registry.
 - `review`: a filename suffix dedicated to a plan's peer-review artifact; **MUST** appear only on `plan`-series filenames (see the `review.md` section below). `-review` and `-draft` may combine: `<plan-base>-review-draft.md` means the review has been opened but its content is not yet written.
+- `visual`: a filename suffix dedicated to a `design`'s visualization supplement (mermaid diagrams + brief notes); **MUST** appear only on `design`-series filenames (see the `visual.md` section below) and **MUST NOT** carry its own `SUBNAME` / `SEQUENCE`. `-visual` and `-draft` may combine: `<design-base>-visual-draft.md` means the visual has been opened but its content is not yet written.
 
 ### `.metadata.md`
 
@@ -45,6 +46,17 @@ The keywords appearing in filename rules are defined as follows:
 - When a top-level `<DIRS>-design.md` cannot fit the entire content (would exceed 300 lines), use one of these approaches:
     - Split with `-DC.SUBNAME` — multiple files in the same directory. Use this when the features being split **have no clear scope categorization**, so forcing them into sub-directories would be artificial. In this case `<DIRS>-design.md` becomes a `god-view` integrating those DC files; itself **does not** correspond to any `plan.md`.
     - Split into sub-directories, deferring detail to a deeper abstraction layer. Use this when the features being split **have clear scope categorization**, so sub-directories naturally divide them. In this case `<DIRS>-design.md` is not necessarily `god-view` — it can also have a corresponding `plan.md` that orchestrates sub-directory features — but is still bound by the 300-line limit.
+
+### `visual.md`
+
+- Audience is humans; visualization supplement to a `design.md`. Carries the design's mermaid diagrams (module dependency, data flow, sequence, flowchart, state machine, ER, etc.) plus brief textual notes.
+- **MUST** strictly follow the naming rule `<DIRS>[-DC.SUBNAME]-design-visual[-draft].md`; **no line limit** (a visual is mostly mermaid + minor textual notes, expected to exceed 300 lines easily).
+- One `design.md` corresponds to **at most one** `visual.md`; missing visual is allowed (case-by-case — only build a visual when visualization actually adds clarity).
+- visual **MUST NOT** carry its own `-SUBNAME` or `.SEQUENCE`; all diagrams live in a single visual file.
+- When `<DIRS>-design.md` plays the god-view integrator role, **a corresponding `<DIRS>-design-visual.md` is allowed** (god-view benefits most from structural visualization); this is not in conflict with the god-view / plan exclusion rule because visual belongs to design's supplement, not to plan. The same applies to `<DIRS>-NNNN.SUB-design-visual.md` for DC-split designs.
+- visual **MUST** correspond to an existing (or simultaneously created) `<DIRS>[-DC.SUBNAME]-design.md` whose prefix matches exactly; orphan visual files are **STRICTLY FORBIDDEN**.
+- visual content **MUST** be mermaid diagrams + brief textual notes. **STRICTLY FORBIDDEN** to include user story / system requirements / acceptance criteria / premises (these belong to `design.md`); **EQUALLY FORBIDDEN** to include programming language / API path / function signature / SBE input-output examples (these belong to `plan.md`).
+- Authoring details (trigger conditions, mermaid type selection, required output spec like `## 快速導覽` + back-to-top links + `---` separators, template) live in `visual-instruction.md`; load on demand only when actually building a visual.
 
 ### `plan.md`
 
@@ -195,6 +207,37 @@ When the plan has DC.SUBNAME split:
 ✗ record-review.md                              ← FORBIDDEN: review must be attached to a plan
 ```
 
+### `visual.md` naming
+
+visual is a design's visualization supplement; its prefix matches the corresponding design exactly. **MUST NOT** carry its own SUBNAME / SEQUENCE:
+
+```
+docs/sys/record/
+    record-design.md
+    record-design-visual.md            ← corresponds to record-design.md
+    record-design-visual-draft.md      ← in draft (content not yet written)
+
+When the design has DC.SUBNAME split:
+    record-1100.create-design.md
+    record-1100.create-design-visual.md       ← corresponds to 1100.create design
+
+✗ record-design-visual-foo.md          ← FORBIDDEN: visual MUST NOT carry its own SUBNAME
+✗ record-design-visual.01.md           ← FORBIDDEN: visual MUST NOT carry its own SEQUENCE
+✗ record-visual.md                     ← FORBIDDEN: must attach after -design-, not bare
+✗ record-plan-visual.md                ← FORBIDDEN: visual only attaches to design, not plan
+```
+
+A god-view design is allowed to have its own visual (and is in fact encouraged for structural diagrams):
+
+```
+docs/sys/order/
+    order-design.md                  ← god-view integrator
+    order-design-visual.md             ← god-view's structural visualization (allowed)
+    create/
+        order-create-design.md
+        order-create-design-visual.md  ← leaf's visual (allowed)
+```
+
 ### `DC` encoding
 
 ```
@@ -265,8 +308,11 @@ Possible output:
 
 ```
 ✗ [FAIL-NAME]          catalog-design-draft.md — DIRS mismatch: filename says 'catalog' but path-derived 'ecommerce-catalog'
-✗ [FAIL-NAME]          record-design.draft.md — does not match design / plan / review naming (draft suffix MUST be -draft, NOT .draft)
+✗ [FAIL-NAME]          record-design.draft.md — does not match design / plan / review / visual naming (draft suffix MUST be -draft, NOT .draft)
 ✗ [FAIL-NAME]          record-0000.foo-design.md — DC '0000' is STRICTLY FORBIDDEN
+✗ [FAIL-NAME]          record-design-visual-foo.md — visual MUST NOT carry its own SUBNAME
+✗ [FAIL-NAME]          record-visual.md — visual must attach to a `-design-` prefix, not be bare
+✗ [FAIL-NAME]          record-plan-visual.md — visual only attaches to design, not plan (`visual` is a reserved word in plan SUBNAME)
 ✗ [FAIL-METADATA]      record-design.md — .metadata.md missing in same directory
 ✗ [FAIL-GODVIEW-PLAN]  record-plan.md — same directory has both DC-split design and plan*.md / plan*-review*.md
 ✗ [FAIL-GODVIEW-PLAN]  record-plan-review.md — review files are caught by the same rule

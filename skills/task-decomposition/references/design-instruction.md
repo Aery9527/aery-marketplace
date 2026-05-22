@@ -22,8 +22,11 @@ flowchart TD
     G3b --> G4[4. create sub-dir / .metadata.md /<br/>child-DIRS-design-draft.md]
     S2 -->|leaf| L3[3'. write leaf design content]
     L3 --> L4[4'. if handed down from -draft,<br/>rename to drop -draft]
-    G4 --> S5[5. check.py validation]
-    L4 --> S5
+    G4 --> V{4.5. visualization<br/>supplement needed?}
+    L4 --> V
+    V -->|yes| Vy[load visual-instruction.md<br/>create -design-visual.md or -design-visual-draft.md]
+    V -->|no| S5[5. check.py validation]
+    Vy --> S5
     S5 --> S6[6. commit]
     S6 --> GATE2{Review Gate 2<br/>post-commit content review}
     GATE2 -->|adjust| S1
@@ -33,7 +36,7 @@ flowchart TD
     S8 -->|end this round| done([end])
 ```
 
-Every design follows this flow; steps 3 / 4 / 8 branch by `god-view` / `leaf` type (in the diagram: G3a / G3b / G4 vs L3 / L4). `god-view` goes through 2 review gates (step 3 bullet + step 7); `leaf` only 1 (step 7).
+Every design follows this flow; steps 3 / 4 / 8 branch by `god-view` / `leaf` type (in the diagram: G3a / G3b / G4 vs L3 / L4). `god-view` goes through 2 review gates (step 3 bullet + step 7); `leaf` only 1 (step 7). Step 4.5 is an evaluation branch: if the design benefits from visualization (mermaid diagrams for module dependency / data flow / sequence / state machine / etc.), load [visual-instruction.md](visual-instruction.md) and produce a `-design-visual.md` (or `-design-visual-draft.md`); otherwise proceed straight to step 5. **god-view designs are strongly encouraged to ship a visual**; small `leaf` designs whose narrative is already clear in text may skip the visual entirely.
 
 ## Step 1: Confirm Scope and File Location
 
@@ -173,6 +176,25 @@ When asking, you **MUST** include:
 - Per the "`leaf` template" below, directly write the actual design content with user story as main body; describe "what" and "why" only, **never** any programming implementation.
 - If this file was handed down from an upper-level `-draft.md`, rename to remove the `-draft` suffix.
 
+## Step 4.5: Evaluate Visualization Supplement (`-design-visual.md`)
+
+After writing the design content, evaluate whether a visualization supplement adds clarity. **MUST NOT** unfold visual authoring details here — they live in [visual-instruction.md](visual-instruction.md), which is loaded **on demand only when the evaluation answer is yes**.
+
+Quick decision:
+
+- **Skip the visual** when the design fits in a few short user-story bullets, modules are obvious, and there is no non-trivial flow / state / dependency to draw. Small leaf designs frequently land here.
+- **Build a visual** (load [visual-instruction.md](visual-instruction.md)) when **any** of the following applies — see visual-instruction for the canonical trigger list:
+  - Non-trivial module / package / component dependency chain.
+  - ≥3 components involved in a request-response or event timing flow.
+  - Branching processing flow that prose cannot describe cleanly.
+  - **State machine / lifecycle** — entity transitions across multiple states with entry / exit / self-loop / exception paths.
+  - Data flow pipeline where direction and edge labels both carry meaning.
+  - ≥3 entities connected via foreign keys or aggregation.
+
+For a `god-view` design, **strongly recommend** at least a module-dependency diagram plus an integrated data-flow diagram — visual-instruction.md covers both.
+
+If the decision is "build it later", create a `<DIRS>[-DC.SUBNAME]-design-visual-draft.md` placeholder now (filename existence is enough, content can be empty); when actually authored, rename to drop `-draft`. **NEVER** create a visual file without a corresponding `<DIRS>[-DC.SUBNAME]-design.md` —`check.py` only validates filename, but the orphan rule is enforced by the spec.
+
 ## Step 5: Rule Validation
 
 ```mermaid
@@ -181,6 +203,7 @@ flowchart LR
     a -->|god-view| g2[each child -draft.md<br/>PASS-NAME + PASS-DRAFT]
     a -->|god-view| g3[new sub-directories have .metadata.md<br/>PASS-METADATA]
     a -->|leaf| l[this design.md<br/>PASS-NAME + PASS-LINES<br/>FAIL-LINES MUST be split]
+    a -->|either, if built| v[-design-visual.md<br/>PASS-NAME + PASS-METADATA + PASS-VISUAL<br/>or PASS-DRAFT for -draft]
 ```
 
 - Command: `python <SKILL_ROOT>/scripts/check.py <file path>` (see SKILL "Script Execution Convention" for resolving `<SKILL_ROOT>`).
@@ -345,6 +368,7 @@ When `check.py` reports `FAIL-LINES`, you **MUST** split (`leaf` only; `god-view
 - [ ] `check.py` reports `PASS-NAME` + `PASS-LINES` (`leaf`), or `PASS-NAME` + `PASS-LINES` + all child `PASS-DRAFT` (`god-view`).
 - [ ] No programming implementation detail anywhere in the file.
 - [ ] `god-view`: every listed sub-module has its directory, `.metadata.md`, and `<child-DIRS>-design-draft.md` created.
-- [ ] `god-view`: no `plan.md` and no `plan*-review*.md` in this directory (god-view MUST NOT correspond to either plan or review).
+- [ ] `god-view`: no `plan.md` and no `plan*-review*.md` in this directory (god-view MUST NOT correspond to either plan or review). `<DIRS>-design-visual.md` is allowed and encouraged.
+- [ ] Step 4.5 visualization supplement decision has been made: either a `-design-visual.md` / `-design-visual-draft.md` exists, or there is a clear reason the design needs none. If built, [visual-instruction.md](visual-instruction.md) was loaded and its Completion Checklist passed.
 - [ ] `leaf`: proactively asked the user whether to enter plan planning next (the corresponding `plan.md` is handled in [plan-instruction.md](plan-instruction.md), not in this design's checklist).
 - [ ] If handed down from `*-draft.md`, the `-draft` suffix has been removed by rename.

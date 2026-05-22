@@ -14,7 +14,7 @@ By enforcing a consistent functional structure and decomposition criteria, anyon
 
 ## Core Concepts
 
-- The terms `DIRS`, `DC`, `SUBNAME`, `SEQUENCE`, `draft`, `review` referenced below are defined in [name-rules.md](references/name-rules.md); load it on demand when you actually need the definitions.
+- The terms `DIRS`, `DC`, `SUBNAME`, `SEQUENCE`, `draft`, `review`, `visual` referenced below are defined in [name-rules.md](references/name-rules.md); load it on demand when you actually need the definitions.
 - All documents live under some `docs/sys/`. A directory name represents the meaning of a feature; its content is the detail of that feature. The content may be another directory (further subdivided into independent / oversized sub-features), or actual `design.md` / `plan.md` files plus their corresponding `plan*-review*.md` peer-review artifacts.
 - `design.md` filename format: `<DIRS>[-DC.SUBNAME]-design[-draft].md`
     - Audience is humans; this is an SA document. Content is an abstract feature description, with `user story` as the main body, and includes system-level requirements (idempotency, concurrency control, scheduling, caveats, etc.).
@@ -25,6 +25,13 @@ By enforcing a consistent functional structure and decomposition criteria, anyon
     - This file plays one of two roles:
         - `god-view`: a high-abstraction narrative integrating multiple sub-features. Content links to sub-directories or other `design.md` files. **MUST NOT** have any corresponding `plan.md`.
         - `leaf`: a small, directly implementable feature. **MUST** have one or more corresponding `plan.md`.
+- `design-visual.md` filename format: `<DIRS>[-DC.SUBNAME]-design-visual[-draft].md`
+    - Audience is humans; visualization supplement attached to a `design.md`. Carries mermaid diagrams (module dependency, data flow, sequence, flowchart, state machine, ER, etc.) plus brief textual notes.
+    - One `design.md` corresponds to **at most one** `design-visual.md`; missing visual is allowed (case-by-case — most small leaf designs don't need one). god-view designs are **strongly encouraged** to ship a visual for structural overview.
+    - **MUST NOT** carry its own `SUBNAME` / `SEQUENCE`; all diagrams live in a single visual file. **MUST** correspond to an existing `<DIRS>[-DC.SUBNAME]-design.md` with matching prefix; orphan visual files are **STRICTLY FORBIDDEN**.
+    - **MUST** include `## 快速導覽` table-of-contents with `[返回開頭](#快速導覽)` back-to-top links and standalone `---` separators between top-level sections.
+    - **MUST NOT** contain design-level content (user story / system requirements / acceptance criteria / premises) nor plan-level content (programming language, function signature, API path, SBE examples).
+    - No line limit. Validated by `check.py`'s `PASS-VISUAL`. Detailed authoring guidance lives in [visual-instruction.md](references/visual-instruction.md) (load on demand).
 - `plan.md` filename format: `<DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]][-draft].md`
     - Audience is AI agents; this is an SD document. Content is a concrete implementation plan and **MUST** be expressed as `SBE` (Specification by Example); each input/output example is simultaneously the implementation target and acceptance criterion.
     - Content covers concrete implementation: programming language, module breakdown, function signatures, data structures, etc. — describing "how"; do NOT repeat "what" / "why" already covered in the `design.md`.
@@ -73,4 +80,5 @@ The two phases connect like this: `design` is the human-facing SA stage that dec
 
 - For any task that **adds / modifies / extends** a `design.md`, load [design-instruction.md](references/design-instruction.md).
 - For any task that **adds / modifies / extends** a `plan.md` (or its peer-review artifact `plan*-review*.md`), load [plan-instruction.md](references/plan-instruction.md).
+- For any task that **adds / modifies / extends** a `design-visual.md` (i.e. when the design flow's Step 4.5 evaluation says "build a visual"), load [visual-instruction.md](references/visual-instruction.md). **NEVER** load it speculatively — most designs don't need a visual.
 - To see an end-to-end "directory + filename + content" demonstration, load [example.md](references/example.md) (uses an `order` system as scenario, covering god-view, leaf, `-draft`, `DC.SUBNAME` same-layer split, `.metadata.md` / `list.md`, and `check.py` output).

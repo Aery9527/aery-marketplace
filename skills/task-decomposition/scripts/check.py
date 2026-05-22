@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
 """
-檢查 design.md / plan.md / docs/sys 註冊表 / 目錄附屬檔是否符合 task-decomposition skill 規範。
+檢查 design.md / plan.md / visual.md / docs/sys 註冊表 / 目錄附屬檔是否符合 task-decomposition skill 規範。
 
 用法：
     python check.py <target> [<target> ...]
 
 target 自動辨識：
-    符合 design.md / plan.md / review.md 命名規範的檔案 → 檔案層級驗證（檔名、DIRS 對齊、行數、同目錄附屬檔）
+    符合 design.md / plan.md / review.md / visual.md 命名規範的檔案
+                                              → 檔案層級驗證（檔名、DIRS 對齊、行數、同目錄附屬檔）
     list.md                                  → 註冊表驗證（從該 list.md 所在 docs/sys 為起點）
     .metadata.md                             → 目錄附屬驗證（檢查所在目錄是否合法位置）
     docs/sys 目錄                             → 註冊表驗證（從該目錄為起點）
 
 檢查項目（規則固定於本腳本，AI 不得自行判斷）：
     [檔案層級]
-        1. 檔名格式：design / plan / review 命名規則
+        1. 檔名格式：design / plan / review / visual 命名規則
            design:  <DIRS>[-DC.SUBNAME]-design[-draft].md
            plan:    <DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]][-draft].md
            review:  <DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]]-review[-draft].md
+           visual:  <DIRS>[-DC.SUBNAME]-design-visual[-draft].md
+                    visual 嚴禁自帶 SUBNAME / SEQUENCE；所有圖集中在單一 visual 檔。
            draft 後綴一律 -draft（hyphen），不是 .draft（dot）。
         2. 路徑對齊：檔名 DIRS 需等於 docs/sys 之下的實際目錄序列以 - 串接，
            且每層目錄名稱僅允許 [a-z0-9]+（不含底線）。
@@ -24,15 +27,17 @@ target 自動辨識：
            DC 不得以 0 開頭（頂層必須從千位數起點 1000/2000/... 開始）。
         3. 行數限制（僅對非 -draft 檔案）:
            design  上限 300 行（超過：FAIL）
-           plan    上限 500 行（超過：WARN）
+           plan    上限 500 行（超過:WARN）
            review  上限 500 行（超過：WARN，沿用 plan 限制）
+           visual  無行數限制（直接 PASS-VISUAL）
         4. -draft 暫存檔：僅檢查命名，不檢查行數（PASS-DRAFT）。
         5. 同目錄附屬檔：檔案所在目錄必須有 .metadata.md（PASS-METADATA / FAIL-METADATA）。
         6. god-view 互斥：若該目錄包含 DC 拆檔的 design 文件（頂層 <DIRS>-design.md
            退化為 god-view），且該目錄內存在「無 DC 的 <DIRS>-plan*.md」或對應的
            「無 DC 的 <DIRS>-plan*-review*.md」，則回報 FAIL-GODVIEW-PLAN。對應到具體
            DC 拆檔的 plan / review（<DIRS>-NNNN.SUB-plan*.md / -review*.md）是允許的，
-           不會觸發此錯誤。
+           不會觸發此錯誤。visual 走獨立 VISUAL_PATTERN，**不會** 被當成 plan，因此
+           god-view 目錄允許出現 <DIRS>-design-visual.md（含 god-view 整合者本身的視覺化補充）。
 
     [註冊表層級]
         7. 每個 docs/sys 目錄必須存在 list.md（即使無下游節點，也要空檔存在）。
@@ -45,6 +50,7 @@ target 自動辨識：
     [PASS-NAME] / [FAIL-NAME]
     [PASS-LINES] / [WARN-LINES] / [FAIL-LINES]
     [PASS-DRAFT]
+    [PASS-VISUAL]
     [PASS-METADATA] / [FAIL-METADATA]
     [PASS-REGISTRY] / [FAIL-REGISTRY] / [FAIL-CYCLE] / [FAIL-LIST-MISSING]
     [FAIL-GODVIEW-PLAN]
@@ -88,13 +94,24 @@ DESIGN_PATTERN = re.compile(
 )
 
 PLAN_PATTERN = re.compile(
-    # SUBNAME 名稱不得單獨等於 'review' 或 'draft'，避免與後綴衝突；
-    # negative lookahead 阻擋以 review/draft 起頭、後接 - / . / 結尾 的 SUBNAME。
+    # SUBNAME 名稱不得單獨等於 'review' / 'draft' / 'visual'，避免與後綴 / 保留字衝突；
+    # 'visual' 是 design 的視覺化補充專用後綴 (見 VISUAL_PATTERN)，嚴禁掛在 plan 上。
+    # negative lookahead 阻擋以 review / draft / visual 起頭、後接 - / . / 結尾 的 SUBNAME。
     r"^(?P<dirs>[a-z0-9]+(?:-[a-z0-9]+)*?)"
     r"(?:-(?P<dc>\d{4})\.(?P<dc_subname>[a-z0-9_]+))?"
     r"-plan"
-    r"(?:-(?!(?:review|draft)(?:[-.]|$))(?P<subname>[a-z0-9_]+)(?:\.(?P<sequence>\d{2}))?)?"
+    r"(?:-(?!(?:review|draft|visual)(?:[-.]|$))(?P<subname>[a-z0-9_]+)(?:\.(?P<sequence>\d{2}))?)?"
     r"(?P<review>-review)?"
+    r"(?P<draft>-draft)?"
+    r"\.md$"
+)
+
+# visual 為 design 的視覺化補充；前綴與 design 對齊，嚴禁自帶 SUBNAME / SEQUENCE，
+# 所有 mermaid 圖集中於單一 visual 檔。可與 -draft 組合表示草稿。
+VISUAL_PATTERN = re.compile(
+    r"^(?P<dirs>[a-z0-9]+(?:-[a-z0-9]+)*?)"
+    r"(?:-(?P<dc>\d{4})\.(?P<dc_subname>[a-z0-9_]+))?"
+    r"-design-visual"
     r"(?P<draft>-draft)?"
     r"\.md$"
 )
@@ -131,10 +148,18 @@ def extract_path_dirs(path: Path):
 def check_naming(arg: str, path: Path):
     """回傳 (ok, info, msg)；info = (kind, is_draft, dc) 或 None。"""
     name = path.name
-    design_m = DESIGN_PATTERN.match(name)
-    plan_m = PLAN_PATTERN.match(name)
+    # visual 必須在 design 之前嘗試：<DIRS>-design-visual.md 雖然不會被 DESIGN_PATTERN 誤吃
+    # （因為非貪婪 dirs 嘗試後仍會在尾端對不上 -design 後綴），但「先試 VISUAL_PATTERN」
+    # 讓意圖明確且未來修改不致誤判。
+    visual_m = VISUAL_PATTERN.match(name)
+    design_m = None if visual_m else DESIGN_PATTERN.match(name)
+    plan_m = None if (visual_m or design_m) else PLAN_PATTERN.match(name)
 
-    if design_m:
+    if visual_m:
+        kind, m = "visual", visual_m
+        is_draft = bool(visual_m.group("draft"))
+        dc = visual_m.group("dc")
+    elif design_m:
         kind, m = "design", design_m
         is_draft = bool(design_m.group("draft"))
         dc = design_m.group("dc")
@@ -144,7 +169,7 @@ def check_naming(arg: str, path: Path):
         is_draft = bool(plan_m.group("draft"))
         dc = plan_m.group("dc")
     else:
-        return False, None, f"[FAIL-NAME] {arg} — 檔名不符 design / plan / review 命名規範（draft 後綴須為 -draft 不是 .draft）"
+        return False, None, f"[FAIL-NAME] {arg} — 檔名不符 design / plan / review / visual 命名規範（draft 後綴須為 -draft 不是 .draft；visual 嚴禁自帶 SUBNAME / SEQUENCE）"
 
     file_dirs = m.group("dirs")
     path_dirs = extract_path_dirs(path)
@@ -227,6 +252,10 @@ def check_godview_plan_conflict(arg: str, path: Path):
     本目錄頂層 <DIRS>-design.md 退化為 god-view 整合，因此 **無 DC 的 <DIRS>-plan*.md**
     不得出現；plan 必須對應到具體 DC 拆檔（<DIRS>-NNNN.SUB-plan*.md），這些 plan 是允許的。
 
+    visual 走獨立 VISUAL_PATTERN，不會被當成 plan，因此 god-view 目錄允許出現
+    <DIRS>-design-visual.md 與 <DIRS>-NNNN.SUB-design-visual.md（god-view 整合者本身的
+    視覺化補充本來就是被鼓勵的用法）。
+
     回傳 has_blocker。
     """
     parent = path.parent
@@ -280,6 +309,12 @@ def check_file(arg: str, path: Path):
     if is_draft:
         # 暫存檔僅檢查命名，不驗行數（內容尚未撰寫）
         print(f"[PASS-DRAFT] {arg} ({kind}, draft) — 暫存檔，內容尚未撰寫，完成後 rename 移除 -draft 後綴")
+        return blocker
+
+    if kind == "visual":
+        # visual 為 design 的視覺化補充，內容主要為 mermaid 圖 + 少量說明文字，
+        # 預期行數會比一般 design / plan 顯著更高，故不設行數上限。
+        print(f"[PASS-VISUAL] {arg} (visual) — visual 無行數限制，命名與 .metadata.md 通過")
         return blocker
 
     line_blocker, line_msg = check_lines(arg, path, kind)

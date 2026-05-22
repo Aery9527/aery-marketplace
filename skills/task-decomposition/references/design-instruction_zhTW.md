@@ -22,8 +22,11 @@ flowchart TD
     G3b --> G4[4. 建立子目錄 / .metadata.md /<br/>child-DIRS-design-draft.md]
     S2 -->|leaf| L3[3'. 依 leaf 模板撰寫實質 design]
     L3 --> L4[4'. 若是接 -draft 進來,<br/>rename 移除 -draft]
-    G4 --> S5[5. check.py 校驗]
-    L4 --> S5
+    G4 --> V{4.5. 是否需要<br/>視覺化補充?}
+    L4 --> V
+    V -->|是| Vy[載入 visual-instruction_zhTW.md<br/>建立 -design-visual.md 或 -design-visual-draft.md]
+    V -->|否| S5[5. check.py 校驗]
+    Vy --> S5
     S5 --> S6[6. commit]
     S6 --> GATE2{Review Gate 2<br/>commit 後內容 review}
     GATE2 -->|要求調整| S1
@@ -33,7 +36,7 @@ flowchart TD
     S8 -->|結束本輪| done([結束])
 ```
 
-每份 design 都跑這套流程；step 3 / 4 / 8 依 `god-view` / `leaf` 類型分支（圖中 G3a / G3b / G4 與 L3 / L4）。`god-view` 經過 2 次 review gate（step 3 子彈 + step 7），`leaf` 僅 1 次（step 7）。
+每份 design 都跑這套流程；step 3 / 4 / 8 依 `god-view` / `leaf` 類型分支（圖中 G3a / G3b / G4 與 L3 / L4）。`god-view` 經過 2 次 review gate（step 3 子彈 + step 7），`leaf` 僅 1 次（step 7）。Step 4.5 是評估分支：若 design 受益於視覺化（mermaid 圖呈現模組相依 / data flow / sequence / 狀態機等），載入 [visual-instruction_zhTW.md](visual-instruction_zhTW.md) 並建立 `-design-visual.md`（或 `-design-visual-draft.md`）；否則直接進 Step 5。**god-view design 強烈建議** 配備 visual；小型 `leaf` design 若文字敘述已清楚則可完全跳過 visual。
 
 ## Step 1: 確認 scope 與檔案位置
 
@@ -173,6 +176,25 @@ flowchart TD
 - 依下方「`leaf` 模板」直接撰寫實質 design 內容，以 user story 為主體，描述「是什麼」與「為什麼」，**完全不涉及程式實作**。
 - 若本份是從上層 `-draft.md` 接過來的，rename 移除 `-draft` 後綴。
 
+## Step 4.5: 評估視覺化補充（`-design-visual.md`）
+
+完成 design 內容後，評估視覺化是否能提升可讀性。**禁止** 在本檔展開 visual 撰寫細節 — 細節獨立於 [visual-instruction_zhTW.md](visual-instruction_zhTW.md)，**只在評估答案為「是」時才載入**。
+
+快速判斷：
+
+- **跳過 visual**：當 design 已能用幾條 user story bullet 講清楚、模組關係顯而易見、無非平凡流程 / 狀態 / 相依需要繪製時。小型 leaf design 經常落在此處。
+- **建立 visual**（載入 [visual-instruction_zhTW.md](visual-instruction_zhTW.md)）：當以下任一條件成立 — 詳細觸發清單見 visual-instruction：
+  - 模組 / 套件 / 元件之間有非平凡相依鏈。
+  - ≥3 個元件 / 服務的請求-回應或事件時序。
+  - 有明確分支的處理流程，文字難以描述清楚。
+  - **狀態機 / 生命週期** — 實體在多個狀態間轉換，含進入 / 終止 / 自迴圈 / 例外路徑。
+  - 方向與標籤都重要的資料流 pipeline。
+  - ≥3 個實體間有外鍵或聚合關係。
+
+對 `god-view` design **強烈建議** 至少呈現「模組相依」與「整體 data flow」兩張圖 — visual-instruction 兩者都涵蓋。
+
+若決定「之後再建」，現在先建立 `<DIRS>[-DC.SUBNAME]-design-visual-draft.md` 暫存檔（檔案存在即可，內容空白），實際撰寫時再 rename 移除 `-draft`。**禁止** 在無對應 `<DIRS>[-DC.SUBNAME]-design.md` 的情況下建立 visual 檔 —— `check.py` 只驗證檔名格式，orphan 規則由規範本身強制。
+
 ## Step 5: 規範校驗
 
 ```mermaid
@@ -181,6 +203,7 @@ flowchart LR
     a -->|god-view| g2[每份 child -draft.md<br/>PASS-NAME + PASS-DRAFT]
     a -->|god-view| g3[新建子目錄 .metadata.md<br/>PASS-METADATA]
     a -->|leaf| l[本份 design.md<br/>PASS-NAME + PASS-LINES<br/>FAIL-LINES 必須拆分]
+    a -->|兩者皆可,若有建立 visual| v[-design-visual.md<br/>PASS-NAME + PASS-METADATA + PASS-VISUAL<br/>-draft 則為 PASS-DRAFT]
 ```
 
 - 命令：`python <SKILL_ROOT>/scripts/check.py <檔案路徑>`（`<SKILL_ROOT>` 解析方式見 SKILL「腳本執行慣例」）。
@@ -345,6 +368,7 @@ flowchart TD
 - [ ] `check.py` 回報 `PASS-NAME` + `PASS-LINES`（`leaf`）或 `PASS-NAME` + `PASS-LINES` + 所有 child `PASS-DRAFT`（`god-view`）
 - [ ] 全文無任何程式實作細節
 - [ ] `god-view`：所有列出的子模組都已建立目錄、`.metadata.md` 與 `<child-DIRS>-design-draft.md`
-- [ ] `god-view`：本目錄內無任何 `plan.md` 或 `plan*-review*.md`（god-view 嚴禁對應 plan 與 review）
+- [ ] `god-view`：本目錄內無任何 `plan.md` 或 `plan*-review*.md`（god-view 嚴禁對應 plan 與 review）。`<DIRS>-design-visual.md` 允許且鼓勵存在。
+- [ ] Step 4.5 視覺化補充決議已完成：要麼存在對應的 `-design-visual.md` / `-design-visual-draft.md`，要麼有明確理由表示該 design 不需要 visual。若已建立，已載入 [visual-instruction_zhTW.md](visual-instruction_zhTW.md) 並通過其完成檢查清單。
 - [ ] `leaf`：已主動詢問使用者是否接續進入 plan 規劃（對應 `plan.md` 進入 [plan-instruction_zhTW.md](plan-instruction_zhTW.md) 後處理，不在本份 design 完成檢查範圍內）
 - [ ] 若是從 `*-draft.md` 接過來，已 rename 移除 `-draft` 後綴

@@ -14,7 +14,7 @@ description: >-
 
 ## 核心概念
 
-- 以下提到的 `DIRS`, `DC`, `SUBNAME`, `SEQUENCE`, `draft`, `review`， 涵義見 [name-rules_zhTW.md](references/name-rules_zhTW.md)，需要理解及使用時再載入即可
+- 以下提到的 `DIRS`, `DC`, `SUBNAME`, `SEQUENCE`, `draft`, `review`, `visual`， 涵義見 [name-rules_zhTW.md](references/name-rules_zhTW.md)，需要理解及使用時再載入即可
 - 所有文件皆放在 `docs/sys/` 底下，目錄名稱即是功能的意思，內容是該功能的細節。內容可能又是一個目錄(再細分有足夠獨立或 scope 過大的子功能)，也可能是實際的
   `design.md`、`plan.md` 與其對應的 `plan*-review*.md` peer-review 文件。
 - `design.md` 文件，檔名命名格式 `<DIRS>[-DC.SUBNAME]-design[-draft].md`
@@ -27,6 +27,13 @@ description: >-
         - `god-view`(上帝視角型):用於敘述整體故事或匯整多個子功能的高抽象層描述，內容會 link 子目錄(功能)或其他 `design.md`
           來組裝描述當前目錄的功能， **嚴禁** 有對應的 `plan.md`。
         - `leaf`(實作型):明確敘述夠小可實作的功能，**必須** 有一到多個對應的 `plan.md`。
+- `design-visual.md` 文件，檔名命名格式 `<DIRS>[-DC.SUBNAME]-design-visual[-draft].md`
+    - 受眾是人類，是某份 `design.md` 的視覺化補充。承載對應 design 的 mermaid 圖（模組相依、data flow、sequence、流程圖、狀態機、ER 等）與少量補充文字。
+    - 一份 `design.md` 最多對應一份 `design-visual.md`；視情況而定，多數小型 leaf design 不需要 visual。god-view design **強烈建議** 配備 visual 以呈現整體結構。
+    - **嚴禁** 自帶 `SUBNAME` / `SEQUENCE`，所有圖集中於單一 visual 檔。**必須** 對應前綴完全一致的 `<DIRS>[-DC.SUBNAME]-design.md`；孤立的 visual 檔 **嚴禁** 存在。
+    - **必須** 提供 `## 快速導覽` 目錄索引、各章節結尾的 `[返回開頭](#快速導覽)` 回頂連結、以及章節之間的獨立 `---` 水平分隔線。
+    - **嚴禁** 出現 design 層級內容（user story / system requirements / acceptance criteria / premises）或 plan 層級內容（程式語言、function 簽名、API 路徑、SBE 範例）。
+    - 無行數限制，由 `check.py` 的 `PASS-VISUAL` 驗證。撰寫細節見 [visual-instruction_zhTW.md](references/visual-instruction_zhTW.md)，按需載入。
 - `plan.md` 文件，檔名命名格式 `<DIRS>[-DC.SUBNAME]-plan[-SUBNAME[.SEQUENCE]][-draft].md`
     - 受眾是 AI agent，屬 SD 文件，內容為具體實作計畫，**必須** 以 `SBE` 呈現規格；每組 input/output 範例同時作為實作目標與驗收標準。
     - 內容為具體的程式實作細節，涵蓋程式語言、模組劃分、函式介面與資料結構等系統細節，描述功能的「怎麼做」；不重複論述 `design.md` 的內容。
@@ -77,4 +84,5 @@ flowchart TD
 
 - 任何 **新增 / 修改 / 擴充** `design.md` 的任務，載入 [design-instruction_zhTW.md](references/design-instruction_zhTW.md)
 - 任何 **新增 / 修改 / 擴充** `plan.md`（或其 peer-review 產物 `plan*-review*.md`）的任務，載入 [plan-instruction_zhTW.md](references/plan-instruction_zhTW.md)
+- 任何 **新增 / 修改 / 擴充** `design-visual.md` 的任務（即 design flow 的 Step 4.5 評估判斷需要建立 visual 時），載入 [visual-instruction_zhTW.md](references/visual-instruction_zhTW.md)。**禁止** 推測性載入 — 多數 design 並不需要 visual。
 - 想看「目錄 + 檔名 + 內容」端到端示範，載入 [example_zhTW.md](references/example_zhTW.md)（以訂單系統 `order` 為情境，涵蓋 god-view、leaf、`-draft`、`DC.SUBNAME` 同層拆分、`.metadata.md` / `list.md` 與 check.py 輸出）

@@ -36,10 +36,11 @@
       `<DIRS>-0000-design.md`
       這樣命名的文件，此為避免兩種命名同時表達「最頂層」造成混淆。
     - 若 4 碼數字不夠用的話，則表示當前目錄的功能已經 **過大** 了，**必須** 向下拆分子目錄來劃分功能，**嚴禁** 直接增加位數來編碼。
-- `SUBNAME` 子名稱，**必須** 只能包含小寫英文/數字/底線(`[a-z0-9_]`)，**嚴禁** 包含其他符號。用於檔名上做次級主題區分。`SUBNAME` 不得單獨等於保留字 `review` 或 `draft`，因為這兩個字作為檔名後綴有專屬語意（取名 `reviewer` / `drafting` 等仍合法）。
+- `SUBNAME` 子名稱，**必須** 只能包含小寫英文/數字/底線(`[a-z0-9_]`)，**嚴禁** 包含其他符號。用於檔名上做次級主題區分。`SUBNAME` 不得單獨等於保留字 `review` / `draft` / `visual`，因為這三個字作為檔名後綴有專屬語意（取名 `reviewer` / `drafting` / `viewer` 等仍合法）。
 - `SEQUENCE` 純 2 碼序列號，主要是 `plan.md` 在使用。
 - `draft` 為檔案後綴命名，用於表示待規劃/實作的項目。主要用意是可用來記錄有那些東西已規劃但尚未開始，可避免維護額外的 list 紀錄。
 - `review` 為檔案後綴命名，專屬於 `plan` 的同儕審查產物，**只能** 出現在 `plan` 系列檔名上（見下方 `review.md` 章節）。`-review` 與 `-draft` 可組合：`<plan-base>-review-draft.md` 表示 review 已開啟但內容尚未寫完。
+- `visual` 為檔案後綴命名，專屬於 `design` 的視覺化補充（mermaid 圖 + 少量補充文字），**只能** 出現在 `design` 系列檔名上（見下方 `visual.md` 章節），且 **嚴禁** 自帶 `SUBNAME` / `SEQUENCE`。`-visual` 與 `-draft` 可組合：`<design-base>-visual-draft.md` 表示 visual 已開啟但內容尚未寫完。
 
 ### `.metadata.md`
 
@@ -56,6 +57,17 @@
       `<DIRS>-design.md` 頂層文件則擔任 `god-view`，將組合這些 DC 文件來描述功能，本身將不再對應 `plan.md`。
     - 使用子目錄將功能再向下細分，以較高的抽象層收斂設計/實作細節，適用於這些需要被拆分的功能 **有明確的 scope 分類** 時，就可以直接使用子目錄來規劃功能了。此時
       `<DIRS>-design.md` 頂層文件就不一定是 `god-view`，而是同時也可以對應 `plan.md` 來將子目錄功能組裝使用，但依然受限於 `design.md` 300 行限制。
+
+### `visual.md`
+
+- 受眾是人類，屬 SA 文件的視覺化補充，承載對應 `design.md` 的 mermaid 圖（模組相依、data flow、sequence、流程圖、狀態機、ER 等）與少量補充文字。
+- **必須** 嚴格遵守命名規則 `<DIRS>[-DC.SUBNAME]-design-visual[-draft].md`；**無行數限制**（visual 主體是 mermaid 圖 + 少量說明，理應比 design / plan 顯著更長）。
+- 一份 `design.md` 最多對應一份 `visual.md`；視情況而定，多數小型 leaf design 不需要 visual。
+- visual **嚴禁** 自帶 `-SUBNAME` 或 `.SEQUENCE`；所有圖集中於單一 visual 檔。
+- 當 `<DIRS>-design.md` 擔任 god-view 整合者時，**允許** 對應 `<DIRS>-design-visual.md`（god-view 最需要結構視覺化）；此規則與 god-view / plan 互斥規則並不衝突 — visual 屬於 design 的補充，不是 plan。`<DIRS>-NNNN.SUB-design-visual.md`（對應 DC 拆檔 design）亦同。
+- visual **必須** 對應一份已存在或同步建立的 `<DIRS>[-DC.SUBNAME]-design.md`，前綴需完全一致；孤立的 visual 檔 **嚴禁** 存在。
+- visual 內容 **必須** 為 mermaid 圖 + 少量補充文字；**嚴禁** 出現 user story / system requirements / acceptance criteria / premises 等屬於 design 主檔的內容；**亦嚴禁** 出現程式語言、API 路徑、function 簽名、SBE 範例等屬於 plan 的內容。
+- 撰寫細節（觸發情境、mermaid 類型選擇、必要輸出規格如 `## 快速導覽` + 回頂連結 + `---` 分隔、範本）見 [visual-instruction_zhTW.md](visual-instruction_zhTW.md)，只在實際要建立 visual 時才載入。
 
 ### `plan.md`
 
@@ -209,6 +221,37 @@ docs/sys/record/
 ✗ record-review.md                              ← 嚴禁：review 必須附在 plan 之上
 ```
 
+### `visual.md` 命名
+
+visual 為 design 的視覺化補充，前綴與對應 design 完全一致；**嚴禁** 自帶 SUBNAME / SEQUENCE：
+
+```
+docs/sys/record/
+    record-design.md
+    record-design-visual.md            ← 對應 record-design.md
+    record-design-visual-draft.md      ← 暫存中（內容尚未撰寫）
+
+當 design 有 DC.SUBNAME 拆分時：
+    record-1100.create-design.md
+    record-1100.create-design-visual.md       ← 對應 1100.create design
+
+✗ record-design-visual-foo.md          ← 嚴禁：visual 不得自帶 SUBNAME
+✗ record-design-visual.01.md           ← 嚴禁:visual 不得自帶 SEQUENCE
+✗ record-visual.md                     ← 嚴禁:必須附在 -design- 後綴之後
+✗ record-plan-visual.md                ← 嚴禁:visual 只能掛在 design，不能掛 plan
+```
+
+god-view 設計亦可（並建議）配備自身的 visual 以呈現結構：
+
+```
+docs/sys/order/
+    order-design.md                  ← god-view 整合者
+    order-design-visual.md             ← god-view 的結構視覺化（允許）
+    create/
+        order-create-design.md
+        order-create-design-visual.md  ← leaf 的 visual（允許）
+```
+
 ### `DC` 編碼
 
 ```
@@ -279,8 +322,11 @@ python <SKILL_ROOT>/scripts/check.py project-root/docs/sys
 
 ```
 ✗ [FAIL-NAME]          catalog-design-draft.md — DIRS 不一致：檔名為 'catalog'，路徑推導為 'ecommerce-catalog'
-✗ [FAIL-NAME]          record-design.draft.md — 檔名不符 design / plan / review 命名規範（draft 後綴須為 -draft 不是 .draft）
+✗ [FAIL-NAME]          record-design.draft.md — 檔名不符 design / plan / review / visual 命名規範（draft 後綴須為 -draft 不是 .draft）
 ✗ [FAIL-NAME]          record-0000.foo-design.md — DC 嚴禁使用 '0000'
+✗ [FAIL-NAME]          record-design-visual-foo.md — visual 嚴禁自帶 SUBNAME
+✗ [FAIL-NAME]          record-visual.md — visual 必須附在 -design- 後綴之後
+✗ [FAIL-NAME]          record-plan-visual.md — visual 只能掛在 design，不能掛 plan（`visual` 是 plan SUBNAME 的保留字）
 ✗ [FAIL-METADATA]      record-design.md — 同目錄缺少 .metadata.md
 ✗ [FAIL-GODVIEW-PLAN]  record-plan.md — 同目錄同時存在 DC 拆分 design 與 plan*.md / plan*-review*.md
 ✗ [FAIL-GODVIEW-PLAN]  record-plan-review.md — 同上規則一併攔截 review 檔

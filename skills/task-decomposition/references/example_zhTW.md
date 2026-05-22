@@ -26,9 +26,11 @@ docs/sys/
     order/
         .metadata.md
         order-design.md                                     ← god-view（本層敘事 + 子模組清單）
+        order-design-visual.md                                ← god-view 的視覺化補充（模組相依 + 整體 data flow）
         create/
             .metadata.md
             order-create-design.md                          ← leaf
+            order-create-design-visual.md                     ← leaf 的視覺化補充（狀態機 + sequence）
             order-create-plan-add_item.md                   ← plan（func 主題）
             order-create-plan-add_item-review.md            ← Phase 3 review；Phase 4 已追加 ## 主 agent 決議
             order-create-plan-submit.md                     ← plan（func 主題）
@@ -55,6 +57,8 @@ docs/sys/
 註：`order-cancel-design.md` 因採同層 DC 整合，本層擔任 god-view 角色，故本目錄
 內 **嚴禁** 出現 `order-cancel-plan*.md`；plan 全由 `order-cancel-1100.*` 與
 `order-cancel-1200.*` 承接。
+
+註（視覺化補充）：`god-view` 與 `leaf` design 皆可選擇性配備 `<DIRS>[-DC.SUBNAME]-design-visual.md` 承載 mermaid 圖（模組相依 / data flow / sequence / 狀態機等）；visual 與 design 一對一、無 SUBNAME / SEQUENCE、無行數限制，**必須** 提供 `## 快速導覽` + `[返回開頭]` 回頂連結 + `---` 章節分隔。撰寫細節見 [visual-instruction_zhTW.md](visual-instruction_zhTW.md)，只在 design flow 的 Step 4.5 評估判定要建立 visual 時才載入；`order/read/` 此處因 design 仍是 draft 而暫不配備 visual。`<DIRS>-design-visual.md` 對 god-view 層級而言是允許且鼓勵的用法。
 
 ## 各檔案內容
 

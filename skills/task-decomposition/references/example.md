@@ -19,9 +19,11 @@ docs/sys/
     order/
         .metadata.md
         order-design.md                                     ← god-view (this layer narrative + sub-module list)
+        order-design-visual.md                                ← god-view's visualization supplement (module dependency + integrated data flow)
         create/
             .metadata.md
             order-create-design.md                          ← leaf
+            order-create-design-visual.md                     ← leaf's visualization supplement (state machine + sequence)
             order-create-plan-add_item.md                   ← plan (function-name topic)
             order-create-plan-add_item-review.md            ← Phase 3 review; Phase 4 already appended ## Main Agent Decision
             order-create-plan-submit.md                     ← plan (function-name topic)
@@ -46,6 +48,8 @@ docs/sys/
 ```
 
 Note: because `order-cancel-design.md` uses same-layer DC integration, this layer plays the god-view role; therefore this directory **MUST NOT** contain any `order-cancel-plan*.md`. Plan is fully handled by `order-cancel-1100.*` and `order-cancel-1200.*`.
+
+Note (visualization supplement): both `god-view` and `leaf` designs may optionally ship a corresponding `<DIRS>[-DC.SUBNAME]-design-visual.md` to carry mermaid diagrams (module dependency / data flow / sequence / state machine / etc.); the visual is one-per-design, has no SUBNAME / SEQUENCE, no line limit, and **MUST** include `## 快速導覽` with `[返回開頭]` back-to-top links and `---` separators. Authoring details live in [visual-instruction.md](visual-instruction.md) and are loaded **only when** the design flow's Step 4.5 says a visual is warranted; `order/read/` here skips the visual because its design is still a draft. `<DIRS>-design-visual.md` is allowed and encouraged for god-view layers.
 
 ## File Contents
 
