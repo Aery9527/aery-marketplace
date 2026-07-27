@@ -30,10 +30,13 @@ flowchart TD
     CodexMarketplace --> Discovery
     CodexPackages --> Discovery
 
-    style Frontmatter fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
-    style Discovery fill:#d4edda,stroke:#28a745,color:#155724
-    style CodexMarketplace fill:#fff8e1,stroke:#f9a825,color:#e65100
-    style CodexPackages fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    %% 只用 stroke 區分角色：source of truth / 同步產生的封裝 / 最終產出，
+    %% 讓 fill 與文字色交給 Mermaid 主題，在淺色與深色主題都能讀。
+    style Marketplace stroke:#1f6feb,stroke-width:2px
+    style Frontmatter stroke:#1f6feb,stroke-width:2px
+    style CodexMarketplace stroke:#d29922,stroke-width:2px
+    style CodexPackages stroke:#d29922,stroke-width:2px
+    style Discovery stroke:#2ea043,stroke-width:2px
 ```
 
 [`skills/`](skills/) 底下每個 [`SKILL.md`](skills/) frontmatter 是 skill 名稱、用途與觸發條件的來源；需要了解有哪些 skills 時，應讀取這些 frontmatter，而不是依賴 README 的手動清單。若需要閱讀繁體中文說明，再讀對應的 [`*_zhTW.md`](skills/)。
