@@ -25,18 +25,18 @@ flowchart TD
     Marketplace -->|宣告 bundle 與 skill 組合| Bundle["Plugin Bundle"]
     Marketplace -->|同步 scripts| CodexMarketplace[".agents/plugins/marketplace.json"]
     Marketplace -->|同步 scripts| CodexPackages["codex-plugins/*/skills"]
-    Frontmatter -->|提供 name / description| Discovery["Skill 探索與觸發判斷"]
+    Frontmatter -->|提供 name / description| Discovery("Skill 探索與觸發判斷")
     Bundle --> Discovery
     CodexMarketplace --> Discovery
     CodexPackages --> Discovery
 
-    %% 只用 stroke 區分角色：source of truth / 同步產生的封裝 / 最終產出，
-    %% 讓 fill 與文字色交給 Mermaid 主題，在淺色與深色主題都能讀。
-    style Marketplace stroke:#1f6feb,stroke-width:2px
-    style Frontmatter stroke:#1f6feb,stroke-width:2px
-    style CodexMarketplace stroke:#d29922,stroke-width:2px
-    style CodexPackages stroke:#d29922,stroke-width:2px
-    style Discovery stroke:#2ea043,stroke-width:2px
+    classDef source stroke:#1f6feb,stroke-width:2px
+    classDef synced stroke:#a37000,stroke-width:2px,stroke-dasharray:4 2
+    classDef output stroke:#2ea043,stroke-width:2px
+
+    class Marketplace,Frontmatter source
+    class CodexMarketplace,CodexPackages synced
+    class Discovery output
 ```
 
 [`skills/`](skills/) 底下每個 [`SKILL.md`](skills/) frontmatter 是 skill 名稱、用途與觸發條件的來源；需要了解有哪些 skills 時，應讀取這些 frontmatter，而不是依賴 README 的手動清單。若需要閱讀繁體中文說明，再讀對應的 [`*_zhTW.md`](skills/)。
