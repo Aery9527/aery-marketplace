@@ -27,18 +27,20 @@ def parse_fence(line):
     for char in ("`", "~"):
         if marker.startswith(char * 3):
             run = len(marker) - len(marker.lstrip(char))
-            return char, run, marker[run:].strip()
+            return char, run, marker[run:].strip(), indent
     return None
 
 
-def is_mermaid(char, run, info):
+def is_mermaid(char, run, info, indent):
     """Report whether a fence opens a Mermaid block in its canonical form.
 
-    Only exactly three backticks with the lower-case info string qualify. Any
-    other fence still gets tracked as a block, so a ```mermaid quoted inside it
-    reads as content, but its own lines count as ordinary text.
+    Only exactly three backticks in column one, with the lower-case info string,
+    qualify. An indented fence belongs to a list item or blockquote, and telling
+    that apart from a top-level fence needs a full container parser, so it counts
+    as ordinary text instead. Any other fence still gets tracked as a block, so a
+    ```mermaid quoted inside it reads as content.
     """
-    return char == "`" and run == 3 and info == MERMAID_INFO
+    return char == "`" and run == 3 and info == MERMAID_INFO and indent == 0
 
 
 def closes(parsed, fence):
@@ -50,7 +52,7 @@ def closes(parsed, fence):
     """
     if not parsed:
         return False
-    char, run, info = parsed
+    char, run, info, _ = parsed
     return char == fence[0] and run >= fence[1] and not info
 
 
@@ -69,8 +71,8 @@ def count(path):
 
             if fence is None:
                 if parsed:
-                    char, run, info = parsed
-                    fence = (char, run, is_mermaid(char, run, info))
+                    char, run, info, indent = parsed
+                    fence = (char, run, is_mermaid(char, run, info, indent))
                     if fence[2]:
                         continue
                 counted += 1

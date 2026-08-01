@@ -19,19 +19,20 @@ This section governs `sd-*.md` only; a `bd-*.md` carries no role. MUST decide th
 
 ## Location Decision
 
+This section plans the graph — which nodes exist and which edges join them. Nothing is written here; Recursion And Gates does the writing, one confirmed node at a time.
+
 1. Identify the folder that holds — or will hold — the corresponding code.
 2. Place `sd-<feature-name>.md` in that folder. MUST NOT collect design documents under `docs/`.
-3. Settle the assembly scope. In a monorepo a feature living entirely inside one submodule belongs to that submodule's scope; one spanning submodules belongs to the repository scope, and the root `bd-*.md` is what carries that cross-submodule assembly. Each `sd-*.md` still lives with the code it describes — MUST NOT create a root `sd-*.md` just because a feature spans submodules.
-4. The assembly documents live in the `docs/` at the scope root step 3 settled on. A single-repo project has exactly one such directory, at the repository root; a monorepo has one at the repository root plus one at each submodule root. `docs/` MUST NOT exist at any level in between. Create the directory if it is not there yet.
-5. Decide which `bd-*.md` should reach this module: the one whose topic the module takes part in. If several topics use it, all of them link to it — a component serves more than one assembly.
-6. If no existing topic covers it, create `bd-<topic-name>.md`, naming it after what the assembled whole delivers rather than after the module itself.
-7. Add the link, and update that document's Mermaid so the new module and its data flow appear in the relationship view.
-8. In a monorepo, a root `bd-*.md` MUST link to each submodule `bd-*.md` taking part in that topic, not to the submodule directory — Phase 3 walks these links in reverse, and a directory is not a node it can follow.
+3. Work out which scope owns each module: the submodule holding its code, or the repository itself in a single-repo project. A feature spanning submodules owns modules in several scopes at once. Every `sd-*.md` still lives with the code it describes — MUST NOT create a root `sd-*.md` just because a feature spans submodules.
+4. Each scope keeps its assembly documents in the `docs/` at its own root. A single-repo project has exactly one such directory, at the repository root; a monorepo has one at the repository root plus one at each submodule root. `docs/` MUST NOT exist at any level in between. Create the directory of any scope that needs one.
+5. In every scope that owns one of these modules, name the `bd-*.md` whose topic the module takes part in — an existing one, or a new `bd-<topic-name>.md` named after what the assembled whole delivers rather than after the module itself. Each of them gets an edge to that module's `sd-*.md`. A module taking part in several topics is reached from each of them — a component serves more than one assembly.
+6. If the feature spans submodules, the repository-root `bd-*.md` for the topic gets an edge to each submodule `bd-*.md` taking part, and never past them into their modules. An edge points at a document, not a directory — Phase 3 walks these in reverse, and a directory is not a node it can follow.
+7. The result is a list of nodes to write and edges to add. Carry it into Recursion And Gates.
 
 ## Writing Rules — Assembly Document
 
 - MUST take the assembled whole as its subject: what a business requirement delivers, how an architecture holds together, where an end-to-end data flow runs. The reader arrives wanting the outcome, not the parts list.
-- MUST show the relationships in Mermaid, and MUST link every `sd-*.md` that takes part.
+- MUST show the relationships in Mermaid, and MUST link the nodes one level below it: a repository-root `bd-*.md` in a monorepo links to each submodule `bd-*.md` taking part and MUST NOT reach past them into their modules; every other `bd-*.md` links to each `sd-*.md` in its own scope that takes part.
 - MUST NOT sink into how any single module behaves internally — that belongs to the `sd-*.md` it links to. A `bd-*.md` explaining one module's rules has become a design document in the wrong place.
 - Carries no line limit; the 300-line rule binds `sd-*.md` only.
 
@@ -61,7 +62,7 @@ This section governs `sd-*.md` only; a `bd-*.md` carries no role. MUST decide th
 ## Line Counting
 
 - Counted lines = total file lines minus every line inside a `mermaid` fenced block, fence lines included. Blank lines, headings, frontmatter, and link-only lines all count.
-- Mermaid blocks MUST use exactly three backticks and the lower-case `mermaid` info string. Four-backtick and tilde fences MUST NOT be used — the counter treats anything else as ordinary text.
+- Mermaid blocks MUST use exactly three backticks and the lower-case `mermaid` info string, and MUST start in column one. Four-backtick fences, tilde fences, and diagrams indented inside a list item or blockquote MUST NOT be used — the counter reads anything else as ordinary text, which inflates the count rather than hiding lines from it, and a large diagram reads poorly inside a container anyway.
 - Run [count_lines.py](../scripts/count_lines.py) from this skill, passing one or more document paths. It prints `<count>` and the path per file, and exits non-zero on a Mermaid block that is never closed.
 
 ```bash
@@ -87,15 +88,20 @@ Promotion alone MUST NOT trigger a rewrite of any test or implementation.
 
 ## Recursion And Gates
 
-1. Write or update the `bd-*.md` for the topic, then present it and obtain confirmation. The user is the one who knows whether the outcome and the assembly are right, so MUST NOT descend into any module before that confirmation.
-2. Write one `sd-*.md`.
-3. Count its lines; if it exceeds the limit, MUST run the split procedure.
-4. Present the document to the user and obtain confirmation. MUST NOT descend to any child before that confirmation.
-5. Descend to each child and repeat from step 2.
-6. Stop descending when a node is at or under 300 counted lines and describes concrete module behavior rather than composition. That node is a leaf.
+Walk the planned graph downward, one node at a time. All writing happens here, and never ahead of a confirmation.
+
+1. At a `bd-*.md` node, write or update it, including its edges to the planned children. A child that does not exist yet MUST be marked unresolved, exactly as a planned interface link is.
+2. Present that document and obtain confirmation. The user is the one who knows whether the outcome and the assembly are right, so MUST NOT write any child node before that confirmation. A module taking part in several topics means several `bd-*.md` to confirm, each on its own.
+3. Descend to each child `bd-*.md` and repeat from step 1, until the nodes below are modules rather than topics.
+4. At a `sd-*.md` node, write it and count its lines; if it exceeds the limit, MUST run the split procedure.
+5. Present that document and obtain confirmation. MUST NOT write any child before that confirmation.
+6. Descend to each child `sd-*.md` and repeat from step 4.
+7. Stop descending when a node is at or under 300 counted lines and describes concrete module behavior rather than composition. That node is a leaf.
+8. As each node is written, update its Mermaid, and clear the unresolved mark on every edge whose target now exists.
 
 ## Exit Artifacts
 
 - One or more `sd-*.md`, each confirmed by the user at its own level.
-- The relevant `bd-*.md` updated with the new links and Mermaid, and confirmed by the user.
+- Every `bd-*.md` on the path updated with the new links and Mermaid, and confirmed by the user one node at a time.
+- No unresolved edge left anywhere on the path — every planned node now exists.
 - Every branch terminated in a leaf, so Phase 2 has a valid input.

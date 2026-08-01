@@ -19,7 +19,7 @@ Loaded without any prior context, MUST establish these three things before writi
 
 1. The failing tests. They carry the complete behavioral specification — what to build is never inferred from conversation history.
 2. The owning leaf `sd-*.md`. A `sys-design-leaf:` header comment in the test file names it outright and always wins. Otherwise walk from the code folder the tests exercise up to the first folder containing any `sd-*.md`; that folder MUST hold exactly one, which is the owner. If the walk yields none or several and no header names one, MUST stop and ask the user rather than guess.
-3. The upstream documents. Walk the document graph in reverse from the leaf: every `sd-*.md` and `bd-*.md` that links to it is an immediate parent. A leaf may have several — a parent overview plus more than one topic — because a component serves more than one assembly.
+3. The upstream documents. Walk the structural graph in reverse from the leaf: a document is an immediate parent only when it reaches this node through one of the four structural edges. A navigation link back to a higher topic, a cross-reference, or an external link is not a parent. A leaf may still have several parents — an overview plus more than one topic — because a component serves more than one assembly. Keep a set of documents already visited and MUST NOT process one twice.
 
 The behavioral specification comes from the tests. The document topology comes
 from these lookups. MUST NOT assume the tests alone convey the topology.
@@ -32,7 +32,7 @@ from these lookups. MUST NOT assume the tests alone convey the topology.
 4. Repeat from step 1 until every test in the frozen set passes.
 5. Run the project's existing related tests as well. Everything green before this phase MUST still be green.
 6. Verify the leaf document's interface links still resolve to real symbols, and correct any that moved during refactoring.
-7. Verify each immediate parent still describes the real relationships and data flow, and update its Mermaid where the implementation changed them. If updating a parent changes what that parent claims, repeat this step for its own parents; stop climbing as soon as a level needs no change. A leaf whose internals changed without altering its boundary usually stops at the first level.
+7. Verify each immediate parent still describes the real relationships and data flow, and update its Mermaid where the implementation changed them. If updating a parent changes what that parent itself claims, repeat this step for that parent's own parents. Each changed parent is followed independently: a branch stops where its parent needs no change, and that never stops another branch. A leaf whose internals changed without altering its boundary usually stops at the first level.
 
 ## Rules
 

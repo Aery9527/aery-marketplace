@@ -35,7 +35,7 @@ into a document.
 
 Documentation descends through two layers: a topic layer describing the assembled whole, and a module layer describing the components it is assembled from.
 
-- `bd-<topic-name>.md` — the assembly document, living in the `docs/` at a scope root — the repository root, or a submodule root in a monorepo. Its subject is what the assembled whole does: a business requirement, an architectural account, an end-to-end data flow. MUST express those relationships in Mermaid and MUST link to every `sd-*.md` taking part. It carries no line limit, and MUST NOT sink into behavior a design document below it already owns.
+- `bd-<topic-name>.md` — the assembly document, living in the `docs/` at a scope root — the repository root, or a submodule root in a monorepo. Its subject is what the assembled whole does: a business requirement, an architectural account, an end-to-end data flow. MUST express those relationships in Mermaid and MUST link to the nodes one level below it in the graph. It carries no line limit, and MUST NOT sink into behavior a design document below it already owns.
 - `sd-<feature-name>.md` — the design document. Its subject is one module — a component the assembly is built from. MUST live in the folder that holds the corresponding code, and MUST NOT be collected under `docs/`.
 - The two layers answer different questions: `bd-*.md` answers what the system delivers and how the pieces combine to deliver it; `sd-*.md` answers what one piece does and where its boundary lies. A reader enters through a topic and descends into components.
 
@@ -44,14 +44,16 @@ Inside the module layer, `sd-*.md` may itself form a tree, and each node carries
 - Overview role — describes an abstract concept and links to its sub-modules' design documents. MUST NOT be the input of Phase 2.
 - Leaf role — describes one module's own behavior and links to the target code. Only a leaf is a valid input of Phase 2.
 
-The two layers form one graph. Every edge points downward, and there are exactly four kinds:
+The two layers form one structural graph. A structural edge always points downward, and there are exactly four kinds:
 
 - a root `bd-*.md` links to each submodule `bd-*.md` taking part in its topic
 - a `bd-*.md` links to every `sd-*.md` in its own scope that takes part
 - an overview `sd-*.md` links to its child `sd-*.md`
 - a leaf `sd-*.md` links to the target code
 
-Phase 3 walks this graph in reverse from the leaf it implemented, so every edge MUST be a real Markdown link rather than an implied relationship.
+Phase 3 walks this graph in reverse from the leaf it implemented, so every structural edge MUST be a real Markdown link rather than an implied relationship.
+
+A navigation link pointing back up — such as a submodule document offering a way back to the root topic — is not a structural edge. MUST NOT treat one as a parent relationship; doing so turns the reverse walk into a cycle.
 
 A monorepo MUST nest the same model: the root `docs/` holds the `bd-*.md` describing how submodules assemble — one abstraction level higher — while each submodule's `bd-*.md` describes its own internals. A submodule document MUST NOT restate root-level assembly ownership as its own, but MAY carry a navigation link back to the root topic.
 
@@ -60,7 +62,7 @@ A monorepo MUST nest the same model: the root `docs/` holds the `bd-*.md` descri
 - A design document MUST NOT contain code. Interfaces and data views MUST be expressed as Markdown links to the target code, because duplicated detail drifts away from the code it describes.
 - A design document MUST describe behavior and caveats. It MUST NOT duplicate algorithms, control flow, or field-level structure, and MAY name one current implementation only when that choice materially defines the module boundary, the observable behavior, or a compatibility contract.
 - Wherever a document can show a relationship, a data flow, or a state transition as a diagram, it MUST use Mermaid.
-- Mermaid blocks MUST use exactly three backticks and the lower-case `mermaid` info string, with no extra fence attributes. Four-backtick and tilde fences MUST NOT be used, because the line count depends on that canonical form.
+- Mermaid blocks MUST use exactly three backticks and the lower-case `mermaid` info string, with no extra fence attributes, and MUST start in column one. Four-backtick fences, tilde fences, and diagrams indented inside a list item or blockquote MUST NOT be used, because the line count depends on that canonical form.
 - One `sd-*.md` MUST NOT exceed 300 counted lines. Counted lines = total file lines minus every line inside a `mermaid` fenced block, fence lines included.
 - Exceeding 300 counted lines means the module carries too much cognitive load. Splitting into sub-modules is the only permitted response. Deleting caveats, compressing prose, or moving text into Mermaid to lower the count MUST NOT be done.
 - The user confirms each `bd-*.md` before the agent descends into its modules, confirms each `sd-*.md` level before descending to its children, and confirms the failing tests carrying the frozen SBE before any implementation is written. MUST NOT skip a gate.
