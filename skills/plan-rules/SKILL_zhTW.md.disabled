@@ -1,0 +1,156 @@
+---
+name: plan-rules
+description: >-
+  在準備撰寫任何設計或計畫文件、或進入任何功能/系統變更的規劃階段時載入。
+  觸發情境：「寫 spec」、「設計這個功能」、「規劃實作」、「準備文件」、
+  「寫 design doc」、「寫 plan」、「SA/SD 文件」、「規劃」、「設計文件」。
+  將輸出路由至 docs/sys/<feature_name>/，以 -design.md（人類閱讀的 SA 文件）
+  或 -plan.md（AI agent 可執行的 SD 文件）命名。強制執行 SBE：plan 文件中每個行為規格，在計畫完成前
+  都必須有具體的輸入/輸出範例。即使使用者只說「規劃 X」或「寫 Y 的 spec」，
+  也必須載入此 skill，不可跳過。
+---
+
+# 計畫規則
+
+- 一個功能或模組的規劃一律包含兩個文件：
+    1. Design(`-design.md`) 此文件受眾是人類，屬 SA 文件，內容為抽象的功能描述，主體為 `user story`。
+    2. Plan(`-plan.md`) 此文件受眾是 AI agent，屬 SD 文件，內容為具體實作計畫，必須以 `SBE` 呈現規格。
+- 所有文件單檔量體都必須小，以不超過 500 行為標準，太大必須拆分任務為多個檔案描述。
+- 功能或模組一定是先有 Design(`-design.md`) 產出，才會有 Plan(`-plan.md`)
+
+> 原有的 `docs/design/` 與 `docs/plan/` 目錄，以及 `docs/` 根目錄下的舊平面文件，均為舊格式，將陸續整理新格式。因此新文件一律放入
+`docs/sys/<feature_name>/`。
+
+# 文件存放位置
+
+- 各 submodule 的 Design/Plan 放在各自 `docs/sys/` 底下，以功能為目錄名稱向下嵌套其他子模組。此處文件僅屬於該 submodule scope 功能。
+- root 的 Design 放在 [docs/sys/](../../../docs/sys/) 底下，不會有 Plan 文件。此處的 Design 文件為 **上帝視角**，是最高抽象層的 `user story` 描述，細節則連結到
+  submodule 的 Design 文件。
+- submodule 的 Design/Plan **只能** 連結到相依對象的 Design/Plan，依賴方向遵循 `go.mod` 以及 **AGENTS.md#Git Submodule Dependencies**。
+
+# 檔案命名
+
+- 文件以 `docs/sys/<feature_name>/` 為根目錄展開。目錄下可同時存放 design/plan 文件與子目錄；子目錄代表功能的子模組，可繼續向下展開，不限深度。
+- 檔名規則 `<feature_name>-<dependence_code>-design[-sunname].md` and `<feature_name>-<dependence_code>-plan-<dependence_code>.<03d_sequence>.md`
+    - **feature_name** 為目錄嵌套名稱，使用 `-` 串接每層目錄，因此最後一個肯定為當前目錄名稱，因此透過檔案命名可以得知功能 scope。
+    - **dependence_code** 為 6 碼數字，編碼當層文件的執行順序與平行關係（見下方規則）。
+    - **03d_sequence** 僅 plan 文件使用，從 `.001` 起，將同一相依碼的大型 plan 依序拆分為多個部分（純序列，不編碼相依），若有移除不調整序列號。
+- **feature_name** 命名限制: 只允許英數字與底線（`[a-zA-Z0-9_]`），不得含 `-` 或其他符號。
+- **dependence_code** 編碼規則：
+    - 同位不同值的任務互相獨立、可平行執行（`100000` ‖ `200000`）。
+    - 一個任務相依所有共享其非零前綴且有額外非零碼的任務：`100000` 等待 `110000` 與 `120000` 完成，而 `110000` 與 `120000` 之間沒有相依性可以並行執行。
+    - 執行順序從最具體（尾端零最少）往上。
+    - 純序列工作（無平行性）使用 `100000`、`200000`、`300000` 等。
+
+檔名格式（在任何一層目錄下均適用）：
+
+```
+<feature_name>-<6digit>-design.md
+<feature_name>-<6digit>-plan-<6digit>.md
+<feature_name>-<6digit>-plan-<6digit>[.3digit].md
+```
+
+- `<name>` — 與所在目錄名稱一致；**只允許英數字與底線（`[a-zA-Z0-9_]`）**，不得含 `-` 或其他符號。
+- `<6digit>` — 相依碼；編碼當層文件的執行順序與平行關係（見下方規則）。
+- `plan-<dependence_code>-` — plan 文件的相依碼，與 design 相依碼意義相同，編碼執行順序。
+- `[.3digit]` — 只有 plan 能選用；從 `.001` 起，將同一相依碼的大型 plan 依序拆分為多個部分（純序列，不編碼相依）。
+
+目錄名稱同樣不使用 `-`，確保將任意路徑的各層目錄名以 `-` 串接後，能直接還原為對應的 flat 檔名（階層含意保留在目錄結構，也可從 flat 名稱反推路徑）。
+
+檔名不含日期——以 git tag 追蹤文件的新增、修改或刪除時間點。
+
+範例：
+
+```
+docs/sys/jackpot/
+  jackpot-100000-design.md          # 此層的設計文件
+  jackpot-100000-plan-100000.md       # 此 plan 的主檔（相依碼 100000）
+  jackpot-100000-plan-100000.001.md  # 第一 SBE 群組（依序，不編碼相依）
+  jackpot-100000-plan-100000.002.md  # 第二 SBE 群組
+  trigger/                          # trigger 子模組目錄
+    trigger-100000-plan.md          # flat 名稱：jackpot-trigger-100000-plan.md
+  deduction/                        # deduction 子模組目錄
+    deduction-100000-design.md
+    deduction-100000-plan.md
+    history/                        # 可繼續向下展開
+      history-100000-plan.md        # flat 名稱：jackpot-deduction-history-100000-plan.md
+```
+
+6 碼相依規則：
+
+- 同位不同值的任務互相獨立、可平行執行（`100000` ‖ `200000`）。
+- 一個任務相依所有共享其非零前綴且有額外非零碼的任務：`100000` 等待 `110000` 與 `120000` 完成。
+- 執行順序從最具體（尾端零最少）往上。
+- 純序列工作（無平行性）使用 `100000`、`200000`、`300000` 等。
+
+# 設計文件 — `docs/sys/`
+
+目標讀者：所有人類團隊成員——開發者、架構師、新進成員。SA 層級文件。
+
+完整範本請讀取 `references/design-template.md`。
+
+核心規則：
+
+- 全程繁體中文；不放程式碼區塊，不放 struct 定義
+- 說明 **為什麼**，不說明如何做
+- 每個非顯而易見的決策都必須有理由說明
+- 流程圖與架構圖歡迎使用 Mermaid
+- 篇幅以 500 行為上限；若功能過大，改用 subname 拆分額外的設計文件（見「檔案命名」）
+
+# 計畫文件 — `docs/sys/`
+
+目標讀者：執行實作的 AI agent。SD 層級文件。
+
+完整範本請讀取 `references/plan-template.md`。
+
+核心規則：
+
+- 繁體中文行文；所有識別符（package 路徑、型別名稱、函式名稱、欄位名稱）保留英文
+- 精確性優先於可讀性——任何模糊之處都會讓 agent 靠猜測執行
+- Go struct 定義放入帶 `go` 語言標籤的 fenced code block
+- 不使用表格、不使用 Mermaid——plan 文件是 AI agent 文件，適用與 SKILL.md 相同的 write-md 規則
+- **非目標**小節為強制項目——明確列出不在範疇內的事項
+- 每個行為規格都必須符合 SBE（見下方）
+- 篇幅以 500 行為上限；若功能過大，使用 subname 或 plan 流水號後綴拆分；所有 plan 文件使用 6 碼相依碼（見「檔案命名」）
+
+# SBE 強制執行
+
+Plan 文件中定義的每個行為，都必須至少有一個具體範例。
+沒有範例的抽象描述視為未定義範疇。
+
+## 範例格式
+
+```
+### 行為名稱
+
+**輸入**
+- fieldA: value
+- fieldB: value
+
+**輸出**
+- fieldX: value
+- fieldY: value
+
+**邊界條件**
+- nil 輸入 → 回傳 nil，不報錯
+- baseBet 為零 → 跳過，contribution = 0
+```
+
+## 完整性檢查清單
+
+在確認任何 plan 文件完成前，針對每個行為驗證：
+
+- [ ] 至少有一個具體輸入/輸出範例
+- [ ] 邊界值已涵蓋（nil、零、最大值、空 slice）
+- [ ] 所有失敗/跳過路徑已明確說明，不存在「TBD」或「適當處理」
+- [ ] Agent 單獨閱讀此文件即可實作，無需再詢問問題
+
+未通過此清單的計畫是草稿，不是規格。
+
+# Markdown 格式
+
+一般 Markdown 規則遵循 `write-md` skill。額外限制：
+
+- Plan 文件：`##` 用於主要小節，`###` 用於個別行為
+- 需求以條列清單表達，避免連續散文段落
+- 文件有五個以上 `##` 小節時，加入快速導覽 TOC

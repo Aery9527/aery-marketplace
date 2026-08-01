@@ -10,12 +10,12 @@ Top-down for hierarchies:
 
 ```mermaid
 flowchart TD
-    Common[game-go-common<br/>Base Utilities]
-    Core[slot-core<br/>Game Engine]
-    Infra[game-go-infra<br/>Infrastructure]
+    Common["game-go-common<br/>Base Utilities"]
+    Core["slot-core<br/>Game Engine"]
+    Infra["game-go-infra<br/>Infrastructure"]
     Common --> Core
     Common --> Infra
-    Core --> App[game-slot-gp-app<br/>Application Layer]
+    Core --> App["game-slot-gp-app<br/>Application Layer"]
     Infra --> App
 ```
 
@@ -23,12 +23,12 @@ Left-to-right for pipelines:
 
 ```mermaid
 flowchart LR
-    A[Parse Request] --> B[Read State]
-    B --> C[Execute Game Logic]
-    C --> D[Update Balance]
-    D --> E[Write Record]
-    E --> F[Save State]
-    F --> G[Return Response]
+    A["Parse Request"] --> B["Read State"]
+    B --> C["Execute Game Logic"]
+    C --> D["Update Balance"]
+    D --> E["Write Record"]
+    E --> F["Save State"]
+    F --> G["Return Response"]
 ```
 
 With subgraph grouping:
@@ -36,13 +36,13 @@ With subgraph grouping:
 ```mermaid
 flowchart TD
     subgraph Common["game-go-common"]
-        glog[glog]
-        gerror[gerror]
-        gitem[gitem]
+        Glog["glog"]
+        Gerror["gerror"]
+        Gitem["gitem"]
     end
     subgraph Core["slot-core"]
-        engine[engine]
-        cf[cf]
+        Engine["engine"]
+        Cf["cf"]
     end
     Common --> Core
 ```
@@ -144,6 +144,15 @@ erDiagram
         money winAmount
     }
 ```
+
+---
+
+## Type-Specific Syntax Rules
+
+- In sequence diagrams, place `:` between each message receiver and its message text, and close every `alt`, `opt`, and `loop` block with a matching `end`.
+- In class diagrams, enclose relationship cardinalities in double quotes and include `()` in every method signature, including zero-argument methods.
+- In ER diagrams, write each attribute as `<type> <name>`, e.g. `string userId PK`; MUST NOT reverse the order.
+- Pie-chart values MUST be greater than zero; non-positive values may be rejected or produce no visible slice, depending on the renderer.
 
 ---
 

@@ -1,6 +1,6 @@
 # aery-marketplace
 
-Current version: `v0.5.1`
+Current version: [`v0.6.0`](release-note/v0.6.0.md)
 
 將 Aery Lin 多年開發經驗與工程慣例收斂成可重複使用的 AI Agent Skills，並透過 Plugin Bundle 機制按情境組裝載入。
 
@@ -20,20 +20,37 @@ Current version: `v0.5.1`
 
 ```mermaid
 flowchart TD
-    Agent["AI agent / 使用者"] -->|查看 bundle 定義| Marketplace[".claude-plugin/marketplace.json"]
-    Agent -->|掃描 skill metadata| Frontmatter["skills/*/SKILL.md YAML frontmatter"]
-    Marketplace -->|宣告 bundle 與 skill 組合| Bundle["Plugin Bundle"]
-    Marketplace -->|同步 scripts| CodexMarketplace[".agents/plugins/marketplace.json"]
-    Marketplace -->|同步 scripts| CodexPackages["codex-plugins/*/skills"]
-    Frontmatter -->|提供 name / description| Discovery["Skill 探索與觸發判斷"]
-    Bundle --> Discovery
-    CodexMarketplace --> Discovery
-    CodexPackages --> Discovery
+    Agent["AI agent / 使用者"]
+    Bundle["Plugin Bundle"]
+    Discovery("Skill 探索與觸發判斷")
 
-    style Frontmatter fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
-    style Discovery fill:#d4edda,stroke:#28a745,color:#155724
-    style CodexMarketplace fill:#fff8e1,stroke:#f9a825,color:#e65100
-    style CodexPackages fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    subgraph Truth["Source of truth"]
+        Marketplace[".claude-plugin/marketplace.json"]
+        Frontmatter["skills/*/SKILL.md YAML frontmatter"]
+    end
+
+    subgraph Package["同步產生的 Codex 封裝"]
+        CodexMarketplace[".agents/plugins/marketplace.json"]
+        CodexPackages["codex-plugins/*/skills"]
+    end
+
+    Agent -->|查看 bundle 定義| Marketplace
+    Agent -->|掃描 skill metadata| Frontmatter
+    Marketplace -->|宣告 bundle 與 skill 組合| Bundle
+    Marketplace -->|同步 scripts| CodexMarketplace
+    Marketplace -->|同步 scripts| CodexPackages
+    Frontmatter -->|提供 name / description| Discovery
+    Bundle -->|提供可載入的 skill 組合| Discovery
+    CodexMarketplace -->|提供 Codex 端 bundle 定義| Discovery
+    CodexPackages -->|提供 Codex 端 skill 內容| Discovery
+
+    classDef source stroke:#1f6feb,stroke-width:2px
+    classDef synced stroke:#a37000,stroke-width:2px,stroke-dasharray:4 2
+    classDef output stroke:#2ea043,stroke-width:2px
+
+    class Marketplace,Frontmatter source
+    class CodexMarketplace,CodexPackages synced
+    class Discovery output
 ```
 
 [`skills/`](skills/) 底下每個 [`SKILL.md`](skills/) frontmatter 是 skill 名稱、用途與觸發條件的來源；需要了解有哪些 skills 時，應讀取這些 frontmatter，而不是依賴 README 的手動清單。若需要閱讀繁體中文說明，再讀對應的 [`*_zhTW.md`](skills/)。
