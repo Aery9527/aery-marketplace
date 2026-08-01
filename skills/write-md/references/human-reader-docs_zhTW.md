@@ -120,16 +120,23 @@
 
 ## Mermaid 配色與可讀性
 
-- 使用 `style` 為節點加底色時，必須同時指定 `color`（文字色），確保 light / dark mode 都可讀。
-- 配色原則：底色與文字色使用同色系深淺搭配（淺底色 + 同色系深色文字）。
+`style` 與 `classDef` 的字面色不會隨主題翻轉。硬編的淺色 `fill` 在畫布切換成深色時仍是淺色，上色節點因此成為亮色孤島，而未上色節點、連線 label 與 subgraph 標題則跟著主題走。
 
-| 語意 | fill（底色） | stroke（邊框） | color（文字） |
-|------|-------------|---------------|--------------|
-| 成功 / 推薦 | `#d4edda` | `#28a745` | `#155724` |
-| 警告 / 注意 | `#fff3cd` | `#ffc107` | `#856404` |
-| 錯誤 / 降級 | `#f8d7da` | `#dc3545` | `#721c24` |
-| 資訊（藍） | `#e3f2fd` | `#1976d2` | `#0d47a1` |
-| 資訊（紫） | `#f3e5f5` | `#7b1fa2` | `#4a148c` |
-| 資訊（橙） | `#fff8e1` | `#f9a825` | `#e65100` |
+- 嚴禁在 `style`、`classDef` 或 init 設定中硬編 `fill` 與文字 `color`，兩者必須交由 renderer 主題決定。
+- 角色差異必須同時由 label 文字、節點形狀或線型承載，嚴禁讓顏色成為唯一訊號。
+- 需要視覺區分時，只設定 `stroke`、`stroke-width` 與 `stroke-dasharray`。
+- `stroke` 必須取自核准色票：`#1f6feb` 藍、`#2ea043` 綠、`#a37000` 琥珀、`#cf222e` 紅、`#8250df` 紫、`#797979` 灰。
+- 新增色票必須實測對 `#ffffff` 與 `#0d1117` 皆達 3:1（WCAG 1.4.11）。核准色值落在 OKLCH `L 0.55-0.63` 區間內，但 L 只能預測對比、不能證明對比，嚴禁僅憑明度推導新色。
+- 以 `classDef` 搭配 `class` 標示角色，嚴禁逐節點重複寫 `style`。
 
-範例：`style NodeId fill:#d4edda,stroke:#28a745,color:#155724`
+範例：
+
+```mermaid
+flowchart LR
+    Source[技能 frontmatter] --> Bundle[同步封裝]
+
+    classDef source stroke:#1f6feb,stroke-width:2px
+    classDef derived stroke:#a37000,stroke-width:2px,stroke-dasharray:4 2
+    class Source source
+    class Bundle derived
+```
