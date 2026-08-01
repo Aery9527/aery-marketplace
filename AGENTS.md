@@ -62,3 +62,8 @@ not the source of truth for the skill list.
 - Any later modification must update both the English primary file and the
   corresponding `*_zhTW.md`. Never update only one language and leave them
   diverged.
+- A skill is distributed and installed elsewhere, so its directory is never
+  guaranteed to sit beside any other skill. Inside `SKILL.md` or `references/`,
+  never use a relative Markdown link to reach a different skill — name it in
+  inline code instead, such as `write-md`. Relative links are valid only within
+  the same skill directory, where the layout travels with the package.

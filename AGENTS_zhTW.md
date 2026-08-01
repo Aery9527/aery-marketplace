@@ -50,3 +50,7 @@ frontmatter 定義 `name` 與 `description`，並在內文描述觸發條件、�
   也遵循同樣規則。
 - 任何後續修改都必須同步更新英文主檔與對應的 `*_zhTW.md`，禁止只改單一語系
   後讓兩邊內容漂移。
+- skill 是要分發並安裝到別處的，它的目錄永遠無法保證與其他 skill 相鄰。在
+  `SKILL.md` 或 `references/` 內，嚴禁使用相對 Markdown link 指向另一個
+  skill——必須改用 inline code 寫出名稱，例如 `write-md`。相對連結只在同一個
+  skill 目錄內有效，因為只有那個結構會隨封裝一起被搬移。
