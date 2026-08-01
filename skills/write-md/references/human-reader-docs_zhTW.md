@@ -114,16 +114,19 @@
 
 ## Mermaid 語法安全
 
-- 菱形節點 `{}` 內嚴禁放裸括號：`()` 會被 parser 當作圓角矩形 token。改用雙引號包住整段文字，例如 `T1{"是否實作 FormatStack？"}`，或以 `&#40;&#41;` HTML entity 取代括號。
-- 方框 `[]` 內的引號：若文字含雙引號，使用 `&quot;` 取代 `\"`，避免截斷節點定義。
-- 方框 `[]` 內的大括號：若文字含 `{}`，使用 `#123;` / `#125;` 取代，避免被解讀為子圖或菱形。
+- Mermaid label 內的語法敏感字元必須使用 Mermaid 的裸數字形式跳脫（開頭不加 `&`）：`#34;` 代表 `"`、`#40;` 代表 `(`、`#41;` 代表 `)`、`#123;` 代表 `{`、`#125;` 代表 `}`。嚴禁使用 `&#NN;` 形式，其 `&` 會殘留成字面字元。
+- 菱形節點 `{}` 內嚴禁放裸括號：`()` 會被 parser 當作圓角矩形 token。改用雙引號包住整段文字，例如 `T1{"是否實作 FormatStack？"}`，或依上述形式跳脫。
+- flowchart 的節點 identifier 必須使用 PascalCase ASCII，顯示文字必須放進 quoted label，例如 `ParseRequest["解析請求"]`。此慣例可避開小寫保留字與 `o` / `x` 開頭的 edge marker 歧義。其他圖型依各自的 identifier 與 alias 語法，其 identifier 往往本身就是顯示文字。
+- `classDef` 的屬性清單必須使用逗號分隔的 `property:value`，嚴禁用 CSS 大括號包裹，也嚴禁用分號分隔屬性。
+- 第一個非空白、非註解行必須只包含圖表宣告與其方向，例如 `flowchart TD`，圖表內容從下一行開始。
+- 圖表定稿前，若環境有目標 renderer 或相同 Mermaid 版本，必須實際渲染，並確認預期的節點、連線、訊息或切片確實出現在輸出中。若沒有相容的 renderer，必須逐條檢查本節所有規則，並明確聲明未經渲染驗證。嚴禁把人工檢查表述為「已驗證可渲染」。
 
 ## Mermaid 配色與可讀性
 
 `style` 與 `classDef` 的字面色不會隨主題翻轉。硬編的淺色 `fill` 在畫布切換成深色時仍是淺色，上色節點因此成為亮色孤島，而未上色節點、連線 label 與 subgraph 標題則跟著主題走。
 
 - 嚴禁在 `style`、`classDef` 或 init 設定中硬編 `fill` 與文字 `color`，兩者必須交由 renderer 主題決定。
-- 角色差異必須同時由 label 文字、節點形狀或線型承載，嚴禁讓顏色成為唯一訊號。
+- 角色差異必須在沒有顏色的情況下仍可理解，包含灰階列印與色覺障礙讀者；必須以 label 文字、節點形狀或線型編碼。
 - 需要視覺區分時，只設定 `stroke`、`stroke-width` 與 `stroke-dasharray`。
 - `stroke` 必須取自核准色票：`#1f6feb` 藍、`#2ea043` 綠、`#a37000` 琥珀、`#cf222e` 紅、`#8250df` 紫、`#797979` 灰。
 - 新增色票必須實測對 `#ffffff` 與 `#0d1117` 皆達 3:1（WCAG 1.4.11）。核准色值落在 OKLCH `L 0.55-0.63` 區間內，但 L 只能預測對比、不能證明對比，嚴禁僅憑明度推導新色。
@@ -133,7 +136,7 @@
 
 ```mermaid
 flowchart LR
-    Source[技能 frontmatter] --> Bundle[同步封裝]
+    Source["技能 frontmatter"] --> Bundle["同步封裝"]
 
     classDef source stroke:#1f6feb,stroke-width:2px
     classDef derived stroke:#a37000,stroke-width:2px,stroke-dasharray:4 2

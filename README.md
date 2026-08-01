@@ -20,15 +20,29 @@ Current version: [`v0.5.1`](release-note/v0.5.1.md)
 
 ```mermaid
 flowchart TD
-    Agent["AI agent / 使用者"] -->|查看 bundle 定義| Marketplace[".claude-plugin/marketplace.json"]
-    Agent -->|掃描 skill metadata| Frontmatter["skills/*/SKILL.md YAML frontmatter"]
-    Marketplace -->|宣告 bundle 與 skill 組合| Bundle["Plugin Bundle"]
-    Marketplace -->|同步 scripts| CodexMarketplace[".agents/plugins/marketplace.json"]
-    Marketplace -->|同步 scripts| CodexPackages["codex-plugins/*/skills"]
-    Frontmatter -->|提供 name / description| Discovery("Skill 探索與觸發判斷")
-    Bundle --> Discovery
-    CodexMarketplace --> Discovery
-    CodexPackages --> Discovery
+    Agent["AI agent / 使用者"]
+    Bundle["Plugin Bundle"]
+    Discovery("Skill 探索與觸發判斷")
+
+    subgraph Truth["Source of truth"]
+        Marketplace[".claude-plugin/marketplace.json"]
+        Frontmatter["skills/*/SKILL.md YAML frontmatter"]
+    end
+
+    subgraph Package["同步產生的 Codex 封裝"]
+        CodexMarketplace[".agents/plugins/marketplace.json"]
+        CodexPackages["codex-plugins/*/skills"]
+    end
+
+    Agent -->|查看 bundle 定義| Marketplace
+    Agent -->|掃描 skill metadata| Frontmatter
+    Marketplace -->|宣告 bundle 與 skill 組合| Bundle
+    Marketplace -->|同步 scripts| CodexMarketplace
+    Marketplace -->|同步 scripts| CodexPackages
+    Frontmatter -->|提供 name / description| Discovery
+    Bundle -->|提供可載入的 skill 組合| Discovery
+    CodexMarketplace -->|提供 Codex 端 bundle 定義| Discovery
+    CodexPackages -->|提供 Codex 端 skill 內容| Discovery
 
     classDef source stroke:#1f6feb,stroke-width:2px
     classDef synced stroke:#a37000,stroke-width:2px,stroke-dasharray:4 2

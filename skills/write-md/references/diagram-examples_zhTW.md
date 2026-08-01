@@ -10,12 +10,12 @@ Top-down for hierarchies:
 
 ```mermaid
 flowchart TD
-    Common[game-go-common<br/>基礎工具庫]
-    Core[slot-core<br/>遊戲引擎]
-    Infra[game-go-infra<br/>基礎設施]
+    Common["game-go-common<br/>基礎工具庫"]
+    Core["slot-core<br/>遊戲引擎"]
+    Infra["game-go-infra<br/>基礎設施"]
     Common --> Core
     Common --> Infra
-    Core --> App[game-slot-gp-app<br/>應用層]
+    Core --> App["game-slot-gp-app<br/>應用層"]
     Infra --> App
 ```
 
@@ -23,12 +23,12 @@ Left-to-right for pipelines:
 
 ```mermaid
 flowchart LR
-    A[解析請求] --> B[讀取狀態]
-    B --> C[執行遊戲邏輯]
-    C --> D[更新餘額]
-    D --> E[寫入紀錄]
-    E --> F[保存狀態]
-    F --> G[回應結果]
+    A["解析請求"] --> B["讀取狀態"]
+    B --> C["執行遊戲邏輯"]
+    C --> D["更新餘額"]
+    D --> E["寫入紀錄"]
+    E --> F["保存狀態"]
+    F --> G["回應結果"]
 ```
 
 With subgraph grouping:
@@ -36,13 +36,13 @@ With subgraph grouping:
 ```mermaid
 flowchart TD
     subgraph Common["game-go-common"]
-        glog[glog]
-        gerror[gerror]
-        gitem[gitem]
+        Glog["glog"]
+        Gerror["gerror"]
+        Gitem["gitem"]
     end
     subgraph Core["slot-core"]
-        engine[engine]
-        cf[cf]
+        Engine["engine"]
+        Cf["cf"]
     end
     Common --> Core
 ```
@@ -144,6 +144,15 @@ erDiagram
         money winAmount
     }
 ```
+
+---
+
+## 圖型專屬語法規則
+
+- sequence diagram 的訊息必須在接收者與訊息文字之間放 `:`，且每個 `alt`、`opt`、`loop` 區塊必須有配對的 `end`。
+- class diagram 的 relationship cardinality 必須以雙引號包裹；方法簽章必須包含括號，無參數時使用 `()`。
+- ER diagram 的屬性必須寫成 `<type> <name>`，例如 `string userId PK`，嚴禁顛倒順序。
+- pie chart 的數值必須大於零；非正數可能被拒絕或不產生可見切片，實際行為依 renderer 而異。
 
 ---
 
