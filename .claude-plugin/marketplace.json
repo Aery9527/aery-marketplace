@@ -25,7 +25,8 @@
         "./windows-script",
         "./write-md",
         "./arch-rules",
-        "./go-mongo-rules"
+        "./go-mongo-rules",
+        "./sys-design"
       ]
     }
   ]

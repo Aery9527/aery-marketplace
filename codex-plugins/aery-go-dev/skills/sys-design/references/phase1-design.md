@@ -1,0 +1,101 @@
+# Phase 1 — Modular Design
+
+Concept definitions for the `bd-*.md` and `sd-*.md` layers live in
+[Document Model](../SKILL.md).
+
+## Purpose
+
+Turn a feature request into design documents that carve the feature into modules
+with high cohesion and clear boundaries. Success means every branch of the
+document tree ends in a leaf the user has confirmed and Phase 2 can consume.
+
+## SD Role Determination
+
+This section governs `sd-*.md` only; a `bd-*.md` carries no role. MUST decide the role before writing a single line.
+
+- If the document describes how sub-modules assemble into a larger concept and its substance is links to other design documents, its role is overview.
+- If the document describes one module's own behavior and links to the target code, its role is leaf.
+- If both descriptions fit, the role is overview and the concrete behavior MUST be pushed down into child leaf documents.
+
+## Location Decision
+
+1. Identify the folder that holds — or will hold — the corresponding code.
+2. Place `sd-<feature-name>.md` in that folder. MUST NOT collect design documents under `docs/`.
+3. Settle the assembly scope. In a monorepo a feature living entirely inside one submodule belongs to that submodule's scope; one spanning submodules belongs to the repository scope, and the root `bd-*.md` is what carries that cross-submodule assembly. Each `sd-*.md` still lives with the code it describes — MUST NOT create a root `sd-*.md` just because a feature spans submodules.
+4. The assembly documents live in the `docs/` at the scope root step 3 settled on. A single-repo project has exactly one such directory, at the repository root; a monorepo has one at the repository root plus one at each submodule root. `docs/` MUST NOT exist at any level in between. Create the directory if it is not there yet.
+5. Decide which `bd-*.md` should reach this module: the one whose topic the module takes part in. If several topics use it, all of them link to it — a component serves more than one assembly.
+6. If no existing topic covers it, create `bd-<topic-name>.md`, naming it after what the assembled whole delivers rather than after the module itself.
+7. Add the link, and update that document's Mermaid so the new module and its data flow appear in the relationship view.
+8. In a monorepo, a root `bd-*.md` MUST link to each submodule `bd-*.md` taking part in that topic, not to the submodule directory — Phase 3 walks these links in reverse, and a directory is not a node it can follow.
+
+## Writing Rules — Assembly Document
+
+- MUST take the assembled whole as its subject: what a business requirement delivers, how an architecture holds together, where an end-to-end data flow runs. The reader arrives wanting the outcome, not the parts list.
+- MUST show the relationships in Mermaid, and MUST link every `sd-*.md` that takes part.
+- MUST NOT sink into how any single module behaves internally — that belongs to the `sd-*.md` it links to. A `bd-*.md` explaining one module's rules has become a design document in the wrong place.
+- Carries no line limit; the 300-line rule binds `sd-*.md` only.
+
+## Writing Rules — Leaf
+
+- MUST state what the module does, what it owns, and what it deliberately does not own.
+- MUST state the caveats: idempotency, concurrency, ordering, failure behavior, and limits.
+- MUST use Mermaid whenever the document describes a relationship among two or more components, a multi-step data flow, or a state transition. MUST NOT add a diagram when there is no relationship to show.
+- MUST express every interface and data view as a Markdown link to the target code. See Interface Links below for code that does not exist yet.
+- MUST NOT contain code blocks other than Mermaid.
+- MUST NOT duplicate algorithms, control flow, or field-level structure. MAY name one current implementation or implementation constraint when that choice materially defines the module boundary, the observable behavior, or a compatibility contract — and MUST link to it rather than restate it.
+
+## Writing Rules — Overview
+
+- MUST describe the abstract concept and how the child modules compose into it.
+- MUST use Mermaid for composition, dependency, and data flow.
+- MUST link every child design document.
+- MUST NOT restate the behavior a child document already owns.
+
+## Interface Links
+
+- If the target code already exists, the link MUST point at the actual file or symbol.
+- If the target code does not exist yet, the link is a planned path. A planned path is a temporary location marker, not an interface definition — it MUST NOT be treated as one.
+- For planned paths, this phase MUST confine itself to behavior boundaries, input and output semantics, and ownership. The exact interface is created by Phase 2 as part of the minimum skeleton, and Phase 2 resolves the link before its confirmation gate.
+- Every planned link MUST be marked unresolved in the document, so a later reader can tell a promise from a fact.
+
+## Line Counting
+
+- Counted lines = total file lines minus every line inside a `mermaid` fenced block, fence lines included. Blank lines, headings, frontmatter, and link-only lines all count.
+- Mermaid blocks MUST use exactly three backticks and the lower-case `mermaid` info string. Four-backtick and tilde fences MUST NOT be used — the counter treats anything else as ordinary text.
+- Run [count_lines.py](../scripts/count_lines.py) from this skill, passing one or more document paths. It prints `<count>` and the path per file, and exits non-zero on a Mermaid block that is never closed.
+
+```bash
+python <skill>/scripts/count_lines.py path/to/sd-feature.md
+```
+
+- MUST count after every write and every revision.
+
+## Split Procedure
+
+Triggered when a document exceeds 300 counted lines.
+
+1. MUST NOT lower the count by deleting caveats, compressing prose, or moving text into Mermaid. Splitting the module is the only permitted response.
+2. Find the seams by responsibility and by data-flow boundary — group content that changes for the same reason.
+3. Promote the document to overview role: keep the abstract composition and the links, and move each group into a child `sd-*.md` placed in that group's own code folder.
+4. Recurse into this phase for every child document.
+
+## Promotion Lifecycle
+
+If a promoted document already passed Phase 2 and Phase 3, its existing tests and
+code stay valid and MUST be re-anchored to whichever child leaf now owns them.
+Promotion alone MUST NOT trigger a rewrite of any test or implementation.
+
+## Recursion And Gates
+
+1. Write or update the `bd-*.md` for the topic, then present it and obtain confirmation. The user is the one who knows whether the outcome and the assembly are right, so MUST NOT descend into any module before that confirmation.
+2. Write one `sd-*.md`.
+3. Count its lines; if it exceeds the limit, MUST run the split procedure.
+4. Present the document to the user and obtain confirmation. MUST NOT descend to any child before that confirmation.
+5. Descend to each child and repeat from step 2.
+6. Stop descending when a node is at or under 300 counted lines and describes concrete module behavior rather than composition. That node is a leaf.
+
+## Exit Artifacts
+
+- One or more `sd-*.md`, each confirmed by the user at its own level.
+- The relevant `bd-*.md` updated with the new links and Mermaid, and confirmed by the user.
+- Every branch terminated in a leaf, so Phase 2 has a valid input.
