@@ -1,7 +1,8 @@
 # sys-design
 
-A development workflow that writes design documents and nothing else, then turns
-them into code through Specification by Example and TDD.
+A development workflow whose only specification document is a design document.
+Everything else it produces is tests, implementation code, and an optional
+performance record.
 
 ## Quick Navigation
 
@@ -117,7 +118,7 @@ why every edge has to be a real link rather than an implied relationship.
 |------|-------|---------|
 | `bd-<topic>.md` | `docs/` at a scope root | What the assembled whole delivers — a business requirement, an architectural account, an end-to-end data flow |
 | `sd-<feature>.md` | Beside the code it describes | One module: its responsibility, boundary, and caveats |
-| `sd-<feature>-perf.md` | Beside the code it measures | Performance measurements accumulated over time |
+| `sd-<feature>-perf.md` | Beside the code it measures | The three most recent performance measurements, each pinned to a commit |
 
 A monorepo nests the same model: one `docs/` at the repository root for how
 submodules assemble, plus one at each submodule root for its own internals.
@@ -139,10 +140,9 @@ that will disagree with the first one eventually.
 read as the module carrying too much, and the only permitted response is
 splitting it — compressing the prose to fit is explicitly forbidden.
 
-**The user prunes the tests, not a checklist.** Earlier drafts had the agent
-present edge cases as a list to be marked one by one. Judging concrete inputs
-and outputs turned out easier than judging abstract descriptions of them, so the
-tests themselves are what gets reviewed.
+**The user prunes the tests, not a checklist.** Judging concrete inputs and
+outputs is easier than judging abstract descriptions of them, so what gets
+reviewed is the tests themselves rather than a list of cases to tick off.
 
 **Every test file names its design document in a header comment.** Inferring the
 owner from what sits next to the code works right up until a folder gains a
