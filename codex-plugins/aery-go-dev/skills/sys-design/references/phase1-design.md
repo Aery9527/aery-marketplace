@@ -57,16 +57,18 @@ This section plans the graph — which nodes exist and which edges join them. No
 - If the target code already exists, the link MUST point at the actual file or symbol.
 - If the target code does not exist yet, the link is a planned path. A planned path is a temporary location marker, not an interface definition — it MUST NOT be treated as one.
 - For planned paths, this phase MUST confine itself to behavior boundaries, input and output semantics, and ownership. The exact interface is created by Phase 2 as part of the minimum skeleton, and Phase 2 resolves the link before its confirmation gate.
-- Every planned link MUST be marked unresolved in the document, so a later reader can tell a promise from a fact.
+- Every planned link MUST carry `(planned)` immediately after it — `[OrderValidator](internal/order/validator.go) (planned)` — so a later reader can tell a promise from a fact. Phase 2 drops the marker when it resolves the link.
+- Run [list_planned.py](../scripts/list_planned.py), resolved the same way as the counter above, to list the open promises in a document. It reports only a marker that follows a Markdown link, so the word appearing in ordinary prose is never mistaken for one.
 
 ## Line Counting
 
 - Counted lines = total file lines minus every line inside a `mermaid` fenced block, fence lines included. Blank lines, headings, frontmatter, and link-only lines all count.
 - Mermaid blocks MUST use exactly three backticks and the lower-case `mermaid` info string, and MUST start in column one. Four-backtick fences, tilde fences, and diagrams indented inside a list item or blockquote MUST NOT be used — the counter reads anything else as ordinary text, which inflates the count rather than hiding lines from it, and a large diagram reads poorly inside a container anyway.
 - Run [count_lines.py](../scripts/count_lines.py) from this skill, passing one or more document paths. It prints `<count>` and the path per file, and exits non-zero on a Mermaid block that is never closed.
+- The script lives at `<skill-root>/scripts/count_lines.py`, where `<skill-root>` is the directory holding this skill's `SKILL.md` — the parent of the `references/` directory this file sits in. MUST resolve that path from where this file was loaded from, and MUST NOT hard-code an installation path: the skill is distributed as a plugin and lands wherever the host installs it.
 
 ```bash
-python <skill>/scripts/count_lines.py path/to/sd-feature.md
+python <skill-root>/scripts/count_lines.py path/to/sd-feature.md
 ```
 
 - MUST count after every write and every revision.
@@ -90,18 +92,18 @@ Promotion alone MUST NOT trigger a rewrite of any test or implementation.
 
 Walk the planned graph downward, one node at a time. All writing happens here, and never ahead of a confirmation.
 
-1. At a `bd-*.md` node, write or update it, including its edges to the planned children. A child that does not exist yet MUST be marked unresolved, exactly as a planned interface link is.
+1. At a `bd-*.md` node, write or update it, including its edges to the planned children. An edge whose target document does not exist yet MUST carry the same `(planned)` marker.
 2. Present that document and obtain confirmation. The user is the one who knows whether the outcome and the assembly are right, so MUST NOT write any child node before that confirmation. A module taking part in several topics means several `bd-*.md` to confirm, each on its own.
 3. Descend to each child `bd-*.md` and repeat from step 1, until the nodes below are modules rather than topics.
 4. At a `sd-*.md` node, write it and count its lines; if it exceeds the limit, MUST run the split procedure.
 5. Present that document and obtain confirmation. MUST NOT write any child before that confirmation.
 6. Descend to each child `sd-*.md` and repeat from step 4.
 7. Stop descending when a node is at or under 300 counted lines and describes concrete module behavior rather than composition. That node is a leaf.
-8. As each node is written, update its Mermaid, and clear the unresolved mark on every edge whose target now exists.
+8. As each node is written, update its Mermaid, and drop the `(planned)` marker from every edge whose target now exists.
 
 ## Exit Artifacts
 
 - One or more `sd-*.md`, each confirmed by the user at its own level.
 - Every `bd-*.md` on the path updated with the new links and Mermaid, and confirmed by the user one node at a time.
-- No unresolved edge left anywhere on the path — every planned node now exists.
+- No `(planned)` marker left on any edge along the path — every planned node now exists. Verify with `list_planned.py`: entries pointing at a `.md` document MUST be gone, while entries pointing at code stay until Phase 2 builds the interface.
 - Every branch terminated in a leaf, so Phase 2 has a valid input.

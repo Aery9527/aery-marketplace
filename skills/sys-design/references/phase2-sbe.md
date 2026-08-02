@@ -32,7 +32,7 @@ this phase is the gate before development starts.
 5. Present the candidates as a list and have the user mark each one in-scope or out-of-scope. Scope MUST be settled on the list before any test is written, because a scope decision is cheap on a list and expensive inside test code. MUST NOT decide scope unilaterally.
 6. Render the marked set as tests — one test per example — placed wherever the project keeps its tests for the code the leaf owns.
 7. Create the minimum skeleton those tests need in order to compile: types and function signatures with unimplemented bodies. If the target code already exists, MUST NOT recreate it — extend only what the new behaviors require.
-8. Resolve the leaf document's interface links onto the symbols this phase just created, replacing the planned paths from Phase 1.
+8. Resolve the leaf document's interface links onto the symbols this phase just created, replacing the planned paths from Phase 1 and dropping their `(planned)` markers.
 9. Run the set and confirm each new or changed behavior fails, and that the failure is attributable to the unit under test.
 10. Present the failing tests and the resolved leaf document to the user. Their confirmation freezes the SBE.
 
@@ -67,7 +67,7 @@ While settling scope in steps 3 to 5, keep each candidate in this shape:
 - Every test covering a new or changed behavior MUST fail, and the failure MUST be attributable to the behavior missing from the unit under test. An assertion mismatch is the preferred form; an unimplemented sentinel the language forces on an empty body — a panic, a `todo`, a not-implemented error — is equally valid.
 - A failure outside the unit under test is never a valid red: a compile error, a missing dependency, or a shared setup fault MUST be fixed before the gate. Several tests failing together on the same missing unit is fine; several failing together on something the unit does not own is not.
 - Every test that was green in the step 2 baseline MUST still be green.
-- Every interface link in the leaf document MUST resolve to a symbol that now exists.
+- Every interface link in the leaf document MUST resolve to a symbol that now exists. Running `list_planned.py` on that document MUST report nothing — every promise Phase 1 made about this leaf is now kept.
 
 ## Exit Artifacts
 
