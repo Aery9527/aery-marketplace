@@ -64,7 +64,7 @@
 - 若目標程式碼已經存在，連結必須指向實際的檔案或 symbol。
 - 若目標程式碼尚未存在，該連結是規劃路徑。規劃路徑只是暫時的位置標記，不是介面定義，嚴禁把它當成介面定義使用。
 - 面對規劃路徑時，本階段必須把自己限制在行為邊界、輸入與輸出語意，以及職責歸屬。精確的介面由 Phase 2 在建立最小骨架時產生，並由 Phase 2 在它的確認 gate 之前把連結收斂到真實目標。
-- 每一條規劃連結都必須在其緊接之後標上 `(planned)`——`[OrderValidator](internal/order/validator.go) (planned)`——讓後續讀者分得出哪些是承諾、哪些是事實。Phase 2 收斂該連結時會拿掉這個標記。
+- 每一條規劃連結都必須在其緊接之後標上 `(planned)`：先是一條像 `[OrderValidator](internal/order/validator.go)` 這樣的連結，接著是該標記，中間最多一個空白。後續讀者因此分得出哪些是承諾、哪些是事實。Phase 2 收斂該連結時會拿掉這個標記。
 - 執行 [list_planned.py](../scripts/list_planned.py)——與下方計數器同樣位於 `<skill-root>/scripts/`——即可列出一份文件裡還沒兌現的承諾。它只認緊跟在 Markdown link 之後的標記，因此散文中出現的同一個詞永遠不會被誤判。
 
 ## 行數計算
@@ -111,5 +111,5 @@ python <skill-root>/scripts/count_lines.py path/to/sd-feature.md
 
 - 一份或多份 `sd-*.md`，且每一份都在自己那一層取得使用者確認。
 - 路徑上每一份 `bd-*.md` 都已更新連結與 Mermaid，並逐一節點取得使用者確認。
-- 路徑上任何一條邊都不再帶有 `(planned)` 標記——每一個規劃中的節點都已存在。用 `list_planned.py` 驗證：指向 `.md` 文件的項目必須已經消失，指向程式碼的項目則會留到 Phase 2 把介面建出來為止。
+- 路徑上任何一條邊都不再帶有 `(planned)` 標記——每一個規劃中的節點都已存在。用 [list_planned.py](../scripts/list_planned.py) 驗證：指向 `.md` 文件的項目必須已經消失，指向程式碼的項目則會留到 Phase 2 把介面建出來為止。
 - 每一條分支都終止於 leaf，使 Phase 2 具備合法輸入。

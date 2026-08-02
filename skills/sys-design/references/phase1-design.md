@@ -66,7 +66,7 @@ This section plans the graph — which nodes exist and which edges join them. No
 - If the target code already exists, the link MUST point at the actual file or symbol.
 - If the target code does not exist yet, the link is a planned path. A planned path is a temporary location marker, not an interface definition — it MUST NOT be treated as one.
 - For planned paths, this phase MUST confine itself to behavior boundaries, input and output semantics, and ownership. The exact interface is created by Phase 2 as part of the minimum skeleton, and Phase 2 resolves the link before its confirmation gate.
-- Every planned link MUST carry `(planned)` immediately after it — `[OrderValidator](internal/order/validator.go) (planned)` — so a later reader can tell a promise from a fact. Phase 2 drops the marker when it resolves the link.
+- Every planned link MUST carry `(planned)` immediately after it: a link written as `[OrderValidator](internal/order/validator.go)`, then the marker, with a single space between them at most. A later reader can then tell a promise from a fact. Phase 2 drops the marker when it resolves the link.
 - Run [list_planned.py](../scripts/list_planned.py) — the same `<skill-root>/scripts/` directory as the counter below — to list the open promises in a document. It reports only a marker that follows a Markdown link, so the word appearing in ordinary prose is never mistaken for one.
 
 ## Line Counting
@@ -114,5 +114,5 @@ Walk the planned graph downward, one node at a time. All writing happens here, a
 
 - One or more `sd-*.md`, each confirmed by the user at its own level.
 - Every `bd-*.md` on the path updated with the new links and Mermaid, and confirmed by the user one node at a time.
-- No `(planned)` marker left on any edge along the path — every planned node now exists. Verify with `list_planned.py`: entries pointing at a `.md` document MUST be gone, while entries pointing at code stay until Phase 2 builds the interface.
+- No `(planned)` marker left on any edge along the path — every planned node now exists. Verify with [list_planned.py](../scripts/list_planned.py): entries pointing at a `.md` document MUST be gone, while entries pointing at code stay until Phase 2 builds the interface.
 - Every branch terminated in a leaf, so Phase 2 has a valid input.
