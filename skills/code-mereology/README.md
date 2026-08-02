@@ -2,7 +2,9 @@
 
 A development workflow whose only specification document is a design document.
 Everything else it produces is tests, implementation code, and an optional
-performance record.
+performance record. It takes its name from mereology, the study of part-whole
+relations — the difference between a module being part of something and merely
+depending on it runs through its entire document model.
 
 ## Quick Navigation
 
