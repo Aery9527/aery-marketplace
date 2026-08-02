@@ -33,7 +33,8 @@ this phase is the gate before development starts.
 6. Create the minimum skeleton those tests need in order to compile: types and function signatures with unimplemented bodies. If the target code already exists, MUST NOT recreate it — extend only what the new behaviors require.
 7. Resolve the leaf document's interface links onto the symbols this phase just created, replacing the planned paths from Phase 1 and dropping their `(planned)` markers.
 8. Run the set and confirm each new or changed behavior fails, and that the failure is attributable to the unit under test.
-9. Present the failing tests and the resolved leaf document to the user. This is where scope is settled: the user drops the tests that are out of scope and corrects the values that are wrong. Their confirmation freezes the SBE.
+9. Present the failing tests and the resolved leaf document to the user. This is where scope is settled: the user drops the tests that are out of scope and corrects the values that are wrong.
+10. If anything was dropped or corrected, adjust the tests, the skeleton, and the interface links to match — removing any symbol that only the dropped tests needed — then repeat steps 8 and the exit check. Only a set that came through untouched on its last pass may be confirmed. Confirmation freezes the SBE.
 
 ## Rules
 
@@ -43,6 +44,7 @@ this phase is the gate before development starts.
 - Whatever is discussed while settling direction is a transient interaction artifact. MUST NOT write it into any Markdown or design document, and MUST NOT let Phase 3 depend on it — after the gate, the failing tests are the only durable specification.
 - The stopping rule for edge case hunting is the user's confirmation of the test set. Once confirmed, MUST NOT add further cases inside this phase; a genuinely new case reopens the phase as an explicit user decision.
 - If clarifying examples reveals the design document is wrong or incomplete, MUST return to Phase 1 rather than patch the gap inside the tests.
+- If the user drops a behavior the design document explicitly requires — rather than an edge case this phase derived — that is a design change. MUST return to Phase 1 instead of quietly narrowing the document's promise.
 - Resolving a planned link onto the symbol just created does not reopen Phase 1 — it records a confirmed contract at its real address. But if building the skeleton reveals that the confirmed behavior or module boundary itself must change, MUST stop and return to Phase 1.
 - One Phase 2 test set MUST belong to exactly one leaf. If the examples span two leaves, MUST split them into separate Phase 2 runs rather than one mixed set.
 - Every test file MUST name its leaf in a header comment, using that language's comment syntax: `sys-design-leaf: <repository-relative-path>`. MUST NOT infer the owner from what sits near the code — that reading breaks silently as soon as a folder gains a second `sd-*.md`.
