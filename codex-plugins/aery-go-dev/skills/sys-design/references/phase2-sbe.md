@@ -27,22 +27,21 @@ this phase is the gate before development starts.
 
 1. Read the leaf design document and list every behavior that needs an example.
 2. Record the current test baseline: run the project's existing tests and note which already pass. A behavior that already works is not a new red.
-3. Ask the user for a concrete input/output example per behavior. An abstract description with no example is undefined scope, not a specification.
-4. Derive edge case candidates. Sources: the document's caveats, the module boundary, and boundary values — nil, zero, upper limit, empty collection, duplicate invocation, concurrent invocation, ordering, and every failure path.
-5. Present the candidates as a list and have the user mark each one in-scope or out-of-scope. Scope MUST be settled on the list before any test is written, because a scope decision is cheap on a list and expensive inside test code. MUST NOT decide scope unilaterally.
-6. Render the marked set as tests — one test per example — placed wherever the project keeps its tests for the code the leaf owns.
-7. Create the minimum skeleton those tests need in order to compile: types and function signatures with unimplemented bodies. If the target code already exists, MUST NOT recreate it — extend only what the new behaviors require.
-8. Resolve the leaf document's interface links onto the symbols this phase just created, replacing the planned paths from Phase 1 and dropping their `(planned)` markers.
-9. Run the set and confirm each new or changed behavior fails, and that the failure is attributable to the unit under test.
-10. Present the failing tests and the resolved leaf document to the user. Their confirmation freezes the SBE.
+3. Ask the user only the directional questions — the few whose answers change the shape of the whole set, such as whether concurrent access is in scope, whether a failure retries or gives up, whether batching exists. MUST NOT walk the user through edge cases one by one; deriving those is this phase's own job, and a long checklist of abstract items is harder to judge than the tests themselves.
+4. Derive the edge cases. Sources: the document's caveats, the module boundary, and boundary values — nil, zero, upper limit, empty collection, duplicate invocation, concurrent invocation, ordering, and every failure path.
+5. Render every behavior and edge case as tests — one example per test — placed wherever the project keeps its tests for the code the leaf owns. Propose each concrete input and output from the design document; the user settles them at the gate, looking at real values rather than at descriptions of values.
+6. Create the minimum skeleton those tests need in order to compile: types and function signatures with unimplemented bodies. If the target code already exists, MUST NOT recreate it — extend only what the new behaviors require.
+7. Resolve the leaf document's interface links onto the symbols this phase just created, replacing the planned paths from Phase 1 and dropping their `(planned)` markers.
+8. Run the set and confirm each new or changed behavior fails, and that the failure is attributable to the unit under test.
+9. Present the failing tests and the resolved leaf document to the user. This is where scope is settled: the user drops the tests that are out of scope and corrects the values that are wrong. Their confirmation freezes the SBE.
 
 ## Rules
 
 - Deriving edge cases the user did not raise is an obligation of this phase, not an optional extra. MUST NOT accept a behavior list the user supplies as complete without running step 4 against it.
 - MUST NOT write any behavior logic. Every function body the skeleton introduces MUST stay unimplemented; the first line of real logic belongs to Phase 3.
 - MUST NOT write the SBE into a document.
-- The candidate list and the out-of-scope marks are transient interaction artifacts. MUST NOT write them into any Markdown or design document, and MUST NOT let Phase 3 depend on them — after the gate, the failing tests are the only durable specification.
-- The stopping rule for edge case hunting is the fully marked candidate list. Once the tests are confirmed, MUST NOT add further cases inside this phase; a genuinely new case reopens the phase as an explicit user decision.
+- Whatever is discussed while settling direction is a transient interaction artifact. MUST NOT write it into any Markdown or design document, and MUST NOT let Phase 3 depend on it — after the gate, the failing tests are the only durable specification.
+- The stopping rule for edge case hunting is the user's confirmation of the test set. Once confirmed, MUST NOT add further cases inside this phase; a genuinely new case reopens the phase as an explicit user decision.
 - If clarifying examples reveals the design document is wrong or incomplete, MUST return to Phase 1 rather than patch the gap inside the tests.
 - Resolving a planned link onto the symbol just created does not reopen Phase 1 — it records a confirmed contract at its real address. But if building the skeleton reveals that the confirmed behavior or module boundary itself must change, MUST stop and return to Phase 1.
 - One Phase 2 test set MUST belong to exactly one leaf. If the examples span two leaves, MUST split them into separate Phase 2 runs rather than one mixed set.
@@ -52,15 +51,6 @@ this phase is the gate before development starts.
 
 - If the leaf already has an implementation, this phase covers only the behaviors being added or changed. Behaviors that already work MUST stay green throughout.
 - A test that passes on first run is a defect only when it covers a new or changed behavior. MUST NOT weaken a test to force it red.
-
-## List Format
-
-While settling scope in steps 3 to 5, keep each candidate in this shape:
-
-- Behavior — one sentence naming what is being specified.
-- Input — each field and its concrete value.
-- Output — each field and its concrete value, or the error returned.
-- Edge cases — one line per case, in `condition -> result` form.
 
 ## Exit Check
 
