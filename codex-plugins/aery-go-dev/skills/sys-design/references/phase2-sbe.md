@@ -47,7 +47,7 @@ this phase is the gate before development starts.
 - If the user drops a behavior the design document explicitly requires — rather than an edge case this phase derived — that is a design change. MUST return to Phase 1 instead of quietly narrowing the document's promise.
 - Resolving a planned link onto the symbol just created does not reopen Phase 1 — it records a confirmed contract at its real address. But if building the skeleton reveals that the confirmed behavior or module boundary itself must change, MUST stop and return to Phase 1.
 - One Phase 2 test set MUST belong to exactly one leaf. If the examples span two leaves, MUST split them into separate Phase 2 runs rather than one mixed set.
-- Every test file MUST name its leaf in a header comment, using that language's comment syntax: `sys-design-leaf: <repository-relative-path>`. MUST NOT infer the owner from what sits near the code — that reading breaks silently as soon as a folder gains a second `sd-*.md`.
+- Every test file MUST name its leaf in a header comment, using that language's comment syntax: `sys-design-leaf: <repository-relative-path>`. Every file in one Phase 2 set MUST carry the identical path, and it MUST resolve to a confirmed design document — never to a `-perf` record. MUST NOT infer the owner from what sits near the code — that reading breaks silently as soon as a folder gains a second `sd-*.md`.
 
 ## Existing Code
 
