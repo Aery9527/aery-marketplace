@@ -32,7 +32,7 @@ from these lookups. MUST NOT assume the tests alone convey the topology.
 4. Repeat from step 1 until every test in the frozen set passes.
 5. Run the project's existing related tests as well. Everything green before this phase MUST still be green.
 6. Verify the leaf document's interface links still resolve to real symbols, and correct any that moved during refactoring.
-7. Check each parent and each dependent. For a parent, whether the relationships and data flow it draws still match what was actually built; for a dependent, whether the contract it relies on still holds. Update whatever no longer matches. If that update changes the relationships a document describes to the outside, its own parents and dependents may now be stale — repeat this step for that document. Each path is followed on its own, and one stopping does not stop the others. When the implementation only touched the leaf's internals and left its outward boundary alone, the first level of checking is where this ends.
+7. Check each parent and each dependent. For a parent, whether the relationships and data flow it draws still match what was actually built; update its Mermaid where they do not. For a dependent, whether the contract it relies on still holds: if it does, change nothing; if only a symbol moved, correct the link. If the contract itself no longer holds, MUST NOT edit the dependent to match — a document rewritten to fit a broken contract hides the breakage. Restore compatibility, or stop and let the user decide whether that dependent needs its own pass through Phase 1. Run the dependents' own tests before treating this step as done. If that update changes the relationships a document describes to the outside, its own parents and dependents may now be stale — repeat this step for that document. Each path is followed on its own, and one stopping does not stop the others. When the implementation only touched the leaf's internals and left its outward boundary alone, the first level of checking is where this ends.
 
 ## Rules
 
@@ -48,5 +48,5 @@ from these lookups. MUST NOT assume the tests alone convey the topology.
 - An implementation that turns every test in the frozen set green, with none skipped or disabled.
 - The project's previously passing tests still passing.
 - Every link in the touched design documents resolving to an existing target.
-- Every upstream document the walk had to touch consistent with what was actually built.
+- Every parent and dependent the walk had to touch consistent with what was actually built, with no dependent left describing a contract the code no longer honors.
 - Then ask the user whether to run Phase 4. The answer MAY be no, and MAY be deferred to any later time.
