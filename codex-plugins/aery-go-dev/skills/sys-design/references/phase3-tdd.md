@@ -18,7 +18,7 @@ design documents still describe what was built.
 Loaded without any prior context, MUST establish these three things before writing a line:
 
 1. The failing tests. They carry the complete behavioral specification — what to build is never inferred from conversation history.
-2. The owning leaf `sd-*.md`. A `sys-design-leaf:` header comment in the test file names it outright and always wins. Otherwise walk from the code folder the tests exercise up to the first folder containing any `sd-*.md`; that folder MUST hold exactly one, which is the owner. If the walk yields none or several and no header names one, MUST stop and ask the user rather than guess.
+2. The owning leaf `sd-*.md`, named by the `sys-design-leaf:` header comment in the test files. If that comment is missing, MUST stop and ask the user rather than infer an owner from whatever design document happens to sit near the code.
 3. The upstream documents. Walk the structural graph in reverse from the leaf: a document is an immediate parent only when it reaches this node through one of the four structural edges. A navigation link back to a higher topic, a cross-reference, or an external link is not a parent. A leaf may still have several parents — an overview plus more than one topic — because a component serves more than one assembly. Keep a set of documents already visited and MUST NOT process one twice.
 
 The behavioral specification comes from the tests. The document topology comes
