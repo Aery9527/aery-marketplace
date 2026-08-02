@@ -32,13 +32,13 @@ from these lookups. MUST NOT assume the tests alone convey the topology.
 4. Repeat from step 1 until every test in the frozen set passes.
 5. Run the project's existing related tests as well. Everything green before this phase MUST still be green.
 6. Verify the leaf document's interface links still resolve to real symbols, and correct any that moved during refactoring.
-7. Verify each immediate parent still describes the real relationships and data flow, and update its Mermaid where the implementation changed them. If updating a parent changes what that parent itself claims, repeat this step for that parent's own parents. Each changed parent is followed independently: a branch stops where its parent needs no change, and that never stops another branch. A leaf whose internals changed without altering its boundary usually stops at the first level.
+7. Check whether the relationships and data flow each immediate parent draws still match what was actually built, and update its Mermaid wherever they do not. If that update changes the relationships a parent describes to the outside, its own parents may now be stale — repeat this step for that document. Each upward path is followed on its own, and one stopping does not stop the others. When the implementation only touched the leaf's internals and left its outward boundary alone, the first level of checking is where this ends.
 
 ## Rules
 
 - MUST NOT modify a test to make it pass. A test that looks wrong is a Phase 2 decision, not a Phase 3 edit.
 - MUST NOT skip, disable, or delete a test to reach green.
-- MUST implement only what the frozen tests and the confirmed design boundaries require. MUST NOT add an independently observable feature neither of them asks for. Generalizing an implementation beyond the literal example values is expected — adding a feature is not.
+- The implementation MUST stay within what the frozen tests and the design document ask for. Writing the logic as a general rule is expected — a test giving `add(1, 1) == 2` calls for adding two numbers, not for hard-coding the answer. But MUST NOT slip in new behavior a caller can notice that neither of them asked for: nothing pins it down, and it never passed the Phase 2 gate.
 - MUST NOT reach green by breaking a behavior that was already working.
 - If implementation reveals the design document is wrong, MUST stop and return to Phase 1. Letting the code diverge from the document silently is the failure this skill exists to prevent.
 - MUST NOT copy implementation detail back into the design document. The code is the only place that detail belongs.
