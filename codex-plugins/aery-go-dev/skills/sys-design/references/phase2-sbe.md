@@ -34,7 +34,7 @@ this phase is the gate before development starts.
 7. Resolve the leaf document's interface links onto the symbols this phase just created, replacing the planned paths from Phase 1 and dropping their `(planned)` markers.
 8. Run the set and confirm each new or changed behavior fails, and that the failure is attributable to the unit under test.
 9. Present the failing tests and the resolved leaf document to the user. This is where scope is settled: the user drops the tests that are out of scope and corrects the values that are wrong.
-10. If anything was dropped or corrected, adjust the tests, the skeleton, and the interface links to match — removing any symbol that only the dropped tests needed — then repeat steps 8 and the exit check. Only a set that came through untouched on its last pass may be confirmed. Confirmation freezes the SBE.
+10. If anything was dropped or corrected, adjust the tests, the skeleton, and the interface links to match — removing any symbol that only the dropped tests needed — then repeat step 8 and the exit check, and return to step 9 with what actually came out. Repeat until a round ends with the user asking for no change. Only that untouched set, fresh from the exit check, may be confirmed, and confirmation freezes the SBE.
 
 ## Rules
 
