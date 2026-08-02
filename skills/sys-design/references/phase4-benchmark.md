@@ -16,7 +16,7 @@ number sitting next to an agreed target.
 1. Ask the user whether this feature needs a benchmark or a load test. If the answer is no, end the phase here.
 2. Agree on the performance target before measuring: throughput, latency percentile, and resource ceiling. A measurement with no target cannot be judged.
 3. Write the benchmark or load test next to the code it measures.
-4. Record the result in `sd-<feature-name>-perf.md`, beside the code it measures and next to that module's design document. Each entry MUST carry the target, the date, the environment, the code revision measured, and the numbers — a number without its environment and revision cannot be reproduced, and the code it measured will keep changing. Append each new measurement; MUST NOT overwrite an earlier one, because without the previous numbers there is nothing to judge an optimization against.
+4. Record the result in `sd-<feature-name>-perf.md`, beside the code it measures and next to that module's design document. Each entry MUST carry the target, the commit it was measured at, the environment, and the numbers — the commit pins down both when it ran and which code it ran against, and a number without its environment cannot be reproduced. Keep the three most recent entries; when a fourth arrives, drop the oldest, which stays available in version history. MUST NOT rewrite an entry that remains, because comparing against a number that was quietly changed proves nothing.
 5. Present the result against the target and let the user decide whether optimization follows.
 
 ## Rules
@@ -29,5 +29,5 @@ number sitting next to an agreed target.
 ## Exit Artifacts
 
 - A benchmark or load test living beside the code it measures.
-- `sd-<feature-name>-perf.md` holding every measurement taken so far, each with its target, date, environment, revision, and numbers.
+- `sd-<feature-name>-perf.md` holding the three most recent measurements, each with its target, commit, environment, and numbers.
 - A user decision on whether optimization follows.
