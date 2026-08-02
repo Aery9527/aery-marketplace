@@ -1,5 +1,5 @@
 ---
-name: sys-design
+name: code-mereology
 description: >-
   從設計出發的功能開發流程使用此 skill——建立或修改設計文件、把功能拆分成模組、
   釐清模組邊界、定義 SBE、用 TDD 把程式碼寫出來，或替已完成的功能做效能量測。
@@ -9,7 +9,7 @@ description: >-
   實作程式碼與選配的 benchmark。
 ---
 
-# Sys Design
+# Code Mereology
 
 設計文件負責定義模組邊界與行為；實作細節只存在於程式碼中。設計文件經確認後轉成
 具體的 SBE 範例，範例直接寫成失敗的測試，再由這些測試驅動程式碼誕生。測試是規格
