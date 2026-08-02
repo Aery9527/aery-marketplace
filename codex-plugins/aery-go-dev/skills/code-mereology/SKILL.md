@@ -1,5 +1,5 @@
 ---
-name: sys-design
+name: code-mereology
 description: >-
   Use for feature development that starts from design — creating or revising a
   design document, splitting a feature into modules, clarifying module
@@ -13,7 +13,7 @@ description: >-
   implementation code.
 ---
 
-# Sys Design
+# Code Mereology
 
 Design documents define module boundaries and behavior; implementation detail
 lives in code alone. A confirmed design document becomes concrete SBE examples,

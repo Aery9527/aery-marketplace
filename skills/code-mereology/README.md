@@ -1,4 +1,4 @@
-# sys-design
+# code-mereology
 
 A development workflow whose only specification document is a design document.
 Everything else it produces is tests, implementation code, and an optional
