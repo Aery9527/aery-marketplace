@@ -3,16 +3,14 @@ name: sys-design
 description: >-
   Use for feature development that starts from design — creating or revising a
   design document, splitting a feature into modules, clarifying module
-  boundaries, defining Specification by Example, driving code through TDD, or
-  benchmarking a finished feature. Triggers on: "design doc", "module
-  boundary", "split this module", "cohesion", "SBE", "specification by
-  example", "TDD", "test first", "write this feature", "benchmark", "load
-  test", "設計文件", "sd-", "模組拆分", "模組邊界", "開發流程", "bd-", "業務文件",
-  "壓測". The only documentation artifact this skill produces is a design
-  document; it MUST NOT produce implementation-plan or standalone SBE
-  documents. Later phases produce tests, implementation code, and optional
-  benchmarks. Each of its four phases is independently loadable and MUST be
-  loaded on demand.
+  boundaries, defining SBE, driving code through TDD, or measuring the
+  performance of a finished feature. Use when the task is: building a new
+  feature or module, changing a feature, reworking a module, designing the
+  flow, TDD, SBE, load testing, benchmarking. The only specification document
+  this skill produces is a design document; it MUST NOT produce
+  implementation-plan or standalone SBE documents. Phase 4 additionally records
+  performance measurements, and the later phases produce tests and
+  implementation code.
 ---
 
 # Sys Design
@@ -29,7 +27,8 @@ into a document.
 - If a confirmed leaf design document exists and the task defines concrete input/output examples, hunts edge cases, or renders them as failing tests, load [Phase 2 — SBE As Failing Tests](references/phase2-sbe.md).
 - If a confirmed set of failing tests exists and the task implements against it, load [Phase 3 — Implementation](references/phase3-tdd.md).
 - If a feature is already implemented and the task measures throughput, latency, or resource cost, load [Phase 4 — Performance Verification](references/phase4-benchmark.md).
-- MUST NOT load a phase reference the current task does not need. These four bullets are the only load decision. Every reference states the artifacts it produces, and the phases that depend on earlier output also state the state they must verify before starting, so any single phase is executable from a cold load.
+- Each of the four phases is independently loadable. MUST load only the phase the current task needs, and MUST NOT load a phase reference it does not.
+- The four bullets above are the only load decision. Every reference states the artifacts it produces, and the phases that depend on earlier output also state the state they must verify before starting, so any single phase is executable from a cold load.
 
 ## Document Model
 
@@ -45,12 +44,20 @@ Inside the module layer, `sd-*.md` may itself form a tree, and each node carries
 - Overview role — describes an abstract concept and links to its sub-modules' design documents. MUST NOT be the input of Phase 2.
 - Leaf role — describes one module's own behavior and links to the target code. Only a leaf is a valid input of Phase 2.
 
-The two layers form one structural graph. A structural edge always points downward, and there are exactly four kinds:
+The two layers form one structural graph carrying two kinds of edge.
+
+A composition edge points downward and says what a node is made of. There are four:
 
 - a root `bd-*.md` links to each submodule `bd-*.md` taking part in its topic
 - a `bd-*.md` links to every `sd-*.md` in its own scope that takes part
 - an overview `sd-*.md` links to its child `sd-*.md`
 - a leaf `sd-*.md` links to the target code
+
+A dependency edge runs sideways and says what a module needs from elsewhere:
+
+- any `sd-*.md` links to each `sd-*.md` whose capability it relies on
+
+Depending on a module is not composing with it. A module that links to what it depends on does not own that module and does not become an overview because of it.
 
 Phase 3 walks this graph in reverse from the leaf it implemented, so every structural edge MUST be a real Markdown link rather than an implied relationship.
 

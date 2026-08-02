@@ -11,11 +11,12 @@ document tree ends in a leaf the user has confirmed and Phase 2 can consume.
 
 ## SD Role Determination
 
-This section governs `sd-*.md` only; a `bd-*.md` carries no role. MUST decide the role before writing a single line.
+This section governs a design document only; a `bd-*.md` carries no role, and a `-perf` record is not this phase's business at all. MUST decide the role before writing a single line.
 
 - If the document describes how sub-modules assemble into a larger concept and its substance is links to other design documents, its role is overview.
 - If the document describes one module's own behavior and links to the target code, its role is leaf.
-- If both descriptions fit, the role is overview and the concrete behavior MUST be pushed down into child leaf documents.
+- Linking to another design document does not decide the role on its own — what the link means does. Links to the sub-modules that make this one up point to an overview; links to modules it merely relies on leave it a leaf.
+- If it both carries its own concrete behavior and is made up of sub-modules, the role is overview and that behavior MUST be pushed down into child leaf documents.
 
 ## Location Decision
 
@@ -24,7 +25,7 @@ This section plans the graph — which nodes exist and which edges join them. No
 1. Identify the folder that holds — or will hold — the corresponding code.
 2. Place `sd-<feature-name>.md` in that folder. MUST NOT collect design documents under `docs/`.
 3. Work out which scope owns each module: the submodule holding its code, or the repository itself in a single-repo project. A feature spanning submodules owns modules in several scopes at once. Every `sd-*.md` still lives with the code it describes — MUST NOT create a root `sd-*.md` just because a feature spans submodules.
-4. Each scope keeps its assembly documents in the `docs/` at its own root. A single-repo project has exactly one such directory, at the repository root; a monorepo has one at the repository root plus one at each submodule root. `docs/` MUST NOT exist at any level in between. Create the directory of any scope that needs one.
+4. Each scope keeps its assembly documents in the `docs/` at its own root. A single-repo project has exactly one such directory, at the repository root; a monorepo has one at the repository root plus one at each submodule root. `docs/` MUST NOT exist at any level in between. Note which scopes still need one; the directory itself appears when that scope's first `bd-*.md` is written.
 5. In every scope that owns one of these modules, name the `bd-*.md` whose topic the module takes part in — an existing one, or a new `bd-<topic-name>.md` named after what the assembled whole delivers rather than after the module itself. Each of them gets an edge to that module's `sd-*.md`. A module taking part in several topics is reached from each of them — a component serves more than one assembly.
 6. If the feature spans submodules, the repository-root `bd-*.md` for the topic gets an edge to each submodule `bd-*.md` taking part, and never past them into their modules. An edge points at a document, not a directory — Phase 3 walks these in reverse, and a directory is not a node it can follow.
 7. The result is a list of nodes to write and edges to add. Carry it into Recursion And Gates.
@@ -35,7 +36,7 @@ This section plans the graph — which nodes exist and which edges join them. No
 - MUST take the assembled whole as its subject: what a business requirement delivers, how an architecture holds together, where an end-to-end data flow runs. The reader arrives wanting the outcome, not the parts list.
 - MUST show the relationships in Mermaid, and MUST link the nodes one level below it: a repository-root `bd-*.md` in a monorepo links to each submodule `bd-*.md` taking part and MUST NOT reach past them into their modules; every other `bd-*.md` links to each `sd-*.md` in its own scope that takes part.
 - MUST NOT sink into how any single module behaves internally — that belongs to the `sd-*.md` it links to. A `bd-*.md` explaining one module's rules has become a design document in the wrong place.
-- Carries no line limit; the 300-line rule binds `sd-*.md` only.
+- Carries no line limit; the 300-line rule binds design documents only, and never a `-perf` record.
 
 ## Writing Rules — Leaf
 
@@ -44,6 +45,7 @@ This section plans the graph — which nodes exist and which edges join them. No
 - MUST state the caveats: idempotency, concurrency, ordering, failure behavior, and limits.
 - MUST use Mermaid whenever the document describes a relationship among two or more components, a multi-step data flow, or a state transition. MUST NOT add a diagram when there is no relationship to show.
 - MUST express every interface and data view as a Markdown link to the target code. See Interface Links below for code that does not exist yet.
+- If the module relies on a capability another module provides, MUST link to that module's design document and draw the dependency in the diagram. A dependency MUST NOT be written as composition — the module depended on is not owned by this one.
 - MUST NOT contain code blocks other than Mermaid.
 - MUST NOT duplicate algorithms, control flow, or field-level structure. MAY name one current implementation or implementation constraint when that choice materially defines the module boundary, the observable behavior, or a compatibility contract — and MUST link to it rather than restate it.
 

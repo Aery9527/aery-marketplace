@@ -19,7 +19,7 @@ Loaded without any prior context, MUST establish these three things before writi
 
 1. The failing tests. They carry the complete behavioral specification — what to build is never inferred from conversation history.
 2. The owning leaf `sd-*.md`, named by the `sys-design-leaf:` header comment in the test files. If that comment is missing, MUST stop and ask the user rather than infer an owner from whatever design document happens to sit near the code.
-3. The upstream documents. Walk the structural graph in reverse from the leaf: a document is an immediate parent only when it reaches this node through one of the four structural edges. A navigation link back to a higher topic, a cross-reference, or an external link is not a parent. A leaf may still have several parents — an overview plus more than one topic — because a component serves more than one assembly. Keep a set of documents already visited and MUST NOT process one twice.
+3. The documents pointing at this leaf. Walk the structural graph in reverse and take everything that reaches this node through a structural edge, in two groups: those reaching it through a composition edge are its parents, those reaching it through a dependency edge are its dependents. A navigation link back to a higher topic, a cross-reference, or an external link is neither. A leaf may have several of each — an overview plus more than one topic, and any number of modules relying on it. Keep a set of documents already visited and MUST NOT process one twice.
 
 The behavioral specification comes from the tests. The document topology comes
 from these lookups. MUST NOT assume the tests alone convey the topology.
@@ -32,7 +32,7 @@ from these lookups. MUST NOT assume the tests alone convey the topology.
 4. Repeat from step 1 until every test in the frozen set passes.
 5. Run the project's existing related tests as well. Everything green before this phase MUST still be green.
 6. Verify the leaf document's interface links still resolve to real symbols, and correct any that moved during refactoring.
-7. Check whether the relationships and data flow each immediate parent draws still match what was actually built, and update its Mermaid wherever they do not. If that update changes the relationships a parent describes to the outside, its own parents may now be stale — repeat this step for that document. Each upward path is followed on its own, and one stopping does not stop the others. When the implementation only touched the leaf's internals and left its outward boundary alone, the first level of checking is where this ends.
+7. Check each parent and each dependent. For a parent, whether the relationships and data flow it draws still match what was actually built; for a dependent, whether the contract it relies on still holds. Update whatever no longer matches. If that update changes the relationships a document describes to the outside, its own parents and dependents may now be stale — repeat this step for that document. Each path is followed on its own, and one stopping does not stop the others. When the implementation only touched the leaf's internals and left its outward boundary alone, the first level of checking is where this ends.
 
 ## Rules
 
