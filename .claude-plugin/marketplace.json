@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "將自己開發經驗與習慣收斂成 skill or agent.",
-    "version": "0.6.0"
+    "version": "0.7.0"
   },
   "plugins": [
     {
@@ -25,7 +25,8 @@
         "./windows-script",
         "./write-md",
         "./arch-rules",
-        "./go-mongo-rules"
+        "./go-mongo-rules",
+        "./sys-design"
       ]
     }
   ]

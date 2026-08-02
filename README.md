@@ -1,6 +1,6 @@
 # aery-marketplace
 
-Current version: [`v0.6.0`](release-note/v0.6.0.md)
+Current version: [`v0.7.0`](release-note/v0.7.0.md)
 
 將 Aery Lin 多年開發經驗與工程慣例收斂成可重複使用的 AI Agent Skills，並透過 Plugin Bundle 機制按情境組裝載入。
 
