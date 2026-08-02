@@ -31,6 +31,7 @@ This section plans the graph — which nodes exist and which edges join them. No
 
 ## Writing Rules — Assembly Document
 
+- MUST organize the document in this order: what the assembly delivers, the relationship and data-flow diagram, then the nodes one level below with a line each on the part it plays. A section that does not apply MAY be omitted; the order MUST NOT change.
 - MUST take the assembled whole as its subject: what a business requirement delivers, how an architecture holds together, where an end-to-end data flow runs. The reader arrives wanting the outcome, not the parts list.
 - MUST show the relationships in Mermaid, and MUST link the nodes one level below it: a repository-root `bd-*.md` in a monorepo links to each submodule `bd-*.md` taking part and MUST NOT reach past them into their modules; every other `bd-*.md` links to each `sd-*.md` in its own scope that takes part.
 - MUST NOT sink into how any single module behaves internally — that belongs to the `sd-*.md` it links to. A `bd-*.md` explaining one module's rules has become a design document in the wrong place.
@@ -38,6 +39,7 @@ This section plans the graph — which nodes exist and which edges join them. No
 
 ## Writing Rules — Leaf
 
+- MUST organize the document in this order: responsibility and boundary, the diagram, interfaces and data views, then caveats. A section that does not apply MAY be omitted; the order MUST NOT change.
 - MUST state what the module does, what it owns, and what it deliberately does not own.
 - MUST state the caveats: idempotency, concurrency, ordering, failure behavior, and limits.
 - MUST use Mermaid whenever the document describes a relationship among two or more components, a multi-step data flow, or a state transition. MUST NOT add a diagram when there is no relationship to show.
@@ -47,6 +49,7 @@ This section plans the graph — which nodes exist and which edges join them. No
 
 ## Writing Rules — Overview
 
+- MUST organize the document in this order: the concept, the composition diagram, then the child documents with a line each. A section that does not apply MAY be omitted; the order MUST NOT change.
 - MUST describe the abstract concept and how the child modules compose into it.
 - MUST use Mermaid for composition, dependency, and data flow.
 - MUST link every child design document.

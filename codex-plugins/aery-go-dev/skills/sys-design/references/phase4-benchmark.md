@@ -21,6 +21,7 @@ number sitting next to an agreed target.
 
 ## Rules
 
+- The record MUST be organized in this order: the performance target, then the measurements with the newest last.
 - MUST NOT optimize before a baseline exists.
 - MUST NOT change observable behavior during optimization. The frozen SBE tests MUST stay green throughout.
 - If the target cannot be met without changing behavior, MUST return to Phase 1 — that is a design decision, not a tuning task.

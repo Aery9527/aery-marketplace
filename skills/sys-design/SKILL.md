@@ -69,4 +69,5 @@ A monorepo MUST nest the same model: the root `docs/` holds the `bd-*.md` descri
 - A link whose target does not exist yet MUST carry the marker `(planned)` immediately after it, and MUST lose that marker once the target exists. The marker is what lets a reader tell a promise from a fact, and what lets the phase responsible for clearing it find every one by search.
 - The user confirms each `bd-*.md` before the agent descends into its modules, confirms each `sd-*.md` level before descending to its children, and confirms the failing tests carrying the frozen SBE before any implementation is written. MUST NOT skip a gate.
 - Phase 2 and Phase 3 run once per leaf, not once per tree. When Phase 1 leaves several leaves open, the user chooses which one to take next.
+- Heading wording is the project's to choose, but MUST stay consistent across its documents: reuse the headings an existing document of the same kind already uses.
 - Every design document this skill produces is written for a human reader. Present as much of it as possible visually in Mermaid, so the reader carries less load.
