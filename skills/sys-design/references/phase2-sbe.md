@@ -57,7 +57,7 @@ this phase is the gate before development starts.
 - Every test covering a new or changed behavior MUST fail, and the failure MUST be attributable to the behavior missing from the unit under test. An assertion mismatch is the preferred form; an unimplemented sentinel the language forces on an empty body — a panic, a `todo`, a not-implemented error — is equally valid.
 - A failure outside the unit under test is never a valid red: a compile error, a missing dependency, or a shared setup fault MUST be fixed before the gate. Several tests failing together on the same missing unit is fine; several failing together on something the unit does not own is not.
 - Every test that was green in the step 2 baseline MUST still be green.
-- Every interface link in the leaf document MUST resolve to a symbol that now exists. Running `list_planned.py` on that document MUST report nothing — every promise Phase 1 made about this leaf is now kept.
+- Every interface link in the leaf document MUST resolve to a symbol that now exists. Running [list_planned.py](../scripts/list_planned.py) on that document MUST report nothing — every promise Phase 1 made about this leaf is now kept. That script sits at `<skill-root>/scripts/`, where `<skill-root>` is the directory holding this skill's `SKILL.md` — the parent of the `references/` directory this file sits in. MUST resolve it from where this file was loaded from, and MUST NOT hard-code an installation path.
 
 ## Exit Artifacts
 

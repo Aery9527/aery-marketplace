@@ -61,7 +61,7 @@
 - 若目標程式碼尚未存在，該連結是規劃路徑。規劃路徑只是暫時的位置標記，不是介面定義，嚴禁把它當成介面定義使用。
 - 面對規劃路徑時，本階段必須把自己限制在行為邊界、輸入與輸出語意，以及職責歸屬。精確的介面由 Phase 2 在建立最小骨架時產生，並由 Phase 2 在它的確認 gate 之前把連結收斂到真實目標。
 - 每一條規劃連結都必須在其緊接之後標上 `(planned)`——`[OrderValidator](internal/order/validator.go) (planned)`——讓後續讀者分得出哪些是承諾、哪些是事實。Phase 2 收斂該連結時會拿掉這個標記。
-- 執行 [list_planned.py](../scripts/list_planned.py)（路徑解析方式與上面的計數器相同）即可列出一份文件裡還沒兌現的承諾。它只認緊跟在 Markdown link 之後的標記，因此散文中出現的同一個詞永遠不會被誤判。
+- 執行 [list_planned.py](../scripts/list_planned.py)——與下方計數器同樣位於 `<skill-root>/scripts/`——即可列出一份文件裡還沒兌現的承諾。它只認緊跟在 Markdown link 之後的標記，因此散文中出現的同一個詞永遠不會被誤判。
 
 ## 行數計算
 

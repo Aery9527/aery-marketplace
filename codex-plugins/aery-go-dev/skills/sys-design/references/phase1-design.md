@@ -63,7 +63,7 @@ This section plans the graph — which nodes exist and which edges join them. No
 - If the target code does not exist yet, the link is a planned path. A planned path is a temporary location marker, not an interface definition — it MUST NOT be treated as one.
 - For planned paths, this phase MUST confine itself to behavior boundaries, input and output semantics, and ownership. The exact interface is created by Phase 2 as part of the minimum skeleton, and Phase 2 resolves the link before its confirmation gate.
 - Every planned link MUST carry `(planned)` immediately after it — `[OrderValidator](internal/order/validator.go) (planned)` — so a later reader can tell a promise from a fact. Phase 2 drops the marker when it resolves the link.
-- Run [list_planned.py](../scripts/list_planned.py), resolved the same way as the counter above, to list the open promises in a document. It reports only a marker that follows a Markdown link, so the word appearing in ordinary prose is never mistaken for one.
+- Run [list_planned.py](../scripts/list_planned.py) — the same `<skill-root>/scripts/` directory as the counter below — to list the open promises in a document. It reports only a marker that follows a Markdown link, so the word appearing in ordinary prose is never mistaken for one.
 
 ## Line Counting
 
