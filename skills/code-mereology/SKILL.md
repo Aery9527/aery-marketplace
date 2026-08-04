@@ -4,13 +4,15 @@ description: >-
   Use for feature development that starts from design — creating or revising a
   design document, splitting a feature into modules, clarifying module
   boundaries, defining SBE, driving code through TDD, or measuring the
-  performance of a finished feature. Use when the task is: building a new
-  feature or module, changing a feature, reworking a module, designing the
-  flow, TDD, SBE, load testing, benchmarking. The only specification document
-  this skill produces is a design document; it MUST NOT produce
-  implementation-plan or standalone SBE documents. Phase 4 additionally records
-  performance measurements, and the later phases produce tests and
-  implementation code.
+  performance of a finished feature. Also load it before modifying existing
+  code in a repository already under development, so the change is checked
+  against any design document that already covers what it touches. Use when the
+  task is: building a new feature or module, changing a feature, reworking a
+  module, modifying existing code, designing the flow, TDD, SBE, load testing,
+  benchmarking. The only specification document this skill produces is a design
+  document; it MUST NOT produce implementation-plan or standalone SBE
+  documents. Phase 4 additionally records performance measurements, and the
+  later phases produce tests and implementation code.
 ---
 
 # Code Mereology
@@ -44,6 +46,8 @@ Inside the module layer, `sd-*.md` may itself form a tree, and each node carries
 
 - Overview role — describes an abstract concept and links to its sub-modules' design documents. MUST NOT be the input of Phase 2.
 - Leaf role — describes one module's own behavior and links to the target code. Only a leaf is a valid input of Phase 2.
+
+A module that is already implemented and has no design document MAY be entered as a partial leaf when something new depends on it: it describes only the capability being depended on and leaves the rest of that module undescribed, so the dependency has a real document to link to without the whole module having to be documented first. Partial is a property of a leaf, not a third role. It MUST carry the `code-mereology-partial` marker listing what it covers, and MUST NOT be the input of Phase 2 for any behavior that marker still excludes. It grows one capability at a time, as each is depended on or changed, and the marker comes off once the last one is described.
 
 The two layers form one structural graph carrying two kinds of edge.
 
@@ -79,3 +83,12 @@ A monorepo MUST nest the same model: the root `docs/` holds the `bd-*.md` descri
 - Phase 2 and Phase 3 run once per leaf, not once per tree. When Phase 1 leaves several leaves open, the user chooses which one to take next.
 - Heading wording is the project's to choose, but MUST stay consistent across its documents: reuse the headings an existing document of the same kind already uses.
 - Every design document this skill produces is written for a human reader. Present as much of it as possible visually in Mermaid, so the reader carries less load.
+
+## Code Changed Outside A Phase
+
+Not every code change arrives through a phase. When one does not, the documents
+still MUST NOT be left describing something the code no longer does.
+
+- Before changing existing code, look for an `sd-*.md` in its folder. Where the change reaches past that module, look at the documents linking to it as well.
+- After the change, check each one found against what the code now does, and correct every statement that has stopped being true.
+- Where the change moved the module boundary or altered behavior a caller can observe, correcting the prose is not enough — that is a design change, so return to Phase 1 rather than quietly reshaping the document to fit what was just written.

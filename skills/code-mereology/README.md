@@ -150,6 +150,13 @@ reviewed is the tests themselves rather than a list of cases to tick off.
 owner from what sits next to the code works right up until a folder gains a
 second design document, and then it breaks silently.
 
+**An existing module gets documented one capability at a time.** When a new
+feature depends on code that has no design document, the answer is not to
+document that whole module first — it is a partial leaf covering only the
+capability being depended on, marked as partial. It grows a capability at a time
+— Phase 2 refuses to specify a behavior the document does not yet cover — until
+the last one is described and the marker comes off.
+
 [Back to top](#quick-navigation)
 
 ---
