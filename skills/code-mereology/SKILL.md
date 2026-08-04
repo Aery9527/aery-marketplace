@@ -45,6 +45,8 @@ Inside the module layer, `sd-*.md` may itself form a tree, and each node carries
 - Overview role — describes an abstract concept and links to its sub-modules' design documents. MUST NOT be the input of Phase 2.
 - Leaf role — describes one module's own behavior and links to the target code. Only a leaf is a valid input of Phase 2.
 
+A module that is already implemented and has no design document MAY be entered as a partial leaf when something new depends on it: it describes only the capability being depended on and leaves the rest of that module undescribed, so the dependency has a real document to link to without the whole module having to be documented first. Partial is a property of a leaf, not a third role. It MUST carry the `code-mereology-partial` marker listing what it covers, and MUST NOT be the input of Phase 2 for any behavior that marker still excludes. It grows one capability at a time, as each is depended on or changed, and the marker comes off once the last one is described.
+
 The two layers form one structural graph carrying two kinds of edge.
 
 A composition edge points downward and says what a node is made of. There are four:

@@ -11,9 +11,10 @@ pinned by a test that fails for the reason it is meant to fail.
 
 ## Before Starting
 
-Verify both, and go back where they say rather than proceeding anyway:
+Verify all three, and go back where they say rather than proceeding anyway:
 
 - The target `sd-*.md` MUST be a leaf. If it is an overview, MUST NOT define SBE for it — return to Phase 1 and recurse until the branch ends in leaves.
+- If the target `sd-*.md` carries the `code-mereology-partial` marker, the behavior this run is about to specify MUST fall inside what that document already covers. Where it falls in what the marker still excludes, MUST extend the document with that capability in Phase 1 first and reword the marker — an excluded capability is undescribed, and SBE derived from an undescribed capability is derived from nothing. The rest of the module MAY stay uncovered: each run pays for the capability it touches, which is the same bounded trade that let the document exist at all.
 - The user MUST have already confirmed that document. If they have not, get that confirmation in Phase 1 first.
 
 ## Why Tests Are The Medium

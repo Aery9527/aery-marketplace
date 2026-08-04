@@ -29,7 +29,7 @@ This section plans the graph — which nodes exist and which edges join them. No
 5. In every scope that owns one of these modules, name the `bd-*.md` whose topic the module takes part in — an existing one, or a new `bd-<topic-name>.md` named after what the assembled whole delivers rather than after the module itself. Each of them gets an edge to that module's `sd-*.md`. A module taking part in several topics is reached from each of them — a component serves more than one assembly.
 6. If the feature spans submodules, the repository-root `bd-*.md` for the topic gets an edge to each submodule `bd-*.md` taking part, and never past them into their modules. An edge points at a document, not a directory — Phase 3 walks these in reverse, and a directory is not a node it can follow.
 7. List the dependency edges too: for each leaf, the leaves whose capability it relies on. A dependency edge runs between leaves only — an overview describes composition, and the dependencies belong to the leaves under it.
-8. If a dependency points at a leaf that does not exist yet, that leaf MUST be planned into the composition tree of whichever scope owns it, so a confirmation path reaches it. A dependency edge alone never brings a node into being.
+8. If a dependency points at a leaf whose document does not exist yet, how that leaf enters depends on whether its code exists. Code that does not exist yet MUST be planned into the composition tree of whichever scope owns it, so a confirmation path reaches it. Code that already exists enters as a partial leaf instead — see Partial Leaf below. A dependency edge alone never brings a node into being.
 9. Follow the dependency edges for cycles. A cycle MUST be shown to the user before anything is written — it usually means a shared contract wants extracting or a responsibility sits on the wrong side of a boundary. Keeping one is the user's explicit call, never the agent's default.
 10. A dependency edge MAY cross a submodule boundary; a composition edge MUST NOT. A root `bd-*.md` still reaches submodule modules only through their own `bd-*.md`.
 11. The result is a list of nodes to write and edges to add. Carry it into Recursion And Gates.
@@ -60,6 +60,26 @@ This section plans the graph — which nodes exist and which edges join them. No
 - MUST use Mermaid for composition, dependency, and data flow.
 - MUST link every child design document.
 - MUST NOT restate the behavior a child document already owns.
+
+## Partial Leaf
+
+A repository already under development holds modules with no design document.
+When a new feature depends on one, documenting that whole module first is
+unbounded work standing between the feature and its first line of code. A
+partial leaf is the bounded alternative: it describes only the capability being
+depended on, so the dependency has a real document to link to today and the rest
+of the module is described when someone is next working in it.
+
+- MUST follow the leaf writing rules for the capability it covers — responsibility, boundary, caveats, interface links — and MUST NOT describe the module's other behaviors at all. Covering everything is what this section exists to avoid.
+- MUST carry, immediately under the title, a marker line listing the capabilities it covers and stating that the rest is not: `` > `code-mereology-partial`: covers <capability>, <capability>; this module's other behavior is not described yet. `` A reader can then tell a boundary from a blind spot, and the phase responsible for clearing it can find every one by search.
+- Every capability it takes on — the one it is created for, and each one added later — MUST be read out of the code it describes. MUST NOT infer behavior from what the depending module expects to be true: a contract written from the caller's hope reads as a fact and is worse than no document at all. This binds the capabilities entered because something depends on them; once the module itself is what is being designed, it is an ordinary leaf describing what is being built, like any other.
+- Its interface links point at code that already exists, so they MUST resolve immediately and MUST NOT carry `(planned)`. That marker means the target does not exist, which is never the case here.
+- MUST live beside the code it describes like any other leaf, and MUST NOT take a distinguishing filename suffix. The marker is what makes it partial; a suffix would have to be renamed at completion, breaking every link and every test header pointing at it.
+- When a later dependency needs a capability the marker still excludes, MUST extend that same document with it and add it to the marker's list. MUST NOT open a second `sd-*.md` alongside it for one module, and MUST NOT take the occasion to describe everything else — it grows one capability at a time, as each one is actually depended on.
+- The 300-line limit and the split procedure apply to it unchanged. A split is not the second document forbidden above: each child takes the marker only where behavior of its own is still undescribed, and the promoted overview carries none, because it describes composition rather than behavior.
+- MUST NOT draw its own dependency edges, and so never spawns further partial leaves. It records the contract one capability offers outward, and what that capability leans on internally is implementation detail the depending module never needed — following it outward would pull the whole legacy graph into a single feature's Phase 1.
+- If the scope already holds a `bd-*.md` whose topic this module takes part in, MUST add the edge to it. If that scope holds none, MUST NOT create one — describing a legacy assembly is unbounded work of the same kind.
+- Growing it is Phase 1 work, and Phase 2 forces it whenever a run needs to specify a behavior the marker still excludes — which is when someone is working in that code anyway. There is no separate completion step: once the last capability is described the marker has stopped being true, and dropping it is what finishes the document.
 
 ## Interface Links
 
@@ -109,10 +129,11 @@ Walk the planned graph downward, one node at a time. All writing happens here, a
 6. Descend to each child `sd-*.md` and repeat from step 4.
 7. Stop descending when a node is at or under 300 counted lines and describes concrete module behavior rather than composition. That node is a leaf.
 8. As each node is written, update its Mermaid, and drop the `(planned)` marker from every edge whose target now exists.
+9. A partial leaf is written and confirmed in the same run as the leaf that depends on it. It is reached through that dependency rather than by descending from a parent, and that MUST NOT leave it unconfirmed — the user has to agree it describes the existing code correctly.
 
 ## Exit Artifacts
 
 - One or more `sd-*.md`, each confirmed by the user at its own level.
 - Every `bd-*.md` on the path updated with the new links and Mermaid, and confirmed by the user one node at a time.
 - No `(planned)` marker left on any edge along the path — every planned node now exists. Verify with [list_planned.py](../scripts/list_planned.py): entries pointing at a `.md` document MUST be gone, while entries pointing at code stay until Phase 2 builds the interface.
-- Every branch terminated in a leaf, so Phase 2 has a valid input.
+- Every branch terminated in a leaf, so Phase 2 has a valid input. A partial leaf entered for code that already runs is finished for this phase too, but it is not the input this run produced — Phase 2 goes to the leaf the feature is being built in.
