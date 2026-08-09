@@ -150,6 +150,7 @@ erDiagram
 ## 圖型專屬語法規則
 
 - sequence diagram 的訊息必須在接收者與訊息文字之間放 `:`，且每個 `alt`、`opt`、`loop` 區塊必須有配對的 `end`。
+- sequence diagram 的 message 與 `Note` 文字嚴禁包含裸分號（`;`）：Mermaid 會把它當成語句終止符，並將剩餘文字解析成新指令。改用句號或 `<br/>`。
 - class diagram 的 relationship cardinality 必須以雙引號包裹；方法簽章必須包含括號，無參數時使用 `()`。
 - ER diagram 的屬性必須寫成 `<type> <name>`，例如 `string userId PK`，嚴禁顛倒順序。
 - pie chart 的數值必須大於零；非正數可能被拒絕或不產生可見切片，實際行為依 renderer 而異。

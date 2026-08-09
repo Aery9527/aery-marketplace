@@ -119,7 +119,8 @@
 - flowchart 的節點 identifier 必須使用 PascalCase ASCII，顯示文字必須放進 quoted label，例如 `ParseRequest["解析請求"]`。此慣例可避開小寫保留字與 `o` / `x` 開頭的 edge marker 歧義。其他圖型依各自的 identifier 與 alias 語法，其 identifier 往往本身就是顯示文字。
 - `classDef` 的屬性清單必須使用逗號分隔的 `property:value`，嚴禁用 CSS 大括號包裹，也嚴禁用分號分隔屬性。
 - 第一個非空白、非註解行必須只包含圖表宣告與其方向，例如 `flowchart TD`，圖表內容從下一行開始。
-- 圖表定稿前，若環境有目標 renderer 或相同 Mermaid 版本，必須實際渲染，並確認預期的節點、連線、訊息或切片確實出現在輸出中。若沒有相容的 renderer，必須逐條檢查本節所有規則，並明確聲明未經渲染驗證。嚴禁把人工檢查表述為「已驗證可渲染」。
+- 本機缺少 Mermaid CLI，不代表環境中沒有可用的相容 renderer。改採人工檢查前，只要環境政策允許存取，就必須先嘗試專案 renderer、目標 preview 或相容的 rendering service。
+- 圖表定稿前，若環境有目標 renderer 或相同 Mermaid 版本，必須實際渲染，並確認預期的節點、連線、訊息或切片確實出現在輸出中，而且沒有 parser error。若只有其他相容 renderer，仍必須用它攔截 parser error，並明確聲明尚未驗證目標 renderer。Markdown lint、fence 檢查、link 檢查與人工檢視都不算渲染驗證。若沒有相容的 renderer，必須逐條檢查本節所有規則，並明確聲明未經渲染驗證；嚴禁把上述檢查表述為「已驗證可渲染」。
 
 ## Mermaid 配色與可讀性
 
