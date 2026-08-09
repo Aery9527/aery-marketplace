@@ -11,7 +11,7 @@ document tree ends in a leaf the user has confirmed and Phase 2 can consume.
 
 ## SD Role Determination
 
-This section governs a design document only; a `bd-*.md` carries no role, and a `-perf` record is not this phase's business at all. MUST decide the role before writing a single line.
+This section governs a design document only; a `bd-*.md` carries no role, and neither a `-perf` record nor a `-plan` file is this phase's design output. MUST decide the role before writing a single line.
 
 - If the document describes how sub-modules assemble into a larger concept and its substance is links to other design documents, its role is overview.
 - If the document describes one module's own behavior and links to the target code, its role is leaf.

@@ -1,10 +1,11 @@
 # code-mereology
 
 A development workflow whose only specification document is a design document.
-Everything else it produces is tests, implementation code, and an optional
-performance record. It takes its name from mereology, the study of part-whole
-relations — the difference between a module being part of something and merely
-depending on it runs through its entire document model.
+Its durable outputs are tests, implementation code, and an optional performance
+record; a temporary deferred-change plan may hold work intended for later. It
+takes its name from mereology, the study of part-whole relations — the
+difference between a module being part of something and merely depending on it
+runs through its entire document model.
 
 ## Quick Navigation
 
@@ -28,9 +29,11 @@ never how it does it. Interfaces are Markdown links into the real code rather
 than copies of it. Behavior is pinned by tests rather than prose. What remains
 in the document is the part that changes slowly.
 
-There is no implementation-plan document, and no document holding the examples.
-Those live as failing tests, which cannot drift from the code without turning
-red.
+There is no durable implementation-plan or standalone SBE document. A temporary
+`sd-*-plan.md` may preserve a proposed change while it is deferred, but it is
+not current design or confirmed specification and is deleted after delivery.
+Frozen examples live only in failing tests, which cannot drift from the code
+without turning red.
 
 [Back to top](#quick-navigation)
 
@@ -47,7 +50,9 @@ flowchart TD
     Spec["Phase 2 — SBE as failing tests<br/>examples become red tests"]
     Build["Phase 3 — implementation<br/>turn them green, one at a time"]
     Measure["Phase 4 — performance<br/>optional, any time later"]
+    Plan["Deferred change plan<br/>temporary intent outside the phases"]
 
+    Plan -.->|"user chooses to execute"| Design
     Design -->|"user confirms each document"| Spec
     Spec -->|"user confirms the failing tests"| Build
     Build -.->|"if it is worth measuring"| Measure
@@ -55,7 +60,7 @@ flowchart TD
     classDef gated stroke:#1f6feb,stroke-width:2px
     classDef optional stroke:#797979,stroke-width:2px,stroke-dasharray:4 2
     class Design,Spec,Build gated
-    class Measure optional
+    class Measure,Plan optional
 ```
 
 The two solid arrows are user gates. Nothing proceeds past them on the agent's
@@ -120,6 +125,7 @@ why every edge has to be a real link rather than an implied relationship.
 |------|-------|---------|
 | `bd-<topic>.md` | `docs/` at a scope root | What the assembled whole delivers — a business requirement, an architectural account, an end-to-end data flow |
 | `sd-<feature>.md` | Beside the code it describes | One module: its responsibility, boundary, and caveats |
+| `sd-<feature>-plan.md` | Beside its existing design document | Temporary work intended for later; outside the document graph and deleted after delivery |
 | `sd-<feature>-perf.md` | Beside the code it measures | The three most recent performance measurements, each pinned to a commit |
 
 A monorepo nests the same model: one `docs/` at the repository root for how
@@ -134,9 +140,15 @@ submodules assemble, plus one at each submodule root for its own internals.
 These are the choices most likely to surprise someone reading the rules for the
 first time.
 
-**Examples are never written into a document.** They go straight into failing
-tests. A document restating what tests already state is a second source of truth
-that will disagree with the first one eventually.
+**Frozen examples live only in tests.** A deferred plan may carry provisional
+examples as proposal input, but Phase 2 revalidates them and writes the confirmed
+cases as failing tests. The plan is then deleted rather than becoming a second
+source of truth.
+
+**Deferred plans are intent, not specification.** They may remain unlinked and
+wait until the user chooses to execute them. Execution still passes through the
+normal design and test gates; once the work and design documents agree, the plan
+is deleted.
 
 **A design document is capped at 300 lines, diagrams excluded.** Going over is
 read as the module carrying too much, and the only permitted response is
@@ -171,8 +183,9 @@ This file is an overview. The rules an agent actually follows are in
 - [Phase 3 — Implementation](references/phase3-tdd.md)
 - [Phase 4 — Performance Verification](references/phase4-benchmark.md)
 
-Two scripts support the phases: [count_lines.py](scripts/count_lines.py) for the
-line limit, and [list_planned.py](scripts/list_planned.py) for links whose target
-does not exist yet.
+Three scripts support the workflow: [count_lines.py](scripts/count_lines.py) for
+the line limit, [list_planned.py](scripts/list_planned.py) for links whose target
+does not exist yet, and [list_plans.py](scripts/list_plans.py) for deferred plans
+that remain in a repository.
 
 [Back to top](#quick-navigation)

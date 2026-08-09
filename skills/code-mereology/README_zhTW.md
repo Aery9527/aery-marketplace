@@ -1,6 +1,6 @@
 # code-mereology
 
-一套開發流程，它唯一的規格文件是設計文件；其餘產出都是測試、實作程式碼，以及選配的效能紀錄。名字取自 mereology（部分整體論）——研究「部分與整體關係」的學問；「一個模組是某物的一部分」與「它只是依賴某物」之間的區別，貫穿了它整個文件模型。
+一套開發流程，它唯一的規格文件是設計文件；長期產出是測試、實作程式碼與選配的效能紀錄，另可用暫存的延後變更 plan 保留日後才要做的工作。名字取自 mereology（部分整體論）——研究「部分與整體關係」的學問；「一個模組是某物的一部分」與「它只是依賴某物」之間的區別，貫穿了它整個文件模型。
 
 ## 快速導覽
 
@@ -19,7 +19,7 @@
 
 這個 skill 的解法是：讓文件可能寫錯的東西變少。設計文件說明一個模組做什麼、擁有什麼職責、有哪些要注意的地方——但從不說明它怎麼做到。介面是指向真實程式碼的 Markdown link，而不是它的複本。行為由測試釘住，而不是由散文描述。留在文件裡的，是變動最慢的那一部分。
 
-這裡沒有實作計畫文件，也沒有存放範例的文件。範例活在失敗的測試裡——測試無法在不變紅的情況下與程式碼脫節。
+這裡沒有長期保存的實作計畫或獨立 SBE 文件。暫存的 `sd-*-plan.md` 可以在工作延後時保留提案，但它不是現行設計或已確認規格，交付後就會刪除。凍結後的範例只活在失敗測試裡——測試無法在不變紅的情況下與程式碼脫節。
 
 [返回開頭](#快速導覽)
 
@@ -35,7 +35,9 @@ flowchart TD
     Spec["Phase 2 — SBE as failing tests<br/>examples become red tests"]
     Build["Phase 3 — implementation<br/>turn them green, one at a time"]
     Measure["Phase 4 — performance<br/>optional, any time later"]
+    Plan["Deferred change plan<br/>temporary intent outside the phases"]
 
+    Plan -.->|"user chooses to execute"| Design
     Design -->|"user confirms each document"| Spec
     Spec -->|"user confirms the failing tests"| Build
     Build -.->|"if it is worth measuring"| Measure
@@ -43,7 +45,7 @@ flowchart TD
     classDef gated stroke:#1f6feb,stroke-width:2px
     classDef optional stroke:#797979,stroke-width:2px,stroke-dasharray:4 2
     class Design,Spec,Build gated
-    class Measure optional
+    class Measure,Plan optional
 ```
 
 兩條實線箭頭是使用者的 gate。agent 嚴禁靠自己的判斷跨過它們：使用者必須確認每一份文件，才能往下打開它的模組；必須確認那組失敗的測試，才能寫下第一行實作。
@@ -101,6 +103,7 @@ Phase 3 會從它剛實作完的 leaf 沿這張圖反向回溯，所以每一條
 |------|------|------|
 | `bd-<主題>.md` | scope 根目錄下的 `docs/` | 組裝起來的整體交付什麼——一項業務需求、一段架構說明、一條端到端的 data flow |
 | `sd-<功能>.md` | 與它所描述的程式碼放在一起 | 單一模組：它的職責、邊界與注意事項 |
+| `sd-<功能>-plan.md` | 與既有設計文件放在一起 | 預計日後執行的暫存工作；不在文件圖中，交付後刪除 |
 | `sd-<功能>-perf.md` | 與它所量測的程式碼放在一起 | 最近三次的效能量測結果，每筆釘在一個 commit 上 |
 
 monorepo 採用同一模型的巢狀結構：repository 根目錄一個 `docs/` 說明各 submodule 如何組裝，每個 submodule 根目錄再各有一個說明自己內部。
@@ -113,7 +116,9 @@ monorepo 採用同一模型的巢狀結構：repository 根目錄一個 `docs/` 
 
 以下是第一次讀規則時最可能感到意外的幾個選擇。
 
-**範例嚴禁寫進文件。** 它們直接進入失敗的測試。一份重述測試已表達內容的文件，等於第二個真相來源，遲早會與第一個牴觸。
+**凍結後的範例只存在於測試。** 延後 plan 可以先帶著提案用的暫時範例，但 Phase 2 必須重新驗證，並把確認後的案例寫成失敗測試。Plan 隨後會被刪除，不會留下第二個真相來源。
+
+**延後 plan 是意圖，不是規格。** 它可以不被任何文件連結，等到使用者選擇執行。執行時仍必須通過正常的設計與測試 gate；工作與設計文件一致後，plan 就刪除。
 
 **設計文件上限 300 行，圖不計入。** 超過就代表這個模組承載太多，唯一容許的反應是把它切開——為了塞進上限而壓縮敘述是明文禁止的。
 
@@ -136,6 +141,6 @@ monorepo 採用同一模型的巢狀結構：repository 根目錄一個 `docs/` 
 - [Phase 3 — 實作](references/phase3-tdd_zhTW.md)
 - [Phase 4 — 效能驗證](references/phase4-benchmark_zhTW.md)
 
-另有兩支腳本支援這些階段：[count_lines.py](scripts/count_lines.py) 負責行數上限，[list_planned.py](scripts/list_planned.py) 負責列出目標尚未存在的連結。
+另有三支腳本支援這套流程：[count_lines.py](scripts/count_lines.py) 負責行數上限，[list_planned.py](scripts/list_planned.py) 負責列出目標尚未存在的連結，[list_plans.py](scripts/list_plans.py) 負責列出 repository 中仍存在的延後 plan。
 
 [返回開頭](#快速導覽)

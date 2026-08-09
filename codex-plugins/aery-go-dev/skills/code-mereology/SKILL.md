@@ -9,10 +9,12 @@ description: >-
   against any design document that already covers what it touches. Use when the
   task is: building a new feature or module, changing a feature, reworking a
   module, modifying existing code, designing the flow, TDD, SBE, load testing,
-  benchmarking. The only specification document this skill produces is a design
-  document; it MUST NOT produce implementation-plan or standalone SBE
-  documents. Phase 4 additionally records performance measurements, and the
-  later phases produce tests and implementation code.
+  benchmarking, capturing work to defer in an sd-*-plan.md file, or reviewing
+  deferred plans that remain. The only specification document this skill
+  produces is a design document. A plan is temporary intent rather than a
+  specification and is deleted after delivery. Phase 4 additionally records
+  performance measurements, and the later phases produce tests and
+  implementation code.
 ---
 
 # Code Mereology
@@ -21,24 +23,28 @@ Design documents define module boundaries and behavior; implementation detail
 lives in code alone. A confirmed design document becomes concrete SBE examples,
 those examples are written as failing tests, and those tests drive the code.
 The tests are the only home of the specification — it MUST NOT be duplicated
-into a document.
+into a document. An `sd-*-plan.md` file is a disposable record of intended
+future work, not another specification source.
 
 ## Phase Routing
 
+- A request only to capture or review deferred plans does not enter a phase. Follow [Deferred Change Plans](#deferred-change-plans) and MUST NOT load a phase reference.
+- When the user chooses to execute a deferred plan, treat its contents as a feature request and match the phase rules below. The plan MUST NOT bypass a design or test confirmation gate.
 - If the task creates or revises a design document, or splits a feature into modules, load [Phase 1 — Modular Design](references/phase1-design.md).
 - If a confirmed leaf design document exists and the task defines concrete input/output examples, hunts edge cases, or renders them as failing tests, load [Phase 2 — SBE As Failing Tests](references/phase2-sbe.md).
 - If a confirmed set of failing tests exists and the task implements against it, load [Phase 3 — Implementation](references/phase3-tdd.md).
 - If a feature is already implemented and the task measures throughput, latency, or resource cost, load [Phase 4 — Performance Verification](references/phase4-benchmark.md).
 - Otherwise the task is a feature or module change with no confirmed artifact yet to build on, so load [Phase 1 — Modular Design](references/phase1-design.md). Match the four bullets above first; this one only catches what none of them did.
 - Each of the four phases is independently loadable. MUST load only the phase the current task needs, and MUST NOT load a phase reference it does not.
-- The five bullets above are the only load decision, and they MUST be matched in order. Every reference states the artifacts it produces, and the phases that depend on earlier output also state the state they must verify before starting, so any single phase is executable from a cold load.
+- The five phase bullets above are the only phase-reference load decision, and they MUST be matched in order. Every reference states the artifacts it produces, and the phases that depend on earlier output also state the state they must verify before starting, so any single phase is executable from a cold load.
 
 ## Document Model
 
 Documentation descends through two layers: a topic layer describing the assembled whole, and a module layer describing the components it is assembled from.
 
 - `bd-<topic-name>.md` — the assembly document, living in the `docs/` at a scope root — the repository root, or a submodule root in a monorepo. Its subject is what the assembled whole does: a business requirement, an architectural account, an end-to-end data flow. MUST express those relationships in Mermaid and MUST link to the nodes one level below it in the graph. It carries no line limit, and MUST NOT sink into behavior a design document below it already owns.
-- `sd-<feature-name>.md` — the design document. Its subject is one module — a component the assembly is built from. MUST live in the folder that holds the corresponding code, and MUST NOT be collected under `docs/`. `<feature-name>` MUST NOT end in `-perf`, which is what separates a design document from the performance record beside it.
+- `sd-<feature-name>.md` — the design document. Its subject is one module — a component the assembly is built from. MUST live in the folder that holds the corresponding code, and MUST NOT be collected under `docs/`. `<feature-name>` MUST NOT end in `-perf` or `-plan`, which separates a design document from the temporary records beside it.
+- `sd-<feature-name>-plan.md` — a temporary deferred-change plan beside the existing `sd-<feature-name>.md`. It describes work expected to happen later, is not a specification or graph node, and MAY remain unlinked from every other document. Discovery comes from the plan search, not graph traversal.
 - `sd-<feature-name>-perf.md` — the performance record Phase 4 writes beside the code it measured. It records what was measured once, not how the system is put together, so it is not part of the graph below and no phase walks into it. It carries no line limit, because that limit measures the cognitive load of a design and this is a record of what was measured.
 - The two layers answer different questions: `bd-*.md` answers what the system delivers and how the pieces combine to deliver it; `sd-*.md` answers what one piece does and where its boundary lies. A reader enters through a topic and descends into components.
 
@@ -64,11 +70,28 @@ A dependency edge runs sideways and says what a module needs from elsewhere:
 
 Depending on a module is not composing with it. A module that links to what it depends on does not own that module and does not become an overview because of it.
 
-Phase 3 walks this graph in reverse from the leaf it implemented, so every structural edge MUST be a real Markdown link rather than an implied relationship.
+Phase 3 walks this graph in reverse from the leaf it implemented, so every structural edge MUST be a real Markdown link rather than an implied relationship. A `-plan` file is outside this graph and MUST NOT be included in that walk.
 
 A navigation link pointing back up — such as a submodule document offering a way back to the root topic — is not a structural edge. MUST NOT treat one as a parent relationship; doing so turns the reverse walk into a cycle.
 
 A monorepo MUST nest the same model: the root `docs/` holds the `bd-*.md` describing how submodules assemble — one abstraction level higher — while each submodule's `bd-*.md` describes its own internals. A submodule document MUST NOT restate root-level assembly ownership as its own, but MAY carry a navigation link back to the root topic.
+
+## Deferred Change Plans
+
+- Create `sd-<feature-name>-plan.md` beside an existing `sd-<feature-name>.md` only when the user wants to record a module change for later execution. Removing the `-plan` suffix MUST yield that companion design document's basename.
+- A plan MUST contain only the intended future delta and the execution, migration, or verification notes needed to resume it. It MUST NOT present proposed behavior as current fact or as confirmed specification. Phase 1 MUST revalidate the proposed behavior, and Phase 2 MUST revalidate any concrete examples.
+- A plan MAY remain unlinked from every document. Assembly and design documents MUST NOT add a structural edge to it merely for discoverability; the plan MAY link outward to the current design or code for context.
+- A plan MAY remain deferred for any length of time. To review outstanding plans, run [list_plans.py](scripts/list_plans.py) against the repository root, then read each reported file and summarize the work that remains.
+- Whenever a phase selects or walks an `sd-<feature-name>.md`, derive the sibling `sd-<feature-name>-plan.md` path and read it if it exists. This filename lookup preserves cold-load discovery without adding the plan to the document graph.
+- When executing a plan, Phase 1 MUST first update and confirm the companion design document. Keep the plan while Phase 2 freezes the SBE in failing tests and Phase 3 implements it. The plan carries intent across a pause but never replaces an artifact required by those phases.
+- After all work in a plan is delivered and the required tests are green, verify the companion `sd-<feature-name>.md` and every affected assembly, parent, or dependent document describe the delivered behavior. Delete the plan in the same change only after that verification. MUST NOT delete an unfinished plan; absence means no deferred work remains for that plan.
+- The `-plan.md` suffix and the `(planned)` link marker are unrelated. [list_plans.py](scripts/list_plans.py) discovers deferred-change files; [list_planned.py](scripts/list_planned.py) discovers unresolved targets promised inside design documents.
+
+Run the search script from its installed skill root rather than assuming a fixed installation path:
+
+```bash
+python <skill-root>/scripts/list_plans.py <repository-root>
+```
 
 ## Cross-Phase Rules
 
