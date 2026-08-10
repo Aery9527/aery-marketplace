@@ -30,10 +30,11 @@ than copies of it. Behavior is pinned by tests rather than prose. What remains
 in the document is the part that changes slowly.
 
 There is no durable implementation-plan or standalone SBE document. A temporary
-`sd-*-plan.md` may preserve a proposed change while it is deferred, but it is
-not current design or confirmed specification and is deleted after delivery.
-Frozen examples live only in failing tests, which cannot drift from the code
-without turning red.
+`sd-*-plan.md` may preserve one or more proposed changes, as separate entries,
+while they are deferred, but none is current design or confirmed
+specification, and each is deleted after its own delivery. Frozen examples
+live only in failing tests, which cannot drift from the code without turning
+red.
 
 [Back to top](#quick-navigation)
 
@@ -125,7 +126,7 @@ why every edge has to be a real link rather than an implied relationship.
 |------|-------|---------|
 | `bd-<topic>.md` | `docs/` at a scope root | What the assembled whole delivers — a business requirement, an architectural account, an end-to-end data flow |
 | `sd-<feature>.md` | Beside the code it describes | One module: its responsibility, boundary, and caveats |
-| `sd-<feature>-plan.md` | Beside its existing design document | Temporary work intended for later; outside the document graph and deleted after delivery |
+| `sd-<feature>-plan.md` | Beside its existing design document | Temporary work intended for later, one or more `---`-separated entries per file; outside the document graph, each entry deleted after its delivery |
 | `sd-<feature>-perf.md` | Beside the code it measures | The three most recent performance measurements, each pinned to a commit |
 
 A monorepo nests the same model: one `docs/` at the repository root for how
@@ -140,15 +141,21 @@ submodules assemble, plus one at each submodule root for its own internals.
 These are the choices most likely to surprise someone reading the rules for the
 first time.
 
-**Frozen examples live only in tests.** A deferred plan may carry provisional
+**Frozen examples live only in tests.** A deferred entry may carry provisional
 examples as proposal input, but Phase 2 revalidates them and writes the confirmed
-cases as failing tests. The plan is then deleted rather than becoming a second
+cases as failing tests. That entry is then deleted rather than becoming a second
 source of truth.
 
 **Deferred plans are intent, not specification.** They may remain unlinked and
 wait until the user chooses to execute them. Execution still passes through the
-normal design and test gates; once the work and design documents agree, the plan
-is deleted.
+normal design and test gates; once the work and design documents agree, the
+entry is deleted.
+
+**A plan entry leads with why, not just what.** A design document keeps
+attracting change requests after delivery, so one plan file may hold several
+`---`-separated entries recorded at different times. Each opens with the
+requirement that prompted it — the delta alone can't tell a later reader
+whether it's still worth doing once the situation behind it is forgotten.
 
 **A design document is capped at 300 lines, diagrams excluded.** Going over is
 read as the module carrying too much, and the only permitted response is

@@ -29,7 +29,7 @@ future work, not another specification source.
 ## Phase Routing
 
 - A request only to capture or review deferred plans does not enter a phase. Follow [Deferred Change Plans](#deferred-change-plans) and MUST NOT load a phase reference.
-- When the user chooses to execute a deferred plan, treat its contents as a feature request and match the phase rules below. The plan MUST NOT bypass a design or test confirmation gate.
+- When the user chooses to execute a deferred-change entry, treat only that entry as the feature request and match the phase rules below. The entry MUST NOT bypass a design or test confirmation gate.
 - If the task creates or revises a design document, or splits a feature into modules, load [Phase 1 — Modular Design](references/phase1-design.md).
 - If a confirmed leaf design document exists and the task defines concrete input/output examples, hunts edge cases, or renders them as failing tests, load [Phase 2 — SBE As Failing Tests](references/phase2-sbe.md).
 - If a confirmed set of failing tests exists and the task implements against it, load [Phase 3 — Implementation](references/phase3-tdd.md).
@@ -44,7 +44,7 @@ Documentation descends through two layers: a topic layer describing the assemble
 
 - `bd-<topic-name>.md` — the assembly document, living in the `docs/` at a scope root — the repository root, or a submodule root in a monorepo. Its subject is what the assembled whole does: a business requirement, an architectural account, an end-to-end data flow. MUST express those relationships in Mermaid and MUST link to the nodes one level below it in the graph. It carries no line limit, and MUST NOT sink into behavior a design document below it already owns.
 - `sd-<feature-name>.md` — the design document. Its subject is one module — a component the assembly is built from. MUST live in the folder that holds the corresponding code, and MUST NOT be collected under `docs/`. `<feature-name>` MUST NOT end in `-perf` or `-plan`, which separates a design document from the temporary records beside it.
-- `sd-<feature-name>-plan.md` — a temporary deferred-change plan beside the existing `sd-<feature-name>.md`. It describes work expected to happen later, is not a specification or graph node, and MAY remain unlinked from every other document. Discovery comes from the plan search, not graph traversal.
+- `sd-<feature-name>-plan.md` — a temporary deferred-change plan beside the existing `sd-<feature-name>.md`. It describes work expected to happen later, is not a specification or graph node, and MAY remain unlinked from every other document. Discovery comes from the plan search, not graph traversal. It carries no line limit, because that limit measures the cognitive load of a design and a plan is deferred intent, not a design.
 - `sd-<feature-name>-perf.md` — the performance record Phase 4 writes beside the code it measured. It records what was measured once, not how the system is put together, so it is not part of the graph below and no phase walks into it. It carries no line limit, because that limit measures the cognitive load of a design and this is a record of what was measured.
 - The two layers answer different questions: `bd-*.md` answers what the system delivers and how the pieces combine to deliver it; `sd-*.md` answers what one piece does and where its boundary lies. A reader enters through a topic and descends into components.
 
@@ -79,13 +79,28 @@ A monorepo MUST nest the same model: the root `docs/` holds the `bd-*.md` descri
 ## Deferred Change Plans
 
 - Create `sd-<feature-name>-plan.md` beside an existing `sd-<feature-name>.md` only when the user wants to record a module change for later execution. Removing the `-plan` suffix MUST yield that companion design document's basename.
-- A plan MUST contain only the intended future delta and the execution, migration, or verification notes needed to resume it. It MUST NOT present proposed behavior as current fact or as confirmed specification. Phase 1 MUST revalidate the proposed behavior, and Phase 2 MUST revalidate any concrete examples.
-- A plan MAY remain unlinked from every document. Assembly and design documents MUST NOT add a structural edge to it merely for discoverability; the plan MAY link outward to the current design or code for context.
-- A plan MAY remain deferred for any length of time. To review outstanding plans, run [list_plans.py](scripts/list_plans.py) against the repository root, then read each reported file and summarize the work that remains.
-- Whenever a phase selects or walks an `sd-<feature-name>.md`, derive the sibling `sd-<feature-name>-plan.md` path and read it if it exists. This filename lookup preserves cold-load discovery without adding the plan to the document graph.
-- When executing a plan, Phase 1 MUST first update and confirm the companion design document. Keep the plan while Phase 2 freezes the SBE in failing tests and Phase 3 implements it. The plan carries intent across a pause but never replaces an artifact required by those phases.
-- After all work in a plan is delivered and the required tests are green, verify the companion `sd-<feature-name>.md` and every affected assembly, parent, or dependent document describe the delivered behavior. Delete the plan in the same change only after that verification. MUST NOT delete an unfinished plan; absence means no deferred work remains for that plan.
+- A `sd-<feature-name>-plan.md` file MAY hold more than one deferred-change entry. A delivered design document keeps attracting change requests over time, and each MAY be recorded before its turn to execute arrives. Separate entries with a blank line, a `---` line on its own, then another blank line — the surrounding blank lines MUST both be present, because a `---` line directly under a paragraph is read as a heading underline rather than a separator. The file MUST NOT open with a `---` line, which at the top of a file reads as a frontmatter delimiter instead. Entries MUST be appended in the order they were recorded, and each MUST be self-contained: nothing in it depends on reading another entry in the same file.
+- Each entry MUST open with the reason it exists — the requirement or observation that made the change necessary — before the delta itself. That reason is what lets a later reader judge whether the entry is still worth executing once the situation that prompted it has faded from memory. Beyond the reason, an entry MUST contain only the intended future delta and the execution, migration, or verification notes needed to resume it. It MUST NOT present proposed behavior as current fact or as confirmed specification. Phase 1 MUST revalidate the proposed behavior, and Phase 2 MUST revalidate any concrete examples.
+- A plan file MAY remain unlinked from every document. Assembly and design documents MUST NOT add a structural edge to it merely for discoverability; the plan file MAY link outward to the current design or code for context.
+- A deferred-change entry MAY remain deferred for any length of time. To review outstanding plans, run [list_plans.py](scripts/list_plans.py) against the repository root, then read each reported file and summarize the work that remains in every entry it holds.
+- Whenever a phase selects or walks an `sd-<feature-name>.md`, derive the sibling `sd-<feature-name>-plan.md` path and read it if it exists. This filename lookup preserves cold-load discovery without adding the plan file to the document graph.
+- When the user chooses one entry to execute, treat only that entry as the feature request; the file's other entries stay deferred. Phase 1 MUST first update and confirm the companion design document. Keep the entry while Phase 2 freezes the SBE in failing tests and Phase 3 implements it. The entry carries intent across a pause but never replaces an artifact required by those phases.
+- After one entry's work is delivered and the required tests are green, verify the companion `sd-<feature-name>.md` and every affected assembly, parent, or dependent document describe the delivered behavior. Delete that entry in the same change once verified, keeping exactly one blank-line/`---`/blank-line separator between each pair of entries that remain adjacent afterward. Delete the whole file only once no entry remains. MUST NOT delete an unfinished entry; an absent file means no deferred work remains for that design document.
 - The `-plan.md` suffix and the `(planned)` link marker are unrelated. [list_plans.py](scripts/list_plans.py) discovers deferred-change files; [list_planned.py](scripts/list_planned.py) discovers unresolved targets promised inside design documents.
+
+Two entries in one `sd-<feature-name>-plan.md` file look like this:
+
+```markdown
+Why: <the requirement or observation that made this entry necessary>
+
+<the intended delta, plus any execution, migration, or verification notes>
+
+---
+
+Why: <the reason the next entry exists>
+
+<its own delta and notes>
+```
 
 Run the search script from its installed skill root rather than assuming a fixed installation path:
 
@@ -99,7 +114,7 @@ python <skill-root>/scripts/list_plans.py <repository-root>
 - A design document MUST describe behavior and caveats. It MUST NOT duplicate algorithms, control flow, or field-level structure, and MAY name one current implementation only when that choice materially defines the module boundary, the observable behavior, or a compatibility contract.
 - Wherever a document can show a relationship, a data flow, or a state transition as a diagram, it MUST use Mermaid.
 - Mermaid blocks MUST use exactly three backticks and the lower-case `mermaid` info string, with no extra fence attributes, and MUST start in column one. Four-backtick fences, tilde fences, and diagrams indented inside a list item or blockquote MUST NOT be used, because the line count depends on that canonical form.
-- One design document MUST NOT exceed 300 counted lines; a `-perf` record is exempt. Counted lines = total file lines minus every line inside a `mermaid` fenced block, fence lines included.
+- One design document MUST NOT exceed 300 counted lines; a `-perf` record and a `-plan` file are exempt. Counted lines = total file lines minus every line inside a `mermaid` fenced block, fence lines included.
 - Exceeding 300 counted lines means the module carries too much cognitive load. Splitting into sub-modules is the only permitted response. Deleting caveats, compressing prose, or moving text into Mermaid to lower the count MUST NOT be done.
 - A link whose target does not exist yet MUST carry the marker `(planned)` immediately after it, and MUST lose that marker once the target exists. It MUST be a single-line inline link carrying no title, whose label holds no bracket and whose destination holds no space or parenthesis. Reference-style links and images MUST NOT be used for it. The planned-link shape MUST NOT appear anywhere it is not a genuine promise — not as an inline-code example, not inside a diagram — because the tooling reads shape alone, and a promise it cannot see reads as a promise already kept. The marker is what lets a reader tell a promise from a fact, and what lets the phase responsible for clearing it find every one by search.
 - The user confirms each `bd-*.md` before the agent descends into its modules, confirms each `sd-*.md` level before descending to its children, and confirms the failing tests carrying the frozen SBE before any implementation is written. MUST NOT skip a gate.
