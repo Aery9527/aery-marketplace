@@ -150,6 +150,7 @@ erDiagram
 ## Type-Specific Syntax Rules
 
 - In sequence diagrams, place `:` between each message receiver and its message text, and close every `alt`, `opt`, and `loop` block with a matching `end`.
+- In sequence diagrams, message and `Note` text MUST NOT contain a bare semicolon (`;`): Mermaid treats it as a statement terminator and parses the remaining text as a new instruction. Use a period or `<br/>` instead.
 - In class diagrams, enclose relationship cardinalities in double quotes and include `()` in every method signature, including zero-argument methods.
 - In ER diagrams, write each attribute as `<type> <name>`, e.g. `string userId PK`; MUST NOT reverse the order.
 - Pie-chart values MUST be greater than zero; non-positive values may be rejected or produce no visible slice, depending on the renderer.
