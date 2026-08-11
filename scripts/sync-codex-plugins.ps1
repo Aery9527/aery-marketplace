@@ -103,6 +103,15 @@ function Normalize-RelativePath {
     return $trimmed -replace '/', '\'
 }
 
+# A Codex plugin keeps scripts, commands, agents and hooks at the plugin root, but
+# this repository requires every source file to live under skills/. A skill may
+# therefore carry an overlay directory whose contents are lifted to the plugin root.
+$OverlayDirName = 'codex-plugin'
+
+# The plugin root is a closed set: these two entries are owned by the sync script,
+# and every other entry must come from an overlay.
+$ReservedPluginRootEntries = @('.codex-plugin', 'skills')
+
 try {
     $repoRoot = (Get-Location).Path
     $claudeMarketplacePath = Join-Path $repoRoot '.claude-plugin\marketplace.json'
@@ -160,6 +169,7 @@ try {
         $codexPluginManifest['version'] = $marketplaceVersion
 
         $seenSkillNames = @{}
+        $seenOverlayEntries = @{}
         $skillPlans = @()
         foreach ($skillPath in @($plugin['skills'])) {
             $normalizedSkillPath = Normalize-RelativePath -Path ([string]$skillPath)
@@ -174,9 +184,31 @@ try {
                 throw "Skill source not found for plugin '$pluginName': $sourceSkillPath"
             }
 
+            $overlaySource = Join-Path $sourceSkillPath $OverlayDirName
+            if (-not (Test-Path $overlaySource -PathType Container)) {
+                $overlaySource = $null
+            } else {
+                foreach ($reserved in $ReservedPluginRootEntries) {
+                    if (Test-Path (Join-Path $overlaySource $reserved)) {
+                        throw "Overlay '$overlaySource' must not contain '$reserved'; it is owned by the sync script."
+                    }
+                }
+
+                foreach ($overlayEntry in @(Get-ChildItem $overlaySource -Force)) {
+                    if ($overlayEntry.Name -like '*_zhTW.md') {
+                        continue
+                    }
+                    if ($seenOverlayEntries.ContainsKey($overlayEntry.Name)) {
+                        throw "Overlay entry '$($overlayEntry.Name)' is declared by more than one skill in plugin '$pluginName'."
+                    }
+                    $seenOverlayEntries[$overlayEntry.Name] = $true
+                }
+            }
+
             $skillPlans += [ordered]@{
                 name = $skillName
                 source = $sourceSkillPath
+                overlay = $overlaySource
             }
         }
 
@@ -252,6 +284,10 @@ try {
                 foreach ($zhTwFile in $zhTwFiles) {
                     Remove-Item $zhTwFile.FullName -Force
                 }
+                $stagedOverlay = Join-Path $destinationSkillPath $OverlayDirName
+                if (Test-Path $stagedOverlay) {
+                    Remove-Item $stagedOverlay -Recurse -Force
+                }
                 $totalSkills++
                 Write-Host "  [OK] Copied $skillName" -ForegroundColor Green
             }
@@ -262,6 +298,48 @@ try {
             }
 
             Move-Item -Path $tempSkillsRoot -Destination $targetSkillsRoot
+
+            $codexPluginRoot = [string]$plan['codexPluginRoot']
+            $overlayOwnedNames = @{}
+            foreach ($skillPlan in @($plan['skills'])) {
+                $overlaySource = $skillPlan['overlay']
+                if ([string]::IsNullOrWhiteSpace([string]$overlaySource)) {
+                    continue
+                }
+
+                foreach ($overlayEntry in @(Get-ChildItem $overlaySource -Force)) {
+                    if ($overlayEntry.Name -like '*_zhTW.md') {
+                        continue
+                    }
+
+                    $overlayTarget = Join-Path $codexPluginRoot $overlayEntry.Name
+                    if (Test-Path $overlayTarget) {
+                        Remove-Item $overlayTarget -Recurse -Force
+                    }
+                    Copy-Item $overlayEntry.FullName -Destination $overlayTarget -Recurse -Force
+                    $overlayOwnedNames[$overlayEntry.Name] = $true
+                }
+
+                Write-Host "  [OK] Applied plugin-root overlay from $($skillPlan['name'])" -ForegroundColor Green
+            }
+
+            $overlayZhTwFiles = @(Get-ChildItem $codexPluginRoot -Recurse -File -Filter '*_zhTW.md' |
+                Where-Object { $_.FullName -notlike (Join-Path $targetSkillsRoot '*') })
+            foreach ($overlayZhTwFile in $overlayZhTwFiles) {
+                Remove-Item $overlayZhTwFile.FullName -Force
+            }
+
+            foreach ($rootEntry in @(Get-ChildItem $codexPluginRoot -Force)) {
+                if ($ReservedPluginRootEntries -contains $rootEntry.Name) {
+                    continue
+                }
+                if ($overlayOwnedNames.ContainsKey($rootEntry.Name)) {
+                    continue
+                }
+                Remove-Item $rootEntry.FullName -Recurse -Force
+                Write-Host "  [!] Removed stale plugin-root entry $($rootEntry.Name)" -ForegroundColor Yellow
+            }
+
             $codexPluginManifestJson = ConvertTo-StableJson -InputObject $plan['codexPluginManifest']
             Write-Utf8File -Path $codexPluginManifestPath -Content $codexPluginManifestJson
             Write-Host "  [OK] Updated manifest version to $marketplaceVersion" -ForegroundColor Green

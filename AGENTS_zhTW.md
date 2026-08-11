@@ -37,6 +37,12 @@ frontmatter 定義 `name` 與 `description`，並在內文描述觸發條件、�
 - 不要手動修改 `codex-plugins/*/skills` 內的 skill 副本；正確流程是修改
   `skills/` source 後重新執行同步腳本。同步後的 Codex 封裝只保留英文主檔，
   整棵目錄中的 `*_zhTW.md` 都不應存在。
+- Codex plugin 可能需要 skill 以外的 plugin-root 內容，例如 `commands/`、
+  `agents/`、`scripts/` 與 `hooks.json`。這類內容的 source of truth 同樣放在
+  `skills/` 底下：置於所屬 skill 內的 `codex-plugin/` overlay 目錄。同步腳本會
+  把 overlay 的內容提升到 plugin root，並把 overlay 本身排除在封裝後的 skill
+  之外。overlay 只擁有它自己宣告的 plugin-root 項目，且不得包含
+  `.codex-plugin` 或 `skills`。
 - `README.md` 只需要維持專案層級的簡短描述與探索指引，不要手動列舉目前的
   skill 清單。
 - 若需要知道目前有哪些 skills，讀取 `skills/*/SKILL.md` 的 YAML

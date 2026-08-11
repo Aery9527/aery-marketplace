@@ -166,6 +166,109 @@ class VerifyCodexPluginsTests(unittest.TestCase):
 
         self.assertTrue(any("Unexpected file in skills root" in error for error in errors))
 
+    def test_passes_when_overlay_is_lifted_to_plugin_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = pathlib.Path(tmp_dir)
+            self._write_overlay_fixture(repo)
+            self._write_text(repo / "codex-plugins" / "demo" / "hooks.json", "{}\n")
+            self._write_text(
+                repo / "codex-plugins" / "demo" / "commands" / "run.md", "# run\n"
+            )
+
+            errors = verify_repo(repo)
+
+        self.assertEqual(errors, [])
+
+    def test_fails_when_overlay_entry_is_missing_from_plugin_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = pathlib.Path(tmp_dir)
+            self._write_overlay_fixture(repo)
+            self._write_text(repo / "codex-plugins" / "demo" / "hooks.json", "{}\n")
+
+            errors = verify_repo(repo)
+
+        self.assertTrue(any("Missing overlay entry" in error for error in errors))
+
+    def test_fails_when_plugin_root_keeps_a_stale_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = pathlib.Path(tmp_dir)
+            self._write_overlay_fixture(repo)
+            self._write_text(repo / "codex-plugins" / "demo" / "hooks.json", "{}\n")
+            self._write_text(
+                repo / "codex-plugins" / "demo" / "commands" / "run.md", "# run\n"
+            )
+            self._write_text(repo / "codex-plugins" / "demo" / "NOTICE", "stale\n")
+
+            errors = verify_repo(repo)
+
+        self.assertTrue(any("Unexpected plugin root entry" in error for error in errors))
+
+    def test_overlay_zh_tw_file_is_not_expected_at_plugin_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = pathlib.Path(tmp_dir)
+            self._write_overlay_fixture(repo)
+            self._write_text(
+                repo / "skills" / "alpha" / "codex-plugin" / "NOTICE_zhTW.md", "# zh\n"
+            )
+            self._write_text(repo / "codex-plugins" / "demo" / "hooks.json", "{}\n")
+            self._write_text(
+                repo / "codex-plugins" / "demo" / "commands" / "run.md", "# run\n"
+            )
+
+            errors = verify_repo(repo)
+
+        self.assertEqual(errors, [])
+
+    def test_fails_when_two_skills_declare_the_same_overlay_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = pathlib.Path(tmp_dir)
+            self._write_marketplace(
+                repo,
+                plugins=[
+                    {
+                        "name": "demo",
+                        "source": "./skills",
+                        "skills": ["./alpha", "./beta"],
+                    }
+                ],
+            )
+            for skill in ("alpha", "beta"):
+                self._write_text(repo / "skills" / skill / "SKILL.md", f"# {skill}\n")
+                self._write_text(
+                    repo / "skills" / skill / "codex-plugin" / "hooks.json", "{}\n"
+                )
+                self._write_text(
+                    repo / "codex-plugins" / "demo" / "skills" / skill / "SKILL.md",
+                    f"# {skill}\n",
+                )
+            self._write_text(repo / "codex-plugins" / "demo" / "hooks.json", "{}\n")
+
+            errors = verify_repo(repo)
+
+        self.assertTrue(
+            any("declared by more than one skill" in error for error in errors)
+        )
+
+    def _write_overlay_fixture(self, repo: pathlib.Path) -> None:
+        self._write_marketplace(
+            repo,
+            plugins=[
+                {
+                    "name": "demo",
+                    "source": "./skills",
+                    "skills": ["./alpha"],
+                }
+            ],
+        )
+        self._write_text(repo / "skills" / "alpha" / "SKILL.md", "# alpha\n")
+        self._write_text(repo / "skills" / "alpha" / "codex-plugin" / "hooks.json", "{}\n")
+        self._write_text(
+            repo / "skills" / "alpha" / "codex-plugin" / "commands" / "run.md", "# run\n"
+        )
+        self._write_text(
+            repo / "codex-plugins" / "demo" / "skills" / "alpha" / "SKILL.md", "# alpha\n"
+        )
+
     def _write_marketplace(self, repo: pathlib.Path, plugins: list[dict[str, object]]) -> None:
         content = {
             "metadata": {"version": "0.2.0"},

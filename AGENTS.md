@@ -44,6 +44,13 @@ not the source of truth for the skill list.
   correct flow is to modify the `skills/` source and rerun the sync script. The
   synchronized Codex package keeps only the English primary files, and no
   `*_zhTW.md` files should remain in that tree.
+- A Codex plugin may need plugin-root content that is not a skill, such as
+  `commands/`, `agents/`, `scripts/` and `hooks.json`. Keep the source of truth
+  for that content under `skills/` as well: put it in a `codex-plugin/` overlay
+  directory inside the owning skill. The sync script lifts the overlay's
+  contents to the plugin root and excludes the overlay itself from the packaged
+  skill. An overlay owns only the plugin-root entries it declares, and must not
+  contain `.codex-plugin` or `skills`.
 - `README.md` should stay short and project-level. Do not manually enumerate
   the current skill list there.
 - To discover the current skills, read the YAML frontmatter from
