@@ -4,7 +4,13 @@ import process from "node:process";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildSpawnPlan, ClaudeCliSession, runClaudeOnce } from "../scripts/lib/claude-cli.mjs";
+import {
+  buildBaseArgs,
+  buildSpawnPlan,
+  ClaudeCliSession,
+  quoteForWindowsCommandLine,
+  runClaudeOnce
+} from "../scripts/lib/claude-cli.mjs";
 import { StreamProtocolError } from "../scripts/lib/stream-protocol.mjs";
 import { buildEnv, installFakeClaude } from "./fake-claude-fixture.mjs";
 import { makeTempDir } from "./helpers.mjs";
@@ -247,11 +253,87 @@ test("buildSpawnPlan leaves arguments intact through the cmd wrapper", (t) => {
   // cmd /s strips exactly the outer pair, so the whole line must carry one.
   assert.match(line, /^".*"$/);
   // The wrapper path keeps its own quotes despite the space.
-  assert.ok(line.includes('with space'), line);
+  assert.ok(line.includes("with space"), line);
   assert.match(line, /claude\.CMD"/i);
-  // An embedded quote is doubled, and an empty argument survives as "".
-  assert.ok(line.includes('""quoted""'), line);
-  assert.ok(line.includes('--tools ""'), line);
+  // An embedded quote is backslash-escaped, and an empty argument survives as "".
+  assert.ok(line.includes('a \\"quoted\\" name'), line);
+  assert.ok(line.includes('"--tools" ""'), line);
+});
+
+// The `""` doubling some argument parsers also accept is rejected by the real Claude
+// binary, which tears an inline JSON schema apart. Only `\"` survives both.
+test("quoteForWindowsCommandLine escapes a quote the way CommandLineToArgvW reads it", () => {
+  assert.equal(quoteForWindowsCommandLine(""), '""');
+  assert.equal(quoteForWindowsCommandLine('a "b" c'), '"a \\"b\\" c"');
+  assert.equal(quoteForWindowsCommandLine('{"type":"object"}'), '"{\\"type\\":\\"object\\"}"');
+  // A trailing backslash before the closing quote must be doubled, or it escapes it.
+  assert.equal(quoteForWindowsCommandLine("C:\\dir with space\\"), '"C:\\dir with space\\\\"');
+  // Backslashes only double when they precede a quote.
+  assert.equal(quoteForWindowsCommandLine('a\\\\"b'), '"a\\\\\\\\\\"b"');
+});
+
+// Reproduces a real defect: an unquoted `|` in a model name terminated the command line
+// at the pipe, so cmd.exe ran a truncated command instead of Claude.
+test("every argument is quoted so a cmd control character cannot split the line", () => {
+  assert.equal(quoteForWindowsCommandLine("plain"), '"plain"');
+  assert.equal(quoteForWindowsCommandLine("a|b"), '"a|b"');
+  assert.equal(quoteForWindowsCommandLine("safe&echo pwned"), '"safe&echo pwned"');
+  assert.equal(quoteForWindowsCommandLine("a>b<c^d"), '"a>b<c^d"');
+});
+
+// Quoting does not stop cmd.exe expanding `%VAR%`, and there is no escape for it on a
+// `/c` command line, so such a value is refused rather than silently rewritten.
+test("an argument cmd.exe would expand is refused instead of being passed through", (t) => {
+  if (process.platform !== "win32") {
+    t.skip("only the cmd.exe path can be poisoned this way");
+    return;
+  }
+
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const env = buildEnv(binDir);
+
+  assert.throws(() => buildSpawnPlan(["--model", "sonnet-%PATH%"], env), /percent sign or control character/);
+  assert.throws(() => buildSpawnPlan(["--model", "a\nb"], env), /percent sign or control character/);
+  // A value with no expansion hazard still goes through.
+  assert.ok(buildSpawnPlan(["--model", "claude-sonnet-5"], env).args[3].includes("claude-sonnet-5"));
+});
+
+// A schema whose `$schema` names the draft URL is rejected by the CLI validator, so the
+// key never reaches the command line.
+test("a JSON schema is passed inline with its $schema key removed", (t) => {
+  if (process.platform !== "win32") {
+    t.skip("this asserts the shape of the Windows command line");
+    return;
+  }
+
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const plan = buildSpawnPlan(
+    buildBaseArgs({ jsonSchema: { $schema: "https://json-schema.org/draft/2020-12/schema", type: "object" } }),
+    buildEnv(binDir)
+  );
+
+  const line = plan.args[3];
+  assert.ok(line.includes('"--json-schema" "{\\"type\\":\\"object\\"}"'), line);
+  assert.ok(!line.includes("json-schema.org"), line);
+});
+
+test("a read-only session shuts out MCP servers as well as built-in tools", () => {
+  const args = buildBaseArgs({
+    tools: ["Read", "Glob", "Grep"],
+    permissionMode: "dontAsk",
+    strictMcpConfig: true,
+    disallowedTools: ["Edit", "Write"]
+  });
+
+  assert.ok(args.includes("--strict-mcp-config"));
+  assert.deepEqual(args.slice(args.indexOf("--tools"), args.indexOf("--tools") + 2), ["--tools", "Read,Glob,Grep"]);
+  assert.deepEqual(args.slice(args.indexOf("--disallowed-tools"), args.indexOf("--disallowed-tools") + 3), [
+    "--disallowed-tools",
+    "Edit",
+    "Write"
+  ]);
 });
 
 test("buildSpawnPlan passes arguments through untouched off Windows", (t) => {

@@ -14,7 +14,15 @@ export function installFakeClaude(binDir, behavior = "ready") {
   const source = `#!/usr/bin/env node
 const readline = require("node:readline");
 
+const fs = require("node:fs");
+
 const BEHAVIOR = ${JSON.stringify(behavior)};
+
+// Flags are the contract between the bridge and the CLI, so a test can assert what was
+// actually passed rather than trusting that the run merely succeeded.
+if (process.env.FAKE_CLAUDE_ARGV_FILE) {
+  fs.writeFileSync(process.env.FAKE_CLAUDE_ARGV_FILE, JSON.stringify(process.argv.slice(2)));
+}
 const VERSION = BEHAVIOR === "old-version"
   ? "2.1.100 (Claude Code)"
   : BEHAVIOR === "garbage-version"
@@ -79,13 +87,66 @@ send({
 const reader = readline.createInterface({ input: process.stdin });
 let inFlight = null;
 
+const REVIEW_OUTPUT = {
+  verdict: "needs-attention",
+  summary: "The fixture always reports one finding.",
+  findings: [
+    {
+      severity: "high",
+      title: "Fixture finding",
+      body: "Planted by the fake CLI so the render path has something to format.",
+      file: "README.md",
+      line_start: 1,
+      line_end: 1,
+      confidence: 0.9,
+      recommendation: "Nothing to do; this is a fixture."
+    }
+  ],
+  next_steps: ["Read the rendered output."]
+};
+
 function completeTurn(text) {
+  // A schema-constrained turn answers with the object as well as the text, which is what
+  // the real CLI does on the final result event.
+  if (argv.includes("--json-schema")) {
+    // A turn can fail and still carry well-formed JSON, which is the case that must not
+    // be rendered as a trustworthy verdict.
+    if (BEHAVIOR === "errored-review") {
+      send({
+        type: "result",
+        subtype: "error_during_execution",
+        is_error: true,
+        session_id: sessionId,
+        result: JSON.stringify(REVIEW_OUTPUT),
+        structured_output: REVIEW_OUTPUT
+      });
+      return;
+    }
+    // Well-formed JSON in the text with no structured_output means the schema check did
+    // not produce it, so the text must not be trusted as a review.
+    const payload = BEHAVIOR === "text-json-only"
+      ? { result: JSON.stringify({ verdict: "approve", summary: "Looks fine.", findings: [], next_steps: [] }) }
+      : BEHAVIOR === "unstructured-review"
+        ? { result: "I could not produce JSON." }
+        : { result: JSON.stringify(REVIEW_OUTPUT), structured_output: REVIEW_OUTPUT };
+    send({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      session_id: sessionId,
+      total_cost_usd: 0.01,
+      duration_ms: 5,
+      ...payload
+    });
+    return;
+  }
+
   send({
     type: "result",
     subtype: "success",
     is_error: false,
     session_id: sessionId,
-    result: "turn" + turn + ":" + text,
+    result: text.startsWith("/code-review") ? "Built-in reviewer report for " + text : "turn" + turn + ":" + text,
     total_cost_usd: 0.01,
     duration_ms: 5
   });

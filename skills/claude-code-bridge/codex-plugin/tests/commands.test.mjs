@@ -213,6 +213,248 @@ test("an unknown subcommand fails with usage instead of doing nothing", () => {
   assert.match(result.stderr, /Unknown subcommand "nope"/);
 });
 
+function makeDirtyWorkspace() {
+  const cwd = makeWorkspace();
+  fs.writeFileSync(path.join(cwd, "README.md"), "# fixture\n\nchanged\n", "utf8");
+  return cwd;
+}
+
+test("review runs the built-in reviewer and returns its report", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+
+  const result = runCompanion(["review"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^# Claude Review/);
+  assert.match(result.stdout, /Built-in reviewer report for \/code-review/);
+  assert.match(result.stdout, /Scope: uncommitted work, selected automatically/);
+});
+
+// `--base` drops every uncommitted change from the context this bridge builds, so a
+// review that used it has to say so rather than letting the reader assume otherwise.
+test("a base-branch review states the base it was given", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  run("git", ["checkout", "-b", "feature"], { cwd });
+  fs.writeFileSync(path.join(cwd, "README.md"), "# fixture\n\ncommitted change\n", "utf8");
+  run("git", ["commit", "-am", "change"], { cwd });
+  fs.writeFileSync(path.join(cwd, "pending.txt"), "uncommitted\n", "utf8");
+
+  const result = runCompanion(["review", "--base", "main"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Scope: commits between main and HEAD, requested/);
+  assert.match(result.stdout, /\/code-review main/);
+});
+
+test("review refuses focus text and names the command that takes it", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+
+  const result = runCompanion(["review", "check the error handling"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /\/claude-adversarial-review check the error handling/);
+});
+
+test("adversarial review renders the structured findings Claude returned", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+
+  const result = runCompanion(["adversarial-review", "focus on the error paths"], {
+    cwd,
+    env: isolatedEnv(binDir)
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^# Claude Adversarial Review/);
+  assert.match(result.stdout, /Verdict: needs-attention/);
+  assert.match(result.stdout, /\[high\] Fixture finding \(README\.md:1\)/);
+  assert.match(result.stdout, /Evidence: the tracked diff was supplied in full/);
+});
+
+// The review session must not be able to touch the repository it is reviewing, and
+// `--tools` alone does not achieve that because it filters built-ins only.
+test("the adversarial review session is started read-only and without MCP servers", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+  const argvFile = path.join(makeTempDir(), "argv.json");
+
+  const result = runCompanion(["adversarial-review"], {
+    cwd,
+    env: { ...isolatedEnv(binDir), FAKE_CLAUDE_ARGV_FILE: argvFile }
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const argv = JSON.parse(fs.readFileSync(argvFile, "utf8"));
+  assert.deepEqual(argv.slice(argv.indexOf("--tools"), argv.indexOf("--tools") + 2), ["--tools", "Read,Glob,Grep"]);
+  assert.ok(argv.includes("--strict-mcp-config"), argv.join(" "));
+  assert.deepEqual(
+    argv.slice(argv.indexOf("--permission-mode"), argv.indexOf("--permission-mode") + 2),
+    ["--permission-mode", "dontAsk"]
+  );
+});
+
+// The schema is what makes the output renderable, and the CLI parses the flag value as
+// JSON, so it has to survive the command line intact.
+test("the review schema reaches the CLI intact and without its $schema key", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+  const argvFile = path.join(makeTempDir(), "argv.json");
+
+  runCompanion(["adversarial-review"], { cwd, env: { ...isolatedEnv(binDir), FAKE_CLAUDE_ARGV_FILE: argvFile } });
+
+  const argv = JSON.parse(fs.readFileSync(argvFile, "utf8"));
+  const schema = JSON.parse(argv[argv.indexOf("--json-schema") + 1]);
+  assert.equal(schema.$schema, undefined);
+  assert.deepEqual(schema.required, ["verdict", "summary", "findings", "next_steps"]);
+  assert.equal(schema.properties.findings.items.properties.severity.enum[0], "critical");
+});
+
+test("an adversarial review that returns no JSON is reported as a failure", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "unstructured-review");
+  const cwd = makeDirtyWorkspace();
+
+  const result = runCompanion(["adversarial-review"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /did not return valid structured JSON/);
+  assert.match(result.stdout, /I could not produce JSON\./);
+  assert.ok(!result.stdout.includes("Verdict:"), result.stdout);
+});
+
+// The result event carries the review as text as well as as an object, but only the
+// object has been through the CLI's schema check. Parsing the text would let output the
+// schema rejected reach the user as a verdict.
+test("JSON in the result text is not accepted when the schema produced no object", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "text-json-only");
+  const cwd = makeDirtyWorkspace();
+
+  const result = runCompanion(["adversarial-review"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /without schema-validated structured output/);
+  assert.ok(!result.stdout.includes("Verdict: approve"), result.stdout);
+});
+
+// A failed turn can still carry schema-valid JSON. Rendering it as a verdict would let a
+// crashed review read as a completed assessment.
+test("a review that ended in an error never renders as a verdict", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "errored-review");
+  const cwd = makeDirtyWorkspace();
+
+  const result = runCompanion(["adversarial-review"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /ended the review with error_during_execution/);
+  assert.ok(!result.stdout.includes("Verdict:"), result.stdout);
+  assert.ok(!result.stdout.includes("[high] Fixture finding"), result.stdout);
+});
+
+// The inline-diff threshold measures the tracked diff alone, so an untracked file that
+// was dropped from the context must not be hidden behind "the tracked diff in full".
+test("untracked content left out of the context is named in the evidence line", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  fs.writeFileSync(path.join(cwd, "big.txt"), "x".repeat(30 * 1024), "utf8");
+
+  const result = runCompanion(["adversarial-review"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /1 untracked entry was left out: big\.txt \(30720 bytes exceeds/);
+  // Nothing reached the reviewer here, so the line must not credit the diff with the
+  // untracked file nor claim any untracked content was supplied.
+  assert.match(result.stdout, /the tracked diff was supplied in full \(0 file\(s\), 0 bytes\)/);
+  assert.doesNotMatch(result.stdout, /untracked file\(s\) were included/);
+});
+
+// The file-count and byte thresholds trip independently. Three tiny untracked files
+// cross the count while the diff is empty, so blaming size would be a false explanation.
+test("the evidence line names the threshold that actually withheld the diff", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  for (const name of ["one.txt", "two.txt", "three.txt"]) {
+    fs.writeFileSync(path.join(cwd, name), "tiny\n", "utf8");
+  }
+
+  const result = runCompanion(["adversarial-review"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /not supplied inline because 3 changed file\(s\) exceeds the inline limit of 2/);
+  assert.doesNotMatch(result.stdout, /too large/);
+  assert.doesNotMatch(result.stdout, /exceeds the inline limit of \d+ bytes/);
+  assert.match(result.stdout, /3 untracked file\(s\) were included with their contents/);
+});
+
+// An untracked file contributes no diff, so counting it against the diff would credit
+// the reviewer with evidence the diff never carried.
+test("untracked content is counted apart from the tracked diff", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  fs.writeFileSync(path.join(cwd, "note.txt"), "a small untracked note\n", "utf8");
+
+  const result = runCompanion(["adversarial-review"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /the tracked diff was supplied in full \(0 file\(s\), 0 bytes\)/);
+  assert.match(result.stdout, /1 untracked file\(s\) were included with their contents/);
+  assert.doesNotMatch(result.stdout, /left out/);
+});
+
+// The bridge hands the built-in reviewer a target, not a context, and the reviewer was
+// observed reviewing staged work on top of a requested branch diff.
+test("the built-in review does not claim authority over its own scope", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  run("git", ["checkout", "-b", "feature"], { cwd });
+  fs.writeFileSync(path.join(cwd, "README.md"), "# fixture\n\ncommitted\n", "utf8");
+  run("git", ["commit", "-am", "change"], { cwd });
+  fs.writeFileSync(path.join(cwd, "pending.txt"), "uncommitted\n", "utf8");
+
+  const native = runCompanion(["review", "--base", "main"], { cwd, env: isolatedEnv(binDir) });
+  assert.match(native.stdout, /sets its own final scope and may cover more than this/);
+  assert.ok(!native.stdout.includes("are excluded from this review"), native.stdout);
+
+  // The adversarial path builds the context itself, so there the exclusion is a fact.
+  const adversarial = runCompanion(["adversarial-review", "--base", "main"], { cwd, env: isolatedEnv(binDir) });
+  assert.match(adversarial.stdout, /1 uncommitted file\(s\) are excluded from this review/);
+  assert.ok(!adversarial.stdout.includes("sets its own final scope"), adversarial.stdout);
+});
+
+test("a review outside a Git repository fails instead of reviewing nothing", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+
+  const result = runCompanion(["review"], { cwd: makeTempDir(), env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /must run inside a Git repository/);
+});
+
+test("a review refuses to start when Claude Code is not installed", () => {
+  const cwd = makeDirtyWorkspace();
+  const env = { ...isolatedEnv(makeTempDir()), PATH: makeTempDir() };
+
+  const result = runCompanion(["review"], { cwd, env });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Claude Code is not installed/);
+});
+
 // The availability check and the run must reach the same install, or the bridge could
 // verify one Claude Code and then drive a different one.
 test("runClaudePrompt checks availability with the same env it runs under", async () => {

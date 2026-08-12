@@ -30,7 +30,13 @@ description: >-
 ## 規則
 
 - 必須把 runtime 的 stdout 原樣回傳給使用者。嚴禁改寫、摘要，或在前後加上評論。
-- 嚴禁對審查回報的問題採取行動。審查類進入點是唯讀的；修復必須由使用者另外提出。
+- 嚴禁對審查回報的問題採取行動。修復必須由使用者另外提出。
+- 嚴禁把 `/claude-review` 描述為 sandbox 或唯讀。內建 reviewer 會自行檢視 repository，
+  因此帶有 shell 存取權。只有 `/claude-adversarial-review` 執行在無法寫入的 session 中。
+- 必須重述審查印出的 `Scope` 與 `Evidence` 行，嚴禁把結果改述成涵蓋整個 repository。
+  在 `/claude-adversarial-review` 這兩行是精確的，因為 review context 由 bridge 組出。
+  在 `/claude-review`，Scope 只代表「所請求的範圍」：內建 reviewer 會自行決定最終範圍，
+  因此嚴禁告訴使用者有任何東西被排除在外。
 - 當使用者要的是「把事情做完」而非「評估」時，必須路由到 `claude-rescue`，而非審查
   進入點。
 - 當 runtime 回報 Claude Code 未安裝或未認證時，必須告知使用者執行 `/claude-setup`。
@@ -49,10 +55,12 @@ description: >-
 以下每一項都是由同一套 runtime 支撐的 Codex slash command。Codex 的 command 名稱不會
 依 plugin 加上 namespace，因此一律帶 `claude-` 前綴。
 
-- `/claude-review` — 唯讀審查 working tree，或以 `--base <ref>` 對 base ref 做 branch
-  審查。不可導引，也不接受聚焦文字。
-- `/claude-adversarial-review` — 唯讀審查，並挑戰所選方案、其取捨與假設。目標選取方式
-  與 `/claude-review` 相同，且旗標之後可接聚焦文字。
+- `/claude-review` — 以 Claude Code 內建 reviewer 審查 working tree，或以 `--base <ref>`
+  對 base ref 做 branch 審查。不可導引，也不接受聚焦文字。由於 reviewer 自行蒐集證據，
+  該 session 帶有 shell 存取權。
+- `/claude-adversarial-review` — 挑戰所選方案、其取捨與假設的審查。目標選取方式與
+  `/claude-review` 相同，且旗標之後可接聚焦文字。其 session 只註冊 `Read`、`Glob` 與
+  `Grep`，沒有 shell，也沒有 MCP server。
 - `/claude-rescue` — 委派調查、修復，或延續先前的 Claude 工作。預設具寫入能力。
 - `/claude-transfer` — 把當前 Codex 對話延續到 Claude Code，回傳
   `claude --resume <session-id>` 指令。
@@ -69,8 +77,7 @@ description: >-
   `/claude-adversarial-review`。
 - 若使用者要修改程式碼、診斷 bug，或延續先前的 Claude 工作，使用 `/claude-rescue`。
 - 若使用者想把同一段對話帶到 Claude Code 內繼續，使用 `/claude-transfer`。
-- 若審查或任務明顯很小，在前景執行；否則在背景執行並引導使用者使用
-  `/claude-status`。
+- 兩個審查進入點都在前景執行並在完成時回傳。嚴禁告訴使用者審查正在背景執行。
 - 若使用者詢問已啟動的工作，進度用 `/claude-status`，最終輸出用 `/claude-result`。
 
 ## 需求

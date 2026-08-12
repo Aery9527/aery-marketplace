@@ -98,7 +98,7 @@ What must pass before a row in that area may be marked `done`.
 
 | Area | Verification |
 |------|--------------|
-| runtime libraries | `node --test codex-plugin/tests/` |
+| runtime libraries | `node --test "tests/*.test.mjs"` from `codex-plugin/` |
 | companion subcommands | `codex-plugin/tests/commands.test.mjs` against the fake `claude` fixture |
 | git target resolution | `codex-plugin/tests/git.test.mjs` |
 | job state | `codex-plugin/tests/state.test.mjs` |
@@ -165,8 +165,8 @@ contract moved to a runtime validator instead of a build step.
 
 | Upstream path | Counterpart | Plan | State |
 |---------------|-------------|------|-------|
-| `plugins/codex/commands/review.md` | `codex-plugin/commands/claude-review.md` | adapt | todo |
-| `plugins/codex/commands/adversarial-review.md` | `codex-plugin/commands/claude-adversarial-review.md` | adapt | todo |
+| `plugins/codex/commands/review.md` | `codex-plugin/commands/claude-review.md` | partial | done |
+| `plugins/codex/commands/adversarial-review.md` | `codex-plugin/commands/claude-adversarial-review.md` | partial | done |
 | `plugins/codex/commands/rescue.md` | `codex-plugin/commands/claude-rescue.md` | adapt | todo |
 | `plugins/codex/commands/transfer.md` | `codex-plugin/commands/claude-transfer.md` | adapt | todo |
 | `plugins/codex/commands/status.md` | `codex-plugin/commands/claude-status.md` | partial | todo |
@@ -190,9 +190,9 @@ contract moved to a runtime validator instead of a build step.
 | `plugins/codex/scripts/lib/claude-session-transfer.mjs` | `codex-plugin/scripts/lib/codex-session-transfer.mjs` | partial | todo |
 | `plugins/codex/scripts/lib/args.mjs` | `codex-plugin/scripts/lib/args.mjs` | port | done |
 | `plugins/codex/scripts/lib/fs.mjs` | `codex-plugin/scripts/lib/fs.mjs` | port | done |
-| `plugins/codex/scripts/lib/git.mjs` | `codex-plugin/scripts/lib/git.mjs` | port | done |
+| `plugins/codex/scripts/lib/git.mjs` | `codex-plugin/scripts/lib/git.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/process.mjs` | `codex-plugin/scripts/lib/process.mjs` | adapt | done |
-| `plugins/codex/scripts/lib/prompts.mjs` | `codex-plugin/scripts/lib/prompts.mjs` | port | todo |
+| `plugins/codex/scripts/lib/prompts.mjs` | `codex-plugin/scripts/lib/prompts.mjs` | port | done |
 | `plugins/codex/scripts/lib/workspace.mjs` | `codex-plugin/scripts/lib/workspace.mjs` | port | done |
 | `plugins/codex/scripts/lib/state.mjs` | `codex-plugin/scripts/lib/state.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/render.mjs` | `codex-plugin/scripts/lib/render.mjs` | adapt | wip |
@@ -211,9 +211,9 @@ The four `adapt` rows at the end carry host semantics rather than pure logic:
 | `plugins/codex/hooks/hooks.json` | `codex-plugin/hooks.json` | adapt | todo |
 | `plugins/codex/scripts/session-lifecycle-hook.mjs` | `codex-plugin/scripts/session-lifecycle-hook.mjs` | adapt | todo |
 | `plugins/codex/scripts/stop-review-gate-hook.mjs` | `codex-plugin/scripts/stop-review-gate-hook.mjs` | adapt | todo |
-| `plugins/codex/prompts/adversarial-review.md` | `codex-plugin/prompts/adversarial-review.md` | port | todo |
+| `plugins/codex/prompts/adversarial-review.md` | `codex-plugin/prompts/adversarial-review.md` | adapt | done |
 | `plugins/codex/prompts/stop-review-gate.md` | `codex-plugin/prompts/stop-review-gate.md` | port | todo |
-| `plugins/codex/schemas/review-output.schema.json` | `codex-plugin/schemas/review-output.schema.json` | port | todo |
+| `plugins/codex/schemas/review-output.schema.json` | `codex-plugin/schemas/review-output.schema.json` | port | done |
 
 Both hook scripts are `adapt`, not `port`, for different reasons.
 `session-lifecycle-hook.mjs` exports state into `CLAUDE_ENV_FILE` on
@@ -248,7 +248,7 @@ instruction must be rewritten against the Claude CLI contract.
 | `tests/git.test.mjs` | `codex-plugin/tests/git.test.mjs` | adapt | done |
 | `tests/process.test.mjs` | `codex-plugin/tests/process.test.mjs` | port | done |
 | `tests/state.test.mjs` | `codex-plugin/tests/state.test.mjs` | adapt | done |
-| `tests/render.test.mjs` | `codex-plugin/tests/render.test.mjs` | adapt | todo |
+| `tests/render.test.mjs` | `codex-plugin/tests/render.test.mjs` | adapt | done |
 | `tests/commands.test.mjs` | `codex-plugin/tests/commands.test.mjs` | adapt | wip |
 | `tests/runtime.test.mjs` | `codex-plugin/tests/runtime.test.mjs` | adapt | todo |
 | `tests/fake-codex-fixture.mjs` | `codex-plugin/tests/fake-claude-fixture.mjs` | adapt | done |
@@ -275,13 +275,13 @@ process. The reverse port drives the `claude` CLI. Verified against `claude`
 
 | Upstream app-server capability | Claude Code CLI counterpart | Evidence |
 |--------------------------------|-----------------------------|----------|
-| structured output (`schemas/review-output.schema.json`) | `--json-schema`; documented with `--output-format json`, where the result lands in `structured_output` | docs |
+| structured output (`schemas/review-output.schema.json`) | `--json-schema`; the final stream-json `result` carries both `structured_output` and the same JSON as `result` text | probe |
 | turn streaming and progress events | `--output-format stream-json --verbose`; the turn ends on a `result` event. Token-level deltas additionally need `--include-partial-messages`, which the runtime does not pass yet | docs, probe |
 | model selection | `--model <alias\|full-name>` | help |
 | thread persistence and resume | `--session-id <uuid>`, `--resume <id>`, `--continue`, `--fork-session`; `--resume` finds a session in any project from v2.1.223 | docs, help |
 | thread naming (`buildPersistentTaskThreadName`) | `--name <name>` | help |
-| read-only versus write-capable runs | `--permission-mode` (`dontAsk` for locked-down runs), `--tools`, `--allowed-tools` | docs |
-| native `/review` (`runAppServerReview`) | `claude -p "/code-review"` — user-invoked skills expand inside the `-p` prompt string | docs |
+| read-only versus write-capable runs | `--tools` narrows the **built-in** set only; `--strict-mcp-config` is additionally required, or the user's MCP servers stay registered and an MCP write tool remains reachable. There is no filesystem sandbox: a session that keeps `Bash` can write | probe — see [Gaps](#gaps) |
+| native `/review` (`runAppServerReview`) | a stream-json user message whose text is `/code-review` expands and runs the real review skill | probe |
 | long-lived process serving successive turns | `-p --input-format stream-json --output-format stream-json`; one process served two turns under one `session_id` and exited 0 on stdin close | probe |
 | turn interruption (`interruptAppServerTurn`) | `control_request` with `{subtype: "interrupt"}`; answered by `control_response`, ends the turn as `result`/`error_during_execution`, and the session stays usable | probe |
 | session metadata after a run | `system/init` event, or `session_id` in `--output-format json` | docs |
@@ -316,11 +316,42 @@ is a loss of function.
   file carries the `claude-` prefix instead.
 - **Structured output** — upstream asks the app server for output matching
   `schemas/review-output.schema.json`. The counterpart passes the same schema to
-  `claude --json-schema`, so the schema file itself ports unchanged. The session
-  always runs `--output-format stream-json`, because one process has to serve
-  successive turns, and reads `structured_output` off the final `result` event.
-  Whether a stream-json `result` carries `structured_output` is listed under
-  [Open Verification](#open-verification).
+  `claude --json-schema`, so the schema file itself ports unchanged, and reads
+  `structured_output` off the final stream-json `result` event. Two host quirks
+  are absorbed by the runtime rather than by the schema file: the flag parses its
+  value as JSON and rejects a file path, so the schema travels inline; and the
+  validator resolves `$schema` as a remote reference and fails on the draft URL,
+  so that key is stripped before the schema is passed.
+- **Argument escaping on Windows** — a `claude` installed by npm is reached
+  through a `.cmd` wrapper, so the command line is built by this package rather
+  than by Node, and it has to satisfy two parsers at once. For the Claude binary
+  it follows the `CommandLineToArgvW` convention, escaping a quote as `\"`; the
+  `""` convention some parsers also accept is not usable, because the Claude
+  binary rejects it and an inline JSON schema arrives torn. For cmd.exe every
+  argument is quoted unconditionally, because `&`, `|`, `<`, `>` and `^` are
+  control characters wherever they appear unquoted and would otherwise split the
+  command line. Quoting does not stop `%VAR%` expansion and there is no escape
+  for it on a `/c` command line, so an argument carrying `%` or a control
+  character is refused rather than silently rewritten. Nothing multi-line may
+  travel as an argument at all, which is why every prompt goes over stdin.
+- **Review target reporting** — upstream names the target it resolved. The
+  counterpart additionally prints the scope that target actually covers, because
+  `auto` silently chooses between the working tree and a branch diff, and an
+  explicit `--base` silently excludes every uncommitted change from the context
+  this bridge assembles. It also prints what evidence Claude actually received:
+  the tracked diff in full, or — when a threshold withheld it, named in the line
+  because a file count and a diff size can each trip alone — a summary and a file
+  list it was told to read from for tracked changes, with inlined contents for
+  eligible untracked ones, plus every untracked entry the context had to leave
+  out and why. The scope line is phrased as what
+  was covered only on the adversarial path, where the bridge builds the context;
+  see [Gaps](#gaps) for why the built-in reviewer's is phrased as a request.
+- **Untracked file containment** — upstream reads untracked files with `stat`
+  and `readFile`. `git ls-files --others` walks into a symlinked directory or an
+  NTFS junction and reports what it finds there as an ordinary untracked path,
+  which then reads as a plain file, so `lstat` alone does not help. The
+  counterpart checks that the resolved path is still inside the repository and
+  reports each skipped entry in the review context.
 - **Background execution** — upstream detaches by launching the companion as a
   background task and tracking it in workspace state. `-p` rejects `--bg`, so
   the counterpart must spawn and supervise its own detached child; `claude
@@ -340,6 +371,12 @@ is a loss of function.
   untouched, because the CLI adds event types over time. Feature detection reads
   the `capabilities` array on `system/init` rather than comparing version
   strings; the version is advisory and never blocks a run.
+- **Adversarial review prompt** — the attack surface, finding bar, grounding and
+  calibration rules port unchanged. Two things differ: the role names Claude Code
+  rather than Codex, and an `<available_tools>` block states the exact tool set
+  the session registers. Upstream needs no such block because Codex's sandbox
+  refuses a write at execution time, whereas here the restriction is which tools
+  exist at all, and a reviewer that plans a command it cannot run wastes the turn.
 - **Prompt skill** — `gpt-5-4-prompting` teaches prompting for GPT-5.4. Its
   counterpart teaches prompting for Claude Code, so the file maps across but the
   content is written fresh rather than translated.
@@ -358,6 +395,39 @@ on a known limitation.
 
 ### Degraded
 
+- **Read-only review sandbox** — `commands/review.md`, and `sandbox: "read-only"`
+  in `runAppServerReview`. Upstream runs both reviews inside Codex's read-only
+  sandbox. The Claude CLI has no filesystem sandbox; the only enforcement is
+  which tools get registered. The adversarial review needs no shell, so it runs
+  with `--tools Read,Glob,Grep --permission-mode dontAsk --strict-mcp-config`
+  and genuinely cannot write. The built-in reviewer collects its own evidence
+  and therefore keeps `Bash`, so that path drops `Edit`, `Write` and
+  `NotebookEdit` and shuts out MCP servers. A subagent inherits those denials,
+  but the residual shell path is demonstrated rather than theoretical: a probe
+  subagent was refused `Write` and then created the file with `Bash`. This path
+  MUST NOT be described to a user as read-only.
+- **Review scope control** — `commands/review.md`. Upstream hands the app server
+  a typed target (`uncommittedChanges` or `baseBranch`) and the reviewer honours
+  it. The counterpart can only put `/code-review <ref>` in a prompt, and the
+  built-in reviewer decides its own final scope: given `--base main` on a branch
+  with a staged file, it reviewed the branch diff **and** the staged file. The
+  bridge therefore states the requested scope and says the reviewer may cover
+  more. The adversarial path is unaffected, because there the bridge assembles
+  the context and so knows exactly what was seen.
+- **Self-collected review evidence** — `prompts/adversarial-review.md`. When the
+  diff is withheld from the context, upstream tells the reviewer to gather it
+  itself with read-only git commands. The counterpart's review session registers
+  no shell, so it cannot. A tracked change reaches it as a summary and a file
+  name instead, and it is told to read those files with `Read`; whether it did so
+  is not observable from the runtime, which is why the evidence line says it was
+  instructed to read rather than that it read. An eligible untracked file still
+  arrives with its contents inlined, because it has no committed version to diff
+  against. Either way the reviewer cannot see what the change removed, and the
+  prompt requires it to say so in its summary rather than infer deletions.
+- **Review execution mode** — `commands/review.md`,
+  `commands/adversarial-review.md`. Upstream offers `--wait` and `--background`
+  and tracks a background review as a job. Both counterparts run in the
+  foreground only until the job store exists.
 - **Reasoning effort range** — `VALID_REASONING_EFFORTS` in
   `scripts/codex-companion.mjs` accepts `none|minimal|low|medium|high|xhigh`.
   The `claude` CLI accepts `low|medium|high|xhigh|max`. `none` and `minimal`
@@ -397,23 +467,6 @@ Claims that could not be settled locally. Each names the probe that settles it
 and the rows that depend on the answer. Nothing may move from `open` to a
 concrete Plan without running its probe.
 
-- **Structured output over stream-json.** `--json-schema` is documented with
-  `--output-format json`, but the bridge's session is always stream-json. Probe:
-  run a schema-constrained turn through the session and confirm the final
-  `result` event carries `structured_output`. If it does not, the review family
-  needs a separate one-shot `--output-format json` invocation. Decides the
-  review path in the next milestone.
-- **Untracked file collection follows symlinks.** `collectReviewContext` in
-  `scripts/lib/git.mjs` reads untracked files with `statSync`/`readFileSync`, so a
-  symlink in the working tree can pull a file from outside the repository into the
-  review context. The behaviour is inherited from upstream. Probe: confirm with a
-  symlink pointing outside the repo, then switch to `lstat` and skip symlinks,
-  reporting what was skipped. Decides how the review family builds its context.
-- **Read-only enforcement.** Upstream runs Codex under `sandbox: read-only` for
-  reviews. Probe: confirm that `--permission-mode dontAsk` plus a tool
-  allow-list actually blocks edits, Bash writes, and writes reached indirectly
-  through a permitted tool. Decides whether the review family is genuinely
-  read-only.
 - **Handoff transfer.** Probe: create a bridge-owned session, resume it in a
   second process, confirm the provenance text is present in the resumed
   context, and confirm nothing was written under `~/.claude/projects/` by the

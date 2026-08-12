@@ -35,8 +35,17 @@ fix, or summarise Claude Code's output itself.
 
 - MUST return the runtime's stdout to the user exactly as-is. MUST NOT
   paraphrase, summarise, or add commentary before or after it.
-- MUST NOT act on findings a review reports. Review entry points are read-only;
-  fixing is a separate request the user has to make.
+- MUST NOT act on findings a review reports. Fixing is a separate request the
+  user has to make.
+- MUST NOT describe `/claude-review` as sandboxed or read-only. The built-in
+  reviewer inspects the repository itself and therefore runs with shell access.
+  Only `/claude-adversarial-review` runs in a session that cannot write.
+- MUST repeat the `Scope` and `Evidence` lines a review printed rather than
+  restating the result as covering the whole repository. On
+  `/claude-adversarial-review` those lines are exact, because the bridge builds
+  the review context. On `/claude-review` the scope is only what was requested:
+  the built-in reviewer sets its own, so MUST NOT tell the user anything was
+  excluded from it.
 - MUST route to `claude-rescue` rather than to a review entry point when the
   user wants work done rather than assessed.
 - MUST tell the user to run `/claude-setup` when the runtime reports that
@@ -58,11 +67,14 @@ fix, or summarise Claude Code's output itself.
 Each is a Codex slash command backed by the same runtime. Command names are not
 namespaced by plugin, so they carry a `claude-` prefix.
 
-- `/claude-review` — read-only review of the working tree, or of the branch
-  against a base ref with `--base <ref>`. Not steerable and takes no focus text.
-- `/claude-adversarial-review` — read-only review that challenges the chosen
-  approach, its tradeoffs and its assumptions. Same target selection as
-  `/claude-review`, and accepts focus text after the flags.
+- `/claude-review` — Claude Code's built-in reviewer over the working tree, or
+  over the branch against a base ref with `--base <ref>`. Not steerable and
+  takes no focus text. Runs with shell access, because the reviewer collects its
+  own evidence.
+- `/claude-adversarial-review` — review that challenges the chosen approach, its
+  tradeoffs and its assumptions. Same target selection as `/claude-review`, and
+  accepts focus text after the flags. Runs in a session that registers only
+  `Read`, `Glob` and `Grep`, with no shell and no MCP server.
 - `/claude-rescue` — delegate an investigation, a fix, or continuation of
   earlier Claude work. Write-capable by default.
 - `/claude-transfer` — continue the current Codex conversation inside Claude
@@ -83,8 +95,8 @@ namespaced by plugin, so they carry a `claude-` prefix.
   continued, use `/claude-rescue`.
 - If the user wants to keep working on this same conversation inside Claude
   Code, use `/claude-transfer`.
-- If a review or task is clearly small, run it in the foreground; otherwise run
-  it in the background and point the user at `/claude-status`.
+- Both review entry points run in the foreground and return when finished. MUST
+  NOT tell the user a review is running in the background.
 - If the user asks about work already started, use `/claude-status` for progress
   and `/claude-result` for the finished output.
 

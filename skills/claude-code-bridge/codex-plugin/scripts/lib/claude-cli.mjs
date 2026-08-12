@@ -61,14 +61,41 @@ export function resolveClaudeExecutable(env = process.env) {
   return { file: CLAUDE_BINARY, viaCmd: false, target: CLAUDE_BINARY };
 }
 
-// The command line is passed verbatim, so quoting follows cmd.exe's own rules rather
-// than Node's argument escaping: quote only what needs it, and double an inner quote.
-function quoteForCmd(value) {
+// cmd.exe expands `%VAR%` even inside quotes and there is no escape for it on a `/c`
+// command line, so a value carrying one cannot be passed through safely at all. Control
+// characters cannot survive a command line either.
+const UNPASSABLE_THROUGH_CMD = /[\u0000-\u001f%]/;
+
+// The command line is passed verbatim, so each argument carries its own escaping. This
+// is the `CommandLineToArgvW` convention — a quote becomes `\"` and the backslashes in
+// front of one are doubled. The alternative `""` convention some parsers also accept is
+// not usable here: the Claude binary rejects it, so an inline JSON schema arrives torn.
+//
+// Every argument is quoted, not only one that looks like it needs it. cmd.exe treats
+// `&`, `|`, `<`, `>` and `^` as control characters wherever they are unquoted, so an
+// unquoted value carrying one splits the command line instead of reaching Claude.
+export function quoteForWindowsCommandLine(value) {
   const text = String(value);
   if (text === "") {
     return '""';
   }
-  return /[\s&|<>^()"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+
+  let quoted = '"';
+  let backslashes = 0;
+  for (const character of text) {
+    if (character === "\\") {
+      backslashes += 1;
+      continue;
+    }
+    if (character === '"') {
+      quoted += "\\".repeat(backslashes * 2 + 1) + '"';
+      backslashes = 0;
+      continue;
+    }
+    quoted += "\\".repeat(backslashes) + character;
+    backslashes = 0;
+  }
+  return `${quoted}${"\\".repeat(backslashes * 2)}"`;
 }
 
 // `cmd /s /c "<line>"` strips exactly the outer quotes and runs the rest verbatim,
@@ -79,7 +106,15 @@ export function buildSpawnPlan(args, env = process.env) {
     return { file: resolved.file, args, options: {} };
   }
 
-  const line = [resolved.target, ...args].map(quoteForCmd).join(" ");
+  for (const arg of args) {
+    if (UNPASSABLE_THROUGH_CMD.test(String(arg))) {
+      throw new ClaudeCliError(
+        `Cannot pass ${JSON.stringify(String(arg))} to Claude on Windows: a percent sign or control character cannot be escaped on a cmd.exe command line.`
+      );
+    }
+  }
+
+  const line = [resolved.target, ...args].map(quoteForWindowsCommandLine).join(" ");
   return {
     file: resolved.file,
     args: ["/d", "/s", "/c", `"${line}"`],
@@ -87,7 +122,7 @@ export function buildSpawnPlan(args, env = process.env) {
   };
 }
 
-function buildBaseArgs(options) {
+export function buildBaseArgs(options) {
   const args = [
     "-p",
     "--input-format", "stream-json",
@@ -111,13 +146,25 @@ function buildBaseArgs(options) {
     args.push("--name", options.name);
   }
   if (options.jsonSchema) {
-    args.push("--json-schema", JSON.stringify(options.jsonSchema));
+    // The flag parses its value as JSON, so the schema travels inline rather than as a
+    // path. `$schema` is stripped because the validator resolves it as a remote ref and
+    // fails on the draft URL every schema in this package declares.
+    const { $schema, ...schema } = options.jsonSchema;
+    args.push("--json-schema", JSON.stringify(schema));
   }
   if (options.permissionMode) {
     args.push("--permission-mode", options.permissionMode);
   }
+  // `--tools` filters built-ins only, so a session that must not write also has to shut
+  // the user's MCP servers out; otherwise an MCP write tool stays registered.
+  if (options.strictMcpConfig) {
+    args.push("--strict-mcp-config");
+  }
   if (Array.isArray(options.allowedTools) && options.allowedTools.length > 0) {
     args.push("--allowed-tools", options.allowedTools.join(","));
+  }
+  if (Array.isArray(options.disallowedTools) && options.disallowedTools.length > 0) {
+    args.push("--disallowed-tools", ...options.disallowedTools);
   }
   if (Array.isArray(options.tools)) {
     args.push("--tools", options.tools.length > 0 ? options.tools.join(",") : "");

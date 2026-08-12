@@ -3,7 +3,7 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { collectReviewContext, resolveReviewTarget } from "../scripts/lib/git.mjs";
+import { collectReviewContext, describeReviewScope, resolveReviewTarget } from "../scripts/lib/git.mjs";
 import { initGitRepo, makeTempDir, run } from "./helpers.mjs";
 
 test("resolveReviewTarget prefers working tree when repo is dirty", () => {
@@ -157,6 +157,75 @@ test("collectReviewContext skips broken untracked symlinks instead of crashing",
   assert.match(context.content, /skipped: broken symlink or unreadable file/i);
 });
 
+// `git ls-files --others` walks into a linked directory and reports what it finds as an
+// ordinary untracked path, so the entry looks like a plain file and only its resolved
+// location shows that it belongs to somebody else's tree.
+test("untracked content that resolves outside the repository is not read into the review", (t) => {
+  const root = makeTempDir();
+  const cwd = path.join(root, "repo");
+  const outside = path.join(root, "outside");
+  fs.mkdirSync(cwd);
+  fs.mkdirSync(outside);
+  fs.writeFileSync(path.join(outside, "secret.txt"), "SECRET_OUTSIDE_THE_REPO\n");
+
+  initGitRepo(cwd);
+  fs.writeFileSync(path.join(cwd, "app.js"), "console.log('v1');\n");
+  run("git", ["add", "app.js"], { cwd });
+  run("git", ["commit", "-m", "init"], { cwd });
+
+  try {
+    // A junction needs no elevation on Windows; elsewhere a directory symlink is the
+    // same hazard.
+    fs.symlinkSync(outside, path.join(cwd, "linkdir"), "junction");
+  } catch (error) {
+    if (error.code === "EPERM" || error.code === "EACCES") {
+      t.skip("linked directory creation is not permitted on this host");
+      return;
+    }
+    throw error;
+  }
+
+  const target = resolveReviewTarget(cwd, { scope: "working-tree" });
+  const context = collectReviewContext(cwd, target);
+
+  assert.ok(!context.content.includes("SECRET_OUTSIDE_THE_REPO"), context.content);
+  assert.match(context.content, /skipped: resolves outside the repository/);
+});
+
+test("describeReviewScope says which uncommitted work a branch review leaves out", () => {
+  const cwd = makeTempDir();
+  initGitRepo(cwd);
+  fs.writeFileSync(path.join(cwd, "app.js"), "console.log('v1');\n");
+  run("git", ["add", "app.js"], { cwd });
+  run("git", ["commit", "-m", "init"], { cwd });
+  run("git", ["checkout", "-b", "feature"], { cwd });
+  fs.writeFileSync(path.join(cwd, "app.js"), "console.log('v2');\n");
+  run("git", ["commit", "-am", "change"], { cwd });
+  fs.writeFileSync(path.join(cwd, "pending.js"), "console.log('uncommitted');\n");
+
+  const target = resolveReviewTarget(cwd, { base: "main" });
+  const scope = describeReviewScope(cwd, target);
+
+  assert.equal(target.mode, "branch");
+  assert.match(scope, /commits between main and HEAD, requested/);
+  assert.match(scope, /1 uncommitted file\(s\) are excluded/);
+});
+
+test("describeReviewScope marks an auto-selected working tree review as automatic", () => {
+  const cwd = makeTempDir();
+  initGitRepo(cwd);
+  fs.writeFileSync(path.join(cwd, "app.js"), "console.log('v1');\n");
+  run("git", ["add", "app.js"], { cwd });
+  run("git", ["commit", "-m", "init"], { cwd });
+  fs.writeFileSync(path.join(cwd, "app.js"), "console.log('v2');\n");
+
+  const scope = describeReviewScope(cwd, resolveReviewTarget(cwd, {}));
+
+  assert.match(scope, /uncommitted work, selected automatically/);
+  assert.match(scope, /0 staged, 1 unstaged, 0 untracked/);
+  assert.match(scope, /Committed history is not reviewed/);
+});
+
 test("collectReviewContext falls back to lightweight context for larger adversarial reviews", () => {
   const cwd = makeTempDir();
   initGitRepo(cwd);
@@ -174,8 +243,15 @@ test("collectReviewContext falls back to lightweight context for larger adversar
 
   assert.equal(context.inputMode, "self-collect");
   assert.equal(context.fileCount, 3);
-  assert.match(context.collectionGuidance, /lightweight summary/i);
-  assert.match(context.collectionGuidance, /read-only git commands/i);
+  // The session has no shell, so the guidance must not send the reviewer after git.
+  assert.match(context.collectionGuidance, /a summary, not a diff/i);
+  assert.doesNotMatch(context.collectionGuidance, /git command/i);
+  assert.match(context.collectionGuidance, /current state of the changed files/i);
+  // Untracked content is inlined even in this mode, so the guidance must not deny it —
+  // but only when it was eligible, so the guidance must not promise it unconditionally
+  // either, or it would contradict the skipped entries the same context reports.
+  assert.match(context.collectionGuidance, /untracked file is included with its contents/i);
+  assert.match(context.collectionGuidance, /unless the section marks it skipped/i);
   assert.doesNotMatch(context.content, /SELF_COLLECT_MARKER_[ABC]/);
   assert.match(context.content, /## Changed Files/);
 });

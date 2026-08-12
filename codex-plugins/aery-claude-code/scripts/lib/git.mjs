@@ -190,48 +190,114 @@ export function resolveReviewTarget(cwd, options = {}) {
   };
 }
 
+// `auto` picks the working tree or a branch diff on its own, and an explicit `--base`
+// drops every uncommitted change from the context this bridge builds. Both cases would
+// otherwise be reported as "the current changes", so the scope is spelled out.
+//
+// `authoritative` distinguishes the two review paths. When the bridge assembles the
+// context, this describes exactly what the reviewer saw. The built-in reviewer instead
+// receives a target and decides for itself — it was observed to review staged work on
+// top of a requested branch diff — so there the scope is stated as what was asked for.
+export function describeReviewScope(cwd, target, options = {}) {
+  const authoritative = options.authoritative !== false;
+  const repoRoot = getRepoRoot(cwd);
+  const state = getWorkingTreeState(repoRoot);
+  const selection = target.explicit ? "requested" : "selected automatically";
+  const caveat = authoritative
+    ? ""
+    : " The built-in reviewer sets its own final scope and may cover more than this; its report states what it read.";
+
+  if (target.mode === "working-tree") {
+    const covered = `uncommitted work, ${selection} — ${state.staged.length} staged, ${state.unstaged.length} unstaged, ${state.untracked.length} untracked file(s).`;
+    return authoritative ? `${covered} Committed history is not reviewed.` : `${covered}${caveat}`;
+  }
+
+  const pendingCount = listUniqueFiles(state.staged, state.unstaged, state.untracked).length;
+  const base = `commits between ${target.baseRef} and HEAD, ${selection}.`;
+  if (!authoritative) {
+    return `${base}${caveat}`;
+  }
+  return pendingCount > 0
+    ? `${base} ${pendingCount} uncommitted file(s) are excluded from this review.`
+    : `${base} The working tree is clean.`;
+}
+
 function formatSection(title, body) {
   return [`## ${title}`, "", body.trim() ? body.trim() : "(none)", ""].join("\n");
 }
 
-function formatUntrackedFile(cwd, relativePath) {
-  const absolutePath = path.join(cwd, relativePath);
+// Untracked content is read straight off disk rather than through git, so containment
+// is this bridge's responsibility. `git ls-files --others` walks into a symlinked
+// directory or an NTFS junction and reports what it finds there as an ordinary
+// untracked path, which then reads as a plain file: only the resolved path reveals
+// that it lives outside the repository.
+export function isContainedInRepo(repoRoot, absolutePath) {
+  try {
+    const realRoot = fs.realpathSync(repoRoot);
+    const realPath = fs.realpathSync(absolutePath);
+    return realPath === realRoot || realPath.startsWith(realRoot + path.sep);
+  } catch {
+    return false;
+  }
+}
+
+// Returns the section to embed plus, when the file was left out, why. The caller needs
+// the reason as data: a review whose context silently dropped a changed file must not be
+// reported as having covered the whole target.
+function formatUntrackedFile(repoRoot, relativePath) {
+  const absolutePath = path.join(repoRoot, relativePath);
+  const skip = (reason) => ({
+    body: `### ${relativePath}\n(skipped: ${reason})`,
+    skippedReason: `${relativePath} (${reason})`
+  });
+
   let stat;
   try {
-    stat = fs.statSync(absolutePath);
+    stat = fs.lstatSync(absolutePath);
   } catch {
-    return `### ${relativePath}\n(skipped: broken symlink or unreadable file)`;
+    return skip("broken symlink or unreadable file");
+  }
+  if (!fs.existsSync(absolutePath)) {
+    return skip("broken symlink or unreadable file");
+  }
+  if (!isContainedInRepo(repoRoot, absolutePath)) {
+    return skip("resolves outside the repository");
   }
   if (stat.isDirectory()) {
-    return `### ${relativePath}\n(skipped: directory)`;
+    return skip("directory");
   }
   if (stat.size > MAX_UNTRACKED_BYTES) {
-    return `### ${relativePath}\n(skipped: ${stat.size} bytes exceeds ${MAX_UNTRACKED_BYTES} byte limit)`;
+    return skip(`${stat.size} bytes exceeds ${MAX_UNTRACKED_BYTES} byte limit`);
   }
 
   let buffer;
   try {
     buffer = fs.readFileSync(absolutePath);
   } catch {
-    return `### ${relativePath}\n(skipped: broken symlink or unreadable file)`;
+    return skip("broken symlink or unreadable file");
   }
   if (!isProbablyText(buffer)) {
-    return `### ${relativePath}\n(skipped: binary file)`;
+    return skip("binary file");
   }
 
-  return [`### ${relativePath}`, "```", buffer.toString("utf8").trimEnd(), "```"].join("\n");
+  return {
+    body: [`### ${relativePath}`, "```", buffer.toString("utf8").trimEnd(), "```"].join("\n"),
+    skippedReason: null
+  };
 }
 
 function collectWorkingTreeContext(cwd, state, options = {}) {
   const includeDiff = options.includeDiff !== false;
   const status = gitChecked(cwd, ["status", "--short", "--untracked-files=all"]).stdout.trim();
   const changedFiles = listUniqueFiles(state.staged, state.unstaged, state.untracked);
+  const untracked = state.untracked.map((file) => formatUntrackedFile(cwd, file));
+  const untrackedBody = untracked.map((entry) => entry.body).join("\n\n");
+  const skippedUntracked = untracked.filter((entry) => entry.skippedReason !== null);
 
   let parts;
   if (includeDiff) {
     const stagedDiff = gitChecked(cwd, ["diff", "--cached", "--binary", "--no-ext-diff", "--submodule=diff"]).stdout;
     const unstagedDiff = gitChecked(cwd, ["diff", "--binary", "--no-ext-diff", "--submodule=diff"]).stdout;
-    const untrackedBody = state.untracked.map((file) => formatUntrackedFile(cwd, file)).join("\n\n");
     parts = [
       formatSection("Git Status", status),
       formatSection("Staged Diff", stagedDiff),
@@ -241,7 +307,6 @@ function collectWorkingTreeContext(cwd, state, options = {}) {
   } else {
     const stagedStat = gitChecked(cwd, ["diff", "--shortstat", "--cached"]).stdout.trim();
     const unstagedStat = gitChecked(cwd, ["diff", "--shortstat"]).stdout.trim();
-    const untrackedBody = state.untracked.map((file) => formatUntrackedFile(cwd, file)).join("\n\n");
     parts = [
       formatSection("Git Status", status),
       formatSection("Staged Diff Stat", stagedStat),
@@ -255,7 +320,12 @@ function collectWorkingTreeContext(cwd, state, options = {}) {
     mode: "working-tree",
     summary: `Reviewing ${state.staged.length} staged, ${state.unstaged.length} unstaged, and ${state.untracked.length} untracked file(s).`,
     content: parts.join("\n"),
-    changedFiles
+    changedFiles,
+    // Counted apart from `changedFiles` because only a tracked file contributes to the
+    // diff: reporting the total against the diff would credit it with files it never had.
+    trackedFileCount: listUniqueFiles(state.staged, state.unstaged).length,
+    untrackedIncludedCount: untracked.length - skippedUntracked.length,
+    skippedUntracked: skippedUntracked.map((entry) => entry.skippedReason)
   };
 }
 
@@ -285,16 +355,49 @@ function collectBranchContext(cwd, baseRef, options = {}) {
           formatSection("Changed Files", changedFiles.join("\n"))
         ].join("\n"),
     changedFiles,
+    // A branch comparison only ever spans committed files, so every changed file is
+    // tracked and no untracked content reaches the context.
+    trackedFileCount: changedFiles.length,
+    untrackedIncludedCount: 0,
+    skippedUntracked: [],
     comparison
   };
 }
 
+// The review session registers no shell, so guidance must not send the reviewer after a
+// git command it cannot run. Without the diff, a tracked change reaches the reviewer as a
+// summary and a file name only, so it has to read those files itself with `Read` and
+// nothing here observes whether it did; an eligible untracked file still arrives with its
+// contents inlined, because it has no committed version to diff against. Either way the
+// reviewer cannot see what the change removed — saying so keeps the findings honest.
 function buildAdversarialCollectionGuidance(options = {}) {
   if (options.includeDiff !== false) {
     return "Use the repository context below as primary evidence.";
   }
 
-  return "The repository context below is a lightweight summary. Inspect the target diff yourself with read-only git commands before finalizing findings.";
+  return [
+    "The repository context below is a summary, not a diff. For a tracked file it gives you",
+    "the name and a change stat but not the change itself, so read those files to see their",
+    "current contents. An untracked file is included with its contents already, unless the",
+    "section marks it skipped, in which case you do not have it at all. You cannot",
+    "see removed lines or previous versions, and you have no shell, so do not claim a",
+    "finding about what the change deleted or replaced. Say plainly in the summary that this",
+    "review assessed the current state of the changed files rather than the change itself."
+  ].join(" ");
+}
+
+// Names the threshold that withheld the diff, or null when neither was crossed. The byte
+// count is deliberately not quoted back: the measurement stops at the limit, so the true
+// size is only known to be larger.
+function describeInlineRefusal(fileCount, diffBytes, maxInlineFiles, maxInlineDiffBytes) {
+  const reasons = [];
+  if (fileCount > maxInlineFiles) {
+    reasons.push(`${fileCount} changed file(s) exceeds the inline limit of ${maxInlineFiles}`);
+  }
+  if (diffBytes > maxInlineDiffBytes) {
+    reasons.push(`the diff exceeds the inline limit of ${maxInlineDiffBytes} bytes`);
+  }
+  return reasons.length > 0 ? reasons.join(" and ") : null;
 }
 
 export function collectReviewContext(cwd, target, options = {}) {
@@ -305,6 +408,7 @@ export function collectReviewContext(cwd, target, options = {}) {
   let details;
   let includeDiff;
   let diffBytes;
+  let inlineRefusalReason = null;
 
   if (target.mode === "working-tree") {
     const state = getWorkingTreeState(repoRoot);
@@ -316,10 +420,9 @@ export function collectReviewContext(cwd, target, options = {}) {
       ],
       maxInlineDiffBytes
     );
-    includeDiff =
-      options.includeDiff ??
-      (listUniqueFiles(state.staged, state.unstaged, state.untracked).length <= maxInlineFiles &&
-        diffBytes <= maxInlineDiffBytes);
+    const changedCount = listUniqueFiles(state.staged, state.unstaged, state.untracked).length;
+    inlineRefusalReason = describeInlineRefusal(changedCount, diffBytes, maxInlineFiles, maxInlineDiffBytes);
+    includeDiff = options.includeDiff ?? inlineRefusalReason === null;
     details = collectWorkingTreeContext(repoRoot, state, { includeDiff });
   } else {
     const comparison = buildBranchComparison(repoRoot, target.baseRef);
@@ -329,7 +432,8 @@ export function collectReviewContext(cwd, target, options = {}) {
       ["diff", "--binary", "--no-ext-diff", "--submodule=diff", comparison.commitRange],
       maxInlineDiffBytes
     );
-    includeDiff = options.includeDiff ?? (fileCount <= maxInlineFiles && diffBytes <= maxInlineDiffBytes);
+    inlineRefusalReason = describeInlineRefusal(fileCount, diffBytes, maxInlineFiles, maxInlineDiffBytes);
+    includeDiff = options.includeDiff ?? inlineRefusalReason === null;
     details = collectBranchContext(repoRoot, target.baseRef, { includeDiff, comparison });
   }
 
@@ -341,6 +445,10 @@ export function collectReviewContext(cwd, target, options = {}) {
     fileCount: details.changedFiles.length,
     diffBytes,
     inputMode: includeDiff ? "inline-diff" : "self-collect",
+    // Only meaningful when the diff was withheld, and then it names the threshold that
+    // was actually crossed. Either one can trip alone: several tiny untracked files
+    // cross the file count while the diff itself is empty.
+    inlineRefusalReason: includeDiff ? null : inlineRefusalReason ?? "the caller asked for a summary",
     collectionGuidance: buildAdversarialCollectionGuidance({ includeDiff }),
     ...details
   };

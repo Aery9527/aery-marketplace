@@ -85,7 +85,7 @@ git diff --stat db52e28f4d9ded852ab3942cea316258ae4ef346..origin/main \
 
 | 區域 | 驗證 |
 |------|------|
-| runtime libraries | `node --test codex-plugin/tests/` |
+| runtime libraries | 於 `codex-plugin/` 執行 `node --test "tests/*.test.mjs"` |
 | companion 子指令 | `codex-plugin/tests/commands.test.mjs` 搭配 fake `claude` fixture |
 | git 目標解析 | `codex-plugin/tests/git.test.mjs` |
 | job 狀態 | `codex-plugin/tests/state.test.mjs` |
@@ -149,8 +149,8 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 
 | 上游路徑 | 對應物 | Plan | State |
 |----------|--------|------|-------|
-| `plugins/codex/commands/review.md` | `codex-plugin/commands/claude-review.md` | adapt | todo |
-| `plugins/codex/commands/adversarial-review.md` | `codex-plugin/commands/claude-adversarial-review.md` | adapt | todo |
+| `plugins/codex/commands/review.md` | `codex-plugin/commands/claude-review.md` | partial | done |
+| `plugins/codex/commands/adversarial-review.md` | `codex-plugin/commands/claude-adversarial-review.md` | partial | done |
 | `plugins/codex/commands/rescue.md` | `codex-plugin/commands/claude-rescue.md` | adapt | todo |
 | `plugins/codex/commands/transfer.md` | `codex-plugin/commands/claude-transfer.md` | adapt | todo |
 | `plugins/codex/commands/status.md` | `codex-plugin/commands/claude-status.md` | partial | todo |
@@ -174,9 +174,9 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 | `plugins/codex/scripts/lib/claude-session-transfer.mjs` | `codex-plugin/scripts/lib/codex-session-transfer.mjs` | partial | todo |
 | `plugins/codex/scripts/lib/args.mjs` | `codex-plugin/scripts/lib/args.mjs` | port | done |
 | `plugins/codex/scripts/lib/fs.mjs` | `codex-plugin/scripts/lib/fs.mjs` | port | done |
-| `plugins/codex/scripts/lib/git.mjs` | `codex-plugin/scripts/lib/git.mjs` | port | done |
+| `plugins/codex/scripts/lib/git.mjs` | `codex-plugin/scripts/lib/git.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/process.mjs` | `codex-plugin/scripts/lib/process.mjs` | adapt | done |
-| `plugins/codex/scripts/lib/prompts.mjs` | `codex-plugin/scripts/lib/prompts.mjs` | port | todo |
+| `plugins/codex/scripts/lib/prompts.mjs` | `codex-plugin/scripts/lib/prompts.mjs` | port | done |
 | `plugins/codex/scripts/lib/workspace.mjs` | `codex-plugin/scripts/lib/workspace.mjs` | port | done |
 | `plugins/codex/scripts/lib/state.mjs` | `codex-plugin/scripts/lib/state.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/render.mjs` | `codex-plugin/scripts/lib/render.mjs` | adapt | wip |
@@ -194,9 +194,9 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 | `plugins/codex/hooks/hooks.json` | `codex-plugin/hooks.json` | adapt | todo |
 | `plugins/codex/scripts/session-lifecycle-hook.mjs` | `codex-plugin/scripts/session-lifecycle-hook.mjs` | adapt | todo |
 | `plugins/codex/scripts/stop-review-gate-hook.mjs` | `codex-plugin/scripts/stop-review-gate-hook.mjs` | adapt | todo |
-| `plugins/codex/prompts/adversarial-review.md` | `codex-plugin/prompts/adversarial-review.md` | port | todo |
+| `plugins/codex/prompts/adversarial-review.md` | `codex-plugin/prompts/adversarial-review.md` | adapt | done |
 | `plugins/codex/prompts/stop-review-gate.md` | `codex-plugin/prompts/stop-review-gate.md` | port | todo |
-| `plugins/codex/schemas/review-output.schema.json` | `codex-plugin/schemas/review-output.schema.json` | port | todo |
+| `plugins/codex/schemas/review-output.schema.json` | `codex-plugin/schemas/review-output.schema.json` | port | done |
 
 兩個 hook script 都是 `adapt` 而非 `port`，但理由不同。
 `session-lifecycle-hook.mjs` 在 `SessionStart` 時把狀態匯出到 `CLAUDE_ENV_FILE`，並在
@@ -229,7 +229,7 @@ Codex CLI 與 Codex session；每一條這類指示都必須依 Claude CLI 契�
 | `tests/git.test.mjs` | `codex-plugin/tests/git.test.mjs` | adapt | done |
 | `tests/process.test.mjs` | `codex-plugin/tests/process.test.mjs` | port | done |
 | `tests/state.test.mjs` | `codex-plugin/tests/state.test.mjs` | adapt | done |
-| `tests/render.test.mjs` | `codex-plugin/tests/render.test.mjs` | adapt | todo |
+| `tests/render.test.mjs` | `codex-plugin/tests/render.test.mjs` | adapt | done |
 | `tests/commands.test.mjs` | `codex-plugin/tests/commands.test.mjs` | adapt | wip |
 | `tests/runtime.test.mjs` | `codex-plugin/tests/runtime.test.mjs` | adapt | todo |
 | `tests/fake-codex-fixture.mjs` | `codex-plugin/tests/fake-claude-fixture.mjs` | adapt | done |
@@ -254,13 +254,13 @@ broker interrupt，這些都無法原封不動保留。
 
 | 上游 app-server 能力 | Claude Code CLI 對應物 | 依據 |
 |----------------------|------------------------|------|
-| 結構化輸出（`schemas/review-output.schema.json`） | `--json-schema`；文件記載搭配 `--output-format json`，結果落在 `structured_output` | docs |
+| 結構化輸出（`schemas/review-output.schema.json`） | `--json-schema`；stream-json 最終的 `result` 同時帶有 `structured_output` 與內容相同的 `result` 文字 | probe |
 | turn streaming 與進度事件 | `--output-format stream-json --verbose`；turn 以 `result` 事件結束。token 級的 delta 另需 `--include-partial-messages`，runtime 目前未傳 | docs, probe |
 | 模型選擇 | `--model <alias\|full-name>` | help |
 | thread 持久化與 resume | `--session-id <uuid>`、`--resume <id>`、`--continue`、`--fork-session`；自 v2.1.223 起 `--resume` 可跨 project 尋找 session | docs, help |
 | thread 命名（`buildPersistentTaskThreadName`） | `--name <name>` | help |
-| 唯讀與可寫入執行 | `--permission-mode`（鎖定執行用 `dontAsk`）、`--tools`、`--allowed-tools` | docs |
-| 原生 `/review`（`runAppServerReview`） | `claude -p "/code-review"` — 使用者可呼叫的 skill 會在 `-p` 的 prompt 字串內展開 | docs |
+| 唯讀與可寫入執行 | `--tools` 只能縮限**內建**工具集；還必須加上 `--strict-mcp-config`，否則使用者的 MCP server 仍會註冊，可寫入的 MCP 工具依然可達。沒有檔案系統 sandbox：保留 `Bash` 的 session 就能寫入 | probe — 見[缺口](#缺口) |
+| 原生 `/review`（`runAppServerReview`） | 內容為 `/code-review` 的 stream-json user message 會展開並執行真正的 review skill | probe |
 | 長壽命 process 服務連續 turn | `-p --input-format stream-json --output-format stream-json`；單一 process 在同一個 `session_id` 下服務兩個 turn，stdin 關閉後以 0 結束 | probe |
 | turn 中斷（`interruptAppServerTurn`） | 帶 `{subtype: "interrupt"}` 的 `control_request`；由 `control_response` 回應，該 turn 以 `result`/`error_during_execution` 結束，且 session 仍可繼續使用 | probe |
 | 執行後的 session metadata | `system/init` 事件，或 `--output-format json` 中的 `session_id` | docs |
@@ -292,9 +292,31 @@ broker interrupt，這些都無法原封不動保留。
   變成 `/claude-review` 而非 `/claude:review`。每個 command 檔案改帶 `claude-` 前綴。
 - **結構化輸出** — 上游要求 app server 產出符合 `schemas/review-output.schema.json` 的
   輸出。對應物把同一份 schema 傳給 `claude --json-schema`，因此 schema 檔案本身可原樣
-  移植。由於單一 process 必須服務連續 turn，session 一律使用
-  `--output-format stream-json`，並從最終的 `result` 事件讀取 `structured_output`。
-  stream-json 的 `result` 是否帶有 `structured_output` 列於[待驗證](#待驗證)。
+  移植，並從最終的 stream-json `result` 事件讀取 `structured_output`。有兩個宿主怪癖
+  由 runtime 吸收，而非改動 schema 檔案：該旗標會把值當 JSON 解析並拒絕檔案路徑，因此
+  schema 以 inline 形式傳遞；驗證器會把 `$schema` 當成遠端參照解析並在 draft URL 上失敗，
+  因此傳入前會先移除該鍵。
+- **Windows 參數轉義** — 由 npm 安裝的 `claude` 透過 `.cmd` wrapper 觸及，因此命令列由
+  本套件而非 Node 組出，且必須同時滿足兩個解析器。對 Claude 執行檔，它遵循
+  `CommandLineToArgvW` 慣例，把引號轉義為 `\"`；某些解析器也接受的 `""` 慣例在此不可用，
+  因為 Claude 執行檔會拒絕它，inline JSON schema 會被扯碎。對 cmd.exe，每個參數都無條件
+  加引號，因為 `&`、`|`、`<`、`>`、`^` 只要未被引號包住就是控制字元，否則會把命令列切斷。
+  加引號無法阻止 `%VAR%` 展開，而 `/c` 命令列上沒有任何跳脫方式，因此帶有 `%` 或控制字元
+  的參數會被拒絕，而不是被悄悄改寫。含換行的內容完全無法以參數傳遞，這也是每一段 prompt
+  都走 stdin 的原因。
+- **審查範圍回報** — 上游會標示它解析出的目標。對應物額外印出該目標實際涵蓋的範圍，
+  因為 `auto` 會自行在 working tree 與 branch diff 之間選擇，而明確的 `--base` 會悄悄
+  把所有未提交的變更排除在本 bridge 組出的 context 之外。它也會印出 Claude 實際收到的
+  證據：完整的 tracked diff；或在門檻擋下 diff 時（該行會指名是哪一個門檻，因為檔案數與
+  diff 大小各自都可能單獨觸發），tracked 變更只給摘要與一份「請自行讀取」的檔案清單、
+  符合條件的 untracked 檔案則直接內嵌內容，並逐項附上 context 不得不略過的未追蹤項目
+  及其原因。
+  只有在 bridge 自行組 context 的對抗式路徑上，Scope 行才會寫成「已涵蓋」；內建 reviewer
+  的寫法為何是「已請求」，見[缺口](#缺口)。
+- **未追蹤檔案的容納邊界** — 上游以 `stat` 與 `readFile` 讀取未追蹤檔案。
+  `git ls-files --others` 會走進 symlink 目錄或 NTFS junction，並把在那裡找到的東西當成
+  一般的未追蹤路徑回報，讀起來就是普通檔案，因此單靠 `lstat` 沒有幫助。對應物改為檢查
+  解析後的路徑是否仍在 repository 內，並在 review context 中回報每一個被跳過的項目。
 - **背景執行** — 上游以背景任務啟動 companion 並在 workspace state 中追蹤來達成分離。
   `-p` 會拒絕 `--bg`，因此對應物必須自行 spawn 並監管分離的子行程；`claude agents`
   管理的是 Claude Code 自己的背景 session，不是替代品。
@@ -307,6 +329,11 @@ broker interrupt，這些都無法原封不動保留。
   缺席或為 `null`，但帶其他錯誤型別時明確失敗。`type` 無法辨識的
   frame 則原樣放行，因為 CLI 會隨時間新增事件型別。feature detection 讀取 `system/init`
   上的 `capabilities` 陣列，而非比對版本字串；版本只是建議，絕不阻擋執行。
+- **對抗式審查 prompt** — attack surface、finding bar、grounding 與 calibration 規則
+  原樣移植。有兩處不同：role 指名 Claude Code 而非 Codex，且新增 `<available_tools>`
+  區塊載明該 session 實際註冊的工具集。上游不需要這個區塊，因為 Codex 的 sandbox 會在
+  執行當下拒絕寫入；而此處的限制是工具根本不存在，reviewer 若規劃了跑不了的指令就白費
+  一個 turn。
 - **Prompt skill** — `gpt-5-4-prompting` 教的是 GPT-5.4 的 prompting。其對應物教的是
   Claude Code 的 prompting，因此檔案有對應關係，但內容是重新撰寫而非翻譯。
 
@@ -323,6 +350,30 @@ broker interrupt，這些都無法原封不動保留。
 
 ### 已降級
 
+- **唯讀審查 sandbox** — `commands/review.md`，以及 `runAppServerReview` 中的
+  `sandbox: "read-only"`。上游把兩種審查都放在 Codex 的唯讀 sandbox 內執行。Claude CLI
+  沒有檔案系統 sandbox；唯一的強制手段是註冊了哪些工具。對抗式審查不需要 shell，因此以
+  `--tools Read,Glob,Grep --permission-mode dontAsk --strict-mcp-config` 執行，確實無法
+  寫入。內建 reviewer 會自行蒐集證據，因此必須保留 `Bash`；該路徑只移除 `Edit`、`Write`
+  與 `NotebookEdit` 並排除 MCP server。subagent 會繼承這些拒絕，但殘留的 shell 途徑是
+  已實證而非理論上的：probe 中的 subagent 被拒絕 `Write` 後，改以 `Bash` 建立了檔案。
+  嚴禁向使用者把此路徑描述為唯讀。
+- **審查範圍控制** — `commands/review.md`。上游把型別化的目標
+  （`uncommittedChanges` 或 `baseBranch`）交給 app server，reviewer 會遵守它。對應物只能
+  在 prompt 中寫下 `/code-review <ref>`，而內建 reviewer 會自行決定最終範圍：在有 staged
+  檔案的 branch 上指定 `--base main` 時，它審查了 branch diff **加上**那個 staged 檔案。
+  因此 bridge 只陳述所請求的範圍，並註明 reviewer 可能涵蓋更多。對抗式路徑不受影響，
+  因為該路徑由 bridge 組出 context，確知 reviewer 看到什麼。
+- **自行蒐集的審查證據** — `prompts/adversarial-review.md`。diff 被擋在 context 之外時，
+  上游要求 reviewer 以唯讀 git 指令自行蒐集 diff。對應物的審查 session 沒有註冊任何
+  shell，因此做不到。tracked 變更改為只以摘要與檔名送達，並要求它自行以 `Read` 讀取那些
+  檔案；runtime 無法觀測它是否真的讀了，因此 evidence 行只寫「已被要求讀取」，不寫
+  「已讀取」。符合條件的 untracked 檔案仍會直接內嵌內容，因為它沒有可供 diff 的已提交
+  版本。無論哪一種，reviewer 都看不到變更刪除了什麼；prompt 因此要求它在 summary 中明說
+  這一點，而不是推測看不到的刪除內容。
+- **審查執行模式** — `commands/review.md`、`commands/adversarial-review.md`。上游提供
+  `--wait` 與 `--background`，並把背景審查當成 job 追蹤。在 job store 存在之前，兩個
+  對應物都只在前景執行。
 - **推理強度範圍** — `scripts/codex-companion.mjs` 中的 `VALID_REASONING_EFFORTS` 接受
   `none|minimal|low|medium|high|xhigh`。`claude` CLI 接受 `low|medium|high|xhigh|max`。
   `none` 與 `minimal` 沒有對應物，必須明確拒絕而非默默改寫；`max` 在此可用，且沒有上游
@@ -353,18 +404,6 @@ broker interrupt，這些都無法原封不動保留。
 無法在本機定案的宣稱。每一項都指名可定案的 probe，以及依賴該答案的列。任何項目在其
 probe 執行之前，嚴禁從 `open` 移到具體的 Plan。
 
-- **stream-json 下的結構化輸出。** `--json-schema` 的文件記載搭配 `--output-format json`，
-  但 bridge 的 session 一律是 stream-json。Probe：透過 session 執行一次帶 schema 的 turn，
-  確認最終 `result` 事件是否帶有 `structured_output`。若沒有，審查家族就必須另外做一次
-  一次性的 `--output-format json` 呼叫。決定下一個里程碑的審查路徑。
-- **未追蹤檔案的蒐集會跟隨 symlink。** `scripts/lib/git.mjs` 的 `collectReviewContext`
-  以 `statSync`／`readFileSync` 讀取未追蹤檔案，因此 working tree 中的 symlink 可能把
-  repository 之外的檔案帶進 review context。此行為承襲自上游。Probe：以指向 repo 外的
-  symlink 確認，之後改用 `lstat` 並跳過 symlink，且回報被跳過的項目。決定審查家族如何
-  組出 context。
-- **唯讀強制。** 上游審查時以 `sandbox: read-only` 執行 Codex。Probe：確認
-  `--permission-mode dontAsk` 加上工具 allow-list 是否真的能擋下編輯、Bash 寫入，以及
-  透過被允許的工具間接達成的寫入。決定審查家族是否真正唯讀。
 - **Handoff transfer。** Probe：建立一個 bridge 自有的 session、在第二個行程中 resume
   它、確認出處文字存在於回復後的 context，並確認 bridge 本身沒有在
   `~/.claude/projects/` 底下寫入任何東西。決定 `transfer` 的契約。
