@@ -79,9 +79,15 @@ namespaced by plugin, so they carry a `claude-` prefix.
   earlier Claude work. Write-capable by default.
 - `/claude-transfer` — continue the current Codex conversation inside Claude
   Code, returning a `claude --resume <session-id>` command.
-- `/claude-status` — active and recent Claude jobs for this repository.
-- `/claude-result` — the stored final output of a finished job.
-- `/claude-cancel` — stop an active background job.
+- `/claude-status` — active and recent Claude jobs for this repository. With a
+  job id and `--wait`, polls until that job finishes, until the wait times out,
+  or until no process is found under the job's recorded pid.
+- `/claude-result` — what a finished job recorded, reprinted without rerunning
+  it: the report if it produced one, otherwise the error that stopped it.
+- `/claude-cancel` — end an active job by terminating its worker, which stops
+  that run for good and stores no result. A job with no worker on record is still
+  cancelled, but then nothing is stopped and a worker that was starting up can
+  still finish; the report says which of the two happened.
 - `/claude-setup` — check whether Claude Code is installed and authenticated,
   and enable or disable the stop-time review gate.
 
@@ -95,10 +101,14 @@ namespaced by plugin, so they carry a `claude-` prefix.
   continued, use `/claude-rescue`.
 - If the user wants to keep working on this same conversation inside Claude
   Code, use `/claude-transfer`.
-- Both review entry points run in the foreground and return when finished. MUST
-  NOT tell the user a review is running in the background.
+- Both review entry points run in the foreground unless `--background` is
+  passed. MUST NOT tell the user a foreground review is running in the
+  background, and MUST NOT present a queued job as a finished review.
+- If the user does not want to wait for a review, pass `--background` and return
+  the queued report. What the run recorded is collected later with
+  `/claude-result`, which is the findings only if it produced them.
 - If the user asks about work already started, use `/claude-status` for progress
-  and `/claude-result` for the finished output.
+  and `/claude-result` for what it recorded.
 
 ## Requirements
 

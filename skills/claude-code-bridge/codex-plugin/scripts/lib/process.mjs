@@ -9,7 +9,11 @@ export function runCommand(command, args = [], options = {}) {
     input: options.input,
     maxBuffer: options.maxBuffer,
     stdio: options.stdio ?? "pipe",
-    shell: options.shell ?? (process.platform === "win32" ? (process.env.SHELL || true) : false),
+    // No shell. Arguments reach a shell concatenated rather than escaped, so a value
+    // carrying `;` or `&&` would run as a second command; and a POSIX shell on Windows
+    // rewrites a `/PID`-style switch into a path. Every executable this package runs
+    // resolves without one.
+    shell: options.shell ?? false,
     // Routing a Windows batch wrapper through cmd.exe requires the command line to
     // reach it unmodified, so callers that pre-quote must be able to say so.
     windowsVerbatimArguments: options.windowsVerbatimArguments ?? false,
@@ -38,23 +42,16 @@ export function runCommandChecked(command, args = [], options = {}) {
   return result;
 }
 
-export function binaryAvailable(command, versionArgs = ["--version"], options = {}) {
-  const result = runCommand(command, versionArgs, options);
-  if (result.error && /** @type {NodeJS.ErrnoException} */ (result.error).code === "ENOENT") {
-    return { available: false, detail: "not found" };
+// `taskkill` reports a missing process by failing, and its message is localised, so the
+// text cannot be read to tell "already gone" from "could not kill it". Signal 0 delivers
+// nothing and answers the same question in every locale.
+function processIsGone(pid, killImpl) {
+  try {
+    killImpl(pid, 0);
+    return false;
+  } catch (error) {
+    return error?.code === "ESRCH";
   }
-  if (result.error) {
-    return { available: false, detail: result.error.message };
-  }
-  if (result.status !== 0) {
-    const detail = result.stderr.trim() || result.stdout.trim() || `exit ${result.status}`;
-    return { available: false, detail };
-  }
-  return { available: true, detail: result.stdout.trim() || result.stderr.trim() || "ok" };
-}
-
-function looksLikeMissingProcessMessage(text) {
-  return /not found|no running instance|cannot find|does not exist|no such process/i.test(text);
 }
 
 export function terminateProcessTree(pid, options = {}) {
@@ -76,8 +73,7 @@ export function terminateProcessTree(pid, options = {}) {
       return { attempted: true, delivered: true, method: "taskkill", result };
     }
 
-    const combinedOutput = `${result.stderr}\n${result.stdout}`.trim();
-    if (!result.error && looksLikeMissingProcessMessage(combinedOutput)) {
+    if (!result.error && processIsGone(pid, killImpl)) {
       return { attempted: true, delivered: false, method: "taskkill", result };
     }
 

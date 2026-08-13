@@ -5,6 +5,7 @@ import process from "node:process";
 
 import { buildSpawnPlan, runClaudeOnce } from "./claude-cli.mjs";
 import { runCommand } from "./process.mjs";
+import { isInitEvent, readSessionId } from "./stream-protocol.mjs";
 
 // `capabilities` on the stream init event, which the bridge relies on for feature
 // detection, first shipped in this release.
@@ -194,6 +195,72 @@ export function ensureClaudeAvailable(cwd, env = process.env) {
 // the bridge uses the same install, login and configuration the user already has.
 export function buildClaudeEnv(overrides = {}) {
   return { ...process.env, ...overrides };
+}
+
+// A progress line is only ever a report of a frame that arrived. Upstream's app server
+// names the phase itself; the CLI does not, so the phase is read off what the stream
+// shows: the session announcing itself, a tool call in flight, an answer being written.
+const PROGRESS_TOOL_TARGET_FIELDS = ["file_path", "pattern", "command", "description"];
+const MAX_PROGRESS_DETAIL = 80;
+
+// A log line is one line by contract, so anything quoted out of the stream is flattened
+// before it can break the progress reader that parses those lines back.
+function shortenForProgress(value) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  return text.length > MAX_PROGRESS_DETAIL ? `${text.slice(0, MAX_PROGRESS_DETAIL - 1)}…` : text;
+}
+
+function describeToolUse(block) {
+  const name = typeof block.name === "string" && block.name.trim() ? shortenForProgress(block.name) : "a tool";
+  const input = block.input && typeof block.input === "object" ? block.input : {};
+  const field = PROGRESS_TOOL_TARGET_FIELDS.find((key) => typeof input[key] === "string" && input[key].trim());
+  return field ? `Using ${name}: ${shortenForProgress(input[field])}` : `Using ${name}`;
+}
+
+export function describeStreamEvent(event) {
+  if (isInitEvent(event)) {
+    // Every value quoted into a message is flattened, including the ones that arrive as
+    // identifiers: the protocol only guarantees they are strings, and one line is what the
+    // log format promises.
+    const sessionId = readSessionId(event);
+    return {
+      message: sessionId ? `Claude session ready (${shortenForProgress(sessionId)}).` : "Claude session ready.",
+      phase: "starting",
+      sessionId
+    };
+  }
+
+  if (event.type === "assistant") {
+    const blocks = Array.isArray(event.message?.content) ? event.message.content : [];
+    const toolUse = blocks.find((block) => block?.type === "tool_use");
+    if (toolUse) {
+      return { message: describeToolUse(toolUse), phase: "working" };
+    }
+    const text = blocks.find((block) => block?.type === "text" && String(block.text ?? "").trim());
+    if (text) {
+      return { message: `Writing: ${shortenForProgress(text.text)}`, phase: "responding" };
+    }
+    return null;
+  }
+
+  if (event.type === "result") {
+    const subtype = typeof event.subtype === "string" ? shortenForProgress(event.subtype) : "unknown";
+    return { message: `Turn ended (${subtype}).`, sessionId: readSessionId(event) };
+  }
+
+  return null;
+}
+
+export function createStreamProgressListener(onProgress) {
+  if (!onProgress) {
+    return undefined;
+  }
+  return (event) => {
+    const progress = describeStreamEvent(event);
+    if (progress) {
+      onProgress(progress);
+    }
+  };
 }
 
 export async function runClaudePrompt(cwd, prompt, options = {}) {

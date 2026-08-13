@@ -347,7 +347,8 @@ test("JSON in the result text is not accepted when the schema produced no object
 });
 
 // A failed turn can still carry schema-valid JSON. Rendering it as a verdict would let a
-// crashed review read as a completed assessment.
+// crashed review read as a completed assessment. The exit status reports the same fact as
+// the job record, so a caller that only reads one of the two is not misled by it.
 test("a review that ended in an error never renders as a verdict", () => {
   const binDir = makeTempDir();
   installFakeClaude(binDir, "errored-review");
@@ -355,7 +356,7 @@ test("a review that ended in an error never renders as a verdict", () => {
 
   const result = runCompanion(["adversarial-review"], { cwd, env: isolatedEnv(binDir) });
 
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 1, result.stderr);
   assert.match(result.stdout, /ended the review with error_during_execution/);
   assert.ok(!result.stdout.includes("Verdict:"), result.stdout);
   assert.ok(!result.stdout.includes("[high] Fixture finding"), result.stdout);
@@ -482,4 +483,246 @@ test("runClaudePrompt refuses an effort value Claude Code does not accept", asyn
       }),
     /Unsupported reasoning effort "minimal"/
   );
+});
+
+// Every run is recorded, foreground included, so a result can be read again without
+// spending another turn on it.
+test("a foreground review stores the same output the command printed", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const review = runCompanion(["adversarial-review"], { cwd, env });
+  assert.equal(review.status, 0, review.stderr);
+
+  const stored = JSON.parse(runCompanion(["result", "--json"], { cwd, env }).stdout);
+  assert.equal(stored.job.status, "completed");
+  assert.equal(stored.storedJob.rendered, review.stdout);
+});
+
+// The queued record carries the target the user's command resolved. A worker that
+// resolved `auto` again could review a tree that has moved on since.
+test("a queued review carries the target that was resolved when it was queued", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "slow-turn");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["adversarial-review", "--background", "--json", "SLOW"], { cwd, env }).stdout);
+  const stored = JSON.parse(fs.readFileSync(queued.jobFile, "utf8"));
+
+  assert.equal(stored.request.target.mode, "working-tree");
+  assert.equal(stored.request.kind, "adversarial-review");
+  // The request lives in the job file alone. Copying it into the index would put the same
+  // thing in two places and rewrite all of it on every progress update.
+  const snapshot = JSON.parse(runCompanion(["status", queued.jobId, "--json"], { cwd, env }).stdout);
+  assert.equal(snapshot.job.request, undefined);
+  runCompanion(["cancel", queued.jobId], { cwd, env });
+});
+
+// The worker is started only once its record exists, so it can never lose the race to
+// read the request it was spawned for.
+test("a queued job is fully recorded before its worker is started", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "slow-turn");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["adversarial-review", "--background", "--json", "SLOW"], { cwd, env }).stdout);
+  const stored = JSON.parse(fs.readFileSync(queued.jobFile, "utf8"));
+
+  // The worker may already have taken the job over by now; what it must never have done
+  // is fail because the record it was spawned for was not there yet.
+  assert.ok(["queued", "running"].includes(stored.status), `unexpected status ${stored.status}`);
+  assert.ok(stored.request, "the queued record must carry the request the worker reads");
+
+  // The pid reaches the listing, not the job file: once the worker owns that file, the
+  // process that queued the job must not write to it again.
+  const snapshot = JSON.parse(runCompanion(["status", queued.jobId, "--json"], { cwd, env }).stdout);
+  assert.ok(Number.isInteger(snapshot.job.pid), `expected a recorded pid, got ${snapshot.job.pid}`);
+  runCompanion(["cancel", queued.jobId], { cwd, env });
+});
+
+// A detached worker writes nothing to a terminal, so a failure before the run begins has
+// to reach the user through the job record or not at all.
+test("a worker that cannot start records why in the job", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["adversarial-review", "--background", "--json", "SLOW"], { cwd, env }).stdout);
+  // The real worker is stopped first, then the record is put back the way a worker finds
+  // it — still queued, but with nothing to run.
+  runCompanion(["cancel", queued.jobId], { cwd, env });
+  const stored = JSON.parse(fs.readFileSync(queued.jobFile, "utf8"));
+  delete stored.request;
+  fs.writeFileSync(queued.jobFile, JSON.stringify({ ...stored, status: "queued" }), "utf8");
+
+  const worker = runCompanion(["run-job", "--job-id", queued.jobId], { cwd, env });
+  assert.equal(worker.status, 1);
+
+  const snapshot = JSON.parse(runCompanion(["status", queued.jobId, "--json"], { cwd, env }).stdout);
+  assert.equal(snapshot.job.status, "failed");
+  assert.match(snapshot.job.errorMessage, /carries no request to run/);
+});
+
+// Cancelling a job that finished in the meantime would otherwise stamp `cancelled` over a
+// stored result. The job's own file decides, so a listing that still calls it active does
+// not turn a finished run into a cancelled one.
+test("a job that finished before the cancel landed is reported as finished", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  runCompanion(["adversarial-review"], { cwd, env });
+  const finished = JSON.parse(runCompanion(["status", "--json"], { cwd, env }).stdout).finished ?? [];
+  const jobId = finished[0]?.id;
+  assert.ok(jobId, "expected the foreground review to be recorded");
+
+  // Only the index is rewound: the stored job keeps the result the run produced, which is
+  // exactly the state a worker that finished mid-cancel leaves behind.
+  const stateFile = path.join(path.dirname(path.dirname(finished[0].logFile)), "state.json");
+  const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+  state.jobs = state.jobs.map((job) => (job.id === jobId ? { ...job, status: "running", pid: 999999 } : job));
+  fs.writeFileSync(stateFile, JSON.stringify(state), "utf8");
+
+  const cancelled = runCompanion(["cancel", jobId, "--json"], { cwd, env });
+
+  assert.equal(cancelled.status, 1);
+  assert.match(cancelled.stderr, /already finished as completed/);
+
+  // The listing said active, but every command that judges this job reads its file, so the
+  // result survives and the status report agrees.
+  assert.match(runCompanion(["result", jobId], { cwd, env }).stdout, /\[high\] Fixture finding/);
+  assert.match(runCompanion(["status", jobId], { cwd, env }).stdout, /Status: completed/);
+  assert.match(runCompanion(["status"], { cwd, env }).stdout, /No active jobs\./);
+});
+
+test("a background review is finished by its detached worker", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["adversarial-review", "--background", "--json"], { cwd, env }).stdout);
+  assert.equal(queued.status, "queued");
+
+  const finished = JSON.parse(
+    runCompanion(["status", queued.jobId, "--wait", "--timeout-ms", "60000", "--poll-interval-ms", "200", "--json"], {
+      cwd,
+      env
+    }).stdout
+  );
+  assert.equal(finished.job.status, "completed");
+  assert.equal(finished.waitTimedOut, false);
+
+  const stored = runCompanion(["result", queued.jobId], { cwd, env });
+  assert.match(stored.stdout, /\[high\] Fixture finding/);
+});
+
+test("a review cannot be asked to run in the background and in the foreground at once", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+
+  const result = runCompanion(["adversarial-review", "--background", "--wait"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Choose either --background or --wait/);
+});
+
+// Cancelling has to end the run itself, not merely relabel the record: the worker is
+// terminated first so it cannot write over the cancelled state afterwards.
+test("cancel stops a running background review and records it as cancelled", async () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "slow-turn");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["adversarial-review", "--background", "--json", "SLOW"], { cwd, env }).stdout);
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  const cancelled = JSON.parse(runCompanion(["cancel", queued.jobId, "--json"], { cwd, env }).stdout);
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal(cancelled.terminationDelivered, true);
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  const snapshot = JSON.parse(runCompanion(["status", queued.jobId, "--json"], { cwd, env }).stdout);
+  assert.equal(snapshot.job.status, "cancelled");
+
+  const stored = runCompanion(["result", queued.jobId], { cwd, env });
+  assert.match(stored.stdout, /The job did not produce output: Cancelled by user\./);
+});
+
+test("status without any job reports an empty queue rather than failing", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+
+  const result = runCompanion(["status"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /No active jobs\./);
+  assert.match(result.stdout, /No finished jobs recorded yet\./);
+});
+
+test("result with no finished job says so instead of printing an empty report", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+
+  const result = runCompanion(["result"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /No finished Claude jobs found/);
+});
+
+// Cancelling and starting can be decided by two processes at once, so the worker checks
+// the record it was queued for before it runs. Otherwise a job cancelled while its worker
+// was starting would be carried out after being called off.
+test("a worker refuses to run a job that is no longer queued", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["adversarial-review", "--background", "--json", "SLOW"], { cwd, env }).stdout);
+  runCompanion(["cancel", queued.jobId], { cwd, env });
+
+  const stored = JSON.parse(fs.readFileSync(queued.jobFile, "utf8"));
+  assert.equal(stored.status, "cancelled");
+
+  const worker = runCompanion(["run-job", "--job-id", queued.jobId], { cwd, env });
+  assert.equal(worker.status, 0, worker.stderr);
+
+  const snapshot = JSON.parse(runCompanion(["status", queued.jobId, "--json"], { cwd, env }).stdout);
+  assert.equal(snapshot.job.status, "cancelled");
+});
+
+// Between the spawn and the pid being recorded, a job looks the same as one whose worker
+// never existed. Cancel must not decide from that glance: it waits, and a worker that
+// records its own pid in that window is terminated rather than left running under a record
+// that says cancelled.
+test("cancel waits for a worker that has not recorded its pid yet", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "slow-turn");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["adversarial-review", "--background", "--json", "SLOW"], { cwd, env }).stdout);
+
+  // Rewind the listing to the state it holds between the spawn and the pid write.
+  const stateFile = path.join(path.dirname(path.dirname(queued.logFile)), "state.json");
+  const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+  state.jobs = state.jobs.map((job) => (job.id === queued.jobId ? { ...job, pid: null, status: "queued" } : job));
+  fs.writeFileSync(stateFile, JSON.stringify(state), "utf8");
+
+  const cancelled = runCompanion(["cancel", queued.jobId], { cwd, env });
+
+  assert.equal(cancelled.status, 0, cancelled.stderr);
+  assert.match(cancelled.stdout, /pid \d+/, cancelled.stdout);
+  assert.doesNotMatch(cancelled.stdout, /No worker was recorded/, cancelled.stdout);
 });

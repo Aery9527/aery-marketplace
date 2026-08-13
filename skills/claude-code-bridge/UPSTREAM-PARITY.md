@@ -101,7 +101,7 @@ What must pass before a row in that area may be marked `done`.
 | runtime libraries | `node --test "tests/*.test.mjs"` from `codex-plugin/` |
 | companion subcommands | `codex-plugin/tests/commands.test.mjs` against the fake `claude` fixture |
 | git target resolution | `codex-plugin/tests/git.test.mjs` |
-| job state | `codex-plugin/tests/state.test.mjs` |
+| job state | `codex-plugin/tests/state.test.mjs`, `codex-plugin/tests/job-control.test.mjs` |
 | rendering | `codex-plugin/tests/render.test.mjs` |
 | the Claude session client | `codex-plugin/tests/claude-cli.test.mjs`, `codex-plugin/tests/stream-protocol.test.mjs` |
 | static assets (prompts, schemas, licence, manifest) | `scripts/sync-codex-plugins.ps1` completes and `scripts/verify_codex_plugins.py` passes |
@@ -169,9 +169,9 @@ contract moved to a runtime validator instead of a build step.
 | `plugins/codex/commands/adversarial-review.md` | `codex-plugin/commands/claude-adversarial-review.md` | partial | done |
 | `plugins/codex/commands/rescue.md` | `codex-plugin/commands/claude-rescue.md` | adapt | todo |
 | `plugins/codex/commands/transfer.md` | `codex-plugin/commands/claude-transfer.md` | adapt | todo |
-| `plugins/codex/commands/status.md` | `codex-plugin/commands/claude-status.md` | partial | todo |
-| `plugins/codex/commands/result.md` | `codex-plugin/commands/claude-result.md` | partial | todo |
-| `plugins/codex/commands/cancel.md` | `codex-plugin/commands/claude-cancel.md` | partial | todo |
+| `plugins/codex/commands/status.md` | `codex-plugin/commands/claude-status.md` | partial | done |
+| `plugins/codex/commands/result.md` | `codex-plugin/commands/claude-result.md` | partial | done |
+| `plugins/codex/commands/cancel.md` | `codex-plugin/commands/claude-cancel.md` | partial | done |
 | `plugins/codex/commands/setup.md` | `codex-plugin/commands/claude-setup.md` | adapt | done |
 | `plugins/codex/agents/codex-rescue.md` | `codex-plugin/agents/claude-rescue.md` | partial | todo |
 | — | `codex-plugin/agents/openai.yaml` | new | todo |
@@ -196,13 +196,18 @@ contract moved to a runtime validator instead of a build step.
 | `plugins/codex/scripts/lib/workspace.mjs` | `codex-plugin/scripts/lib/workspace.mjs` | port | done |
 | `plugins/codex/scripts/lib/state.mjs` | `codex-plugin/scripts/lib/state.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/render.mjs` | `codex-plugin/scripts/lib/render.mjs` | adapt | wip |
-| `plugins/codex/scripts/lib/job-control.mjs` | `codex-plugin/scripts/lib/job-control.mjs` | adapt | todo |
-| `plugins/codex/scripts/lib/tracked-jobs.mjs` | `codex-plugin/scripts/lib/tracked-jobs.mjs` | adapt | todo |
+| `plugins/codex/scripts/lib/job-control.mjs` | `codex-plugin/scripts/lib/job-control.mjs` | adapt | done |
+| `plugins/codex/scripts/lib/tracked-jobs.mjs` | `codex-plugin/scripts/lib/tracked-jobs.mjs` | adapt | done |
 
 The four `adapt` rows at the end carry host semantics rather than pure logic:
 `state.mjs` resolves state under `CLAUDE_PLUGIN_DATA`, `job-control.mjs` and
 `tracked-jobs.mjs` model app-server progress events, and `render.mjs` emits
 `codex resume` follow-up commands. Each needs its host-specific half rewritten.
+
+`process.mjs` runs every executable without a shell. Upstream can afford one
+because it only ever spawns `codex`; here `taskkill` takes `/PID`-style
+switches, which a POSIX shell on Windows rewrites into paths, and a shell
+receives arguments concatenated rather than escaped.
 
 ### Hooks and prompts
 
@@ -256,6 +261,7 @@ instruction must be rewritten against the Claude CLI contract.
 | `tests/bump-version.test.mjs` | none | n/a | n/a |
 | — | `codex-plugin/tests/stream-protocol.test.mjs` | new | done |
 | — | `codex-plugin/tests/claude-cli.test.mjs` | new | done |
+| — | `codex-plugin/tests/job-control.test.mjs` | new | done |
 
 `runtime.test.mjs` is `adapt`: it drives a fake Codex app server and exercises
 native import and broker interrupt, none of which survive unchanged.
@@ -285,7 +291,7 @@ process. The reverse port drives the `claude` CLI. Verified against `claude`
 | long-lived process serving successive turns | `-p --input-format stream-json --output-format stream-json`; one process served two turns under one `session_id` and exited 0 on stdin close | probe |
 | turn interruption (`interruptAppServerTurn`) | `control_request` with `{subtype: "interrupt"}`; answered by `control_response`, ends the turn as `result`/`error_during_execution`, and the session stays usable | probe |
 | session metadata after a run | `system/init` event, or `session_id` in `--output-format json` | docs |
-| detached background execution | **no counterpart** — `-p` rejects `--bg`; the bridge must manage its own detached child | docs |
+| detached background execution | **no counterpart** — `-p` rejects `--bg`; the bridge manages its own detached child, see [Adaptations](#adaptations) | docs |
 | reasoning effort selection | `--effort <low\|medium\|high\|xhigh\|max>` | help — see [Gaps](#gaps) |
 | clean shutdown semantics | SIGTERM aborts the turn, kills the Bash process tree, runs `SessionEnd` hooks, exits 143 | docs |
 
@@ -352,10 +358,52 @@ is a loss of function.
   which then reads as a plain file, so `lstat` alone does not help. The
   counterpart checks that the resolved path is still inside the repository and
   reports each skipped entry in the review context.
-- **Background execution** — upstream detaches by launching the companion as a
-  background task and tracking it in workspace state. `-p` rejects `--bg`, so
-  the counterpart must spawn and supervise its own detached child; `claude
-  agents` manages Claude Code's own background sessions and is not a substitute.
+- **Background execution** — upstream's companion parses `--background` but does
+  not detach: the host does, by running the command as a Claude Code background
+  `Bash` task. The counterpart detaches itself instead. `--background` writes the
+  job record with the resolved review target, spawns `claude-companion run-job`
+  as a detached child, and records that child's pid; the worker reads the request
+  back and runs the same code path the foreground uses. Nothing therefore depends
+  on the host having a background shell mode. Two consequences follow: the target
+  is resolved once, by the process the user typed the command into, because
+  `auto` reads the working tree and a later re-resolution could pick a different
+  target; and the worker's stdout goes nowhere, so a background run reports only
+  through its job record and log. `-p` rejects `--bg` and `claude agents` manages
+  Claude Code's own background sessions, so neither is a substitute for owning
+  the child.
+- **Job phase** — upstream's app server names the phase of a turn, and its
+  `inferLegacyJobPhase` reconstructs one from log text for records written before
+  it did. The CLI names no phase, so a phase here comes from one of two places
+  and never from prose. The bridge sets the ones it decides itself — `queued`
+  when a job is enqueued, `starting` when its run begins, and `done`, `failed` or
+  `cancelled` when it ends. Everything between those is read off the stream:
+  `system/init` means `starting`, a `tool_use` block means `working`, and an
+  assistant text block means `responding`.
+- **Job state writes** — upstream writes its state file in place. The same file
+  here is read and rewritten by more processes: a detached worker records
+  progress for minutes while the user runs other commands against the same
+  repository. So the file is replaced by rename rather than written in place, and
+  every write bumps a revision. A write states the revision it was built from and
+  is abandoned if the file has moved on since, restarting the read-modify-write
+  rather than landing on top of the other process's change.
+  The rename removes torn reads outright — a half-written file would parse as
+  corrupt and be answered with an empty job list. This is not a lock: the check
+  is followed by the artifact cleanup and the replace, and a write landing in
+  that stretch is still lost. What such an update can drop is a listing entry. It cannot drop
+  a result: the files a writer removes are only those of jobs its own list
+  dropped, and the cap that drops them counts finished jobs alone, so no run has
+  its files taken while it is still writing them.
+- **Vanished worker** — an outcome is written by the job's own worker, by
+  `cancel` on its behalf, or by the worker's startup path when it fails before
+  the run begins. A worker that dies without any of those leaves the record where
+  it stood. Upstream has a broker and a session-end hook to clean up after one;
+  the counterpart has neither, so `status` and `result` additionally check
+  whether any process still answers to the recorded pid. Only `ESRCH` counts as
+  gone — `EPERM` means a process exists and is out of reach — and nothing is
+  concluded from a pid that still resolves, because the operating system reuses
+  them, nor from a job that has no pid recorded yet, because a job that has not
+  started is not a job that died. The check reports; it never rewrites the
+  record.
 - **`hooks.json` location** — upstream keeps it at `hooks/hooks.json`. The
   counterpart keeps it at the plugin root and declares `"hooks": "./hooks.json"`
   in `plugin.json`, matching how Codex's own bundled plugins ship hooks.
@@ -424,10 +472,41 @@ on a known limitation.
   arrives with its contents inlined, because it has no committed version to diff
   against. Either way the reviewer cannot see what the change removed, and the
   prompt requires it to say so in its summary rather than infer deletions.
-- **Review execution mode** — `commands/review.md`,
-  `commands/adversarial-review.md`. Upstream offers `--wait` and `--background`
-  and tracks a background review as a job. Both counterparts run in the
-  foreground only until the job store exists.
+- **Choosing the execution mode** — `commands/review.md`,
+  `commands/adversarial-review.md`. Both hosts run a review in the foreground or
+  in the background. Upstream additionally has its command body estimate the
+  size of the change with `git` and then call `AskUserQuestion` exactly once to
+  let the user choose, recommending background for anything not obviously tiny.
+  No shipped Codex command file was observed doing either, so the counterpart
+  takes the mode from the flag alone and defaults to the foreground. `--wait` is
+  accepted as an explicit statement of that default rather than as a distinct
+  mode, because there is no host prompt for it to suppress.
+- **Cancelling a running turn** — `commands/cancel.md`,
+  `interruptAppServerTurn`. Upstream reaches a live turn through its broker and
+  interrupts it, leaving the thread resumable. The interrupt frame here travels
+  over the Claude session's stdin, which only the worker process holds, and the
+  counterpart has no broker, so `cancel` terminates the worker's process tree
+  instead. Where there is a worker to stop, the session dies with it: no partial
+  findings are stored, and the run cannot be resumed. Two cases stop nothing and
+  are reported as such rather than as a kill — a job with no pid on record, where
+  the pid is waited for first and a worker that was starting up may still finish
+  and replace the cancellation with its own outcome, and a recorded pid nothing
+  answers to, where the run had already ended on its own. A run that finished between being selected and being
+  terminated is reported as finished and left alone, rather than relabelled
+  `cancelled` on top of a result it already stored. What is terminated is
+  whatever now holds the recorded pid, which the operating system may have handed
+  to something else; there is no process identity to check it against.
+  `ClaudeCliSession.interrupt` remains reachable in-process and is what a
+  graceful stop would use once a broker exists.
+- **Session-scoped jobs** — `scripts/session-lifecycle-hook.mjs`. Upstream tags
+  each job with the host session id its hook exported, and narrows the *default*
+  target of `status` and `cancel` to it; a job named explicitly is still reached
+  anywhere in the workspace, in both directions. No `CODEX_*` session-id variable
+  appears in the strings of the shipped `codex` binary, so nothing exports one
+  today; the counterpart reads `CLAUDE_COMPANION_SESSION_ID` and falls back to
+  workspace scope when it is absent, which is the same branch upstream takes when
+  its hook has not run. Two Codex sessions in one repository therefore see each
+  other's jobs.
 - **Reasoning effort range** — `VALID_REASONING_EFFORTS` in
   `scripts/codex-companion.mjs` accepts `none|minimal|low|medium|high|xhigh`.
   The `claude` CLI accepts `low|medium|high|xhigh|max`. `none` and `minimal`

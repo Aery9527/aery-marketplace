@@ -1,7 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { renderNativeReviewResult, renderReviewResult, renderSetupReport } from "../scripts/lib/render.mjs";
+import {
+  renderCancelReport,
+  renderJobStatusReport,
+  renderLateCancelReport,
+  renderNativeReviewResult,
+  renderQueuedJobLaunch,
+  renderReviewResult,
+  renderSetupReport,
+  renderStatusReport,
+  renderStoredJobResult
+} from "../scripts/lib/render.mjs";
 
 const META = {
   reviewLabel: "Adversarial Review",
@@ -199,4 +209,147 @@ test("the setup report keeps its next steps", () => {
 
   assert.match(output, /Status: needs attention/);
   assert.match(output, /Run `claude auth login`\./);
+});
+
+function jobFixture(overrides = {}) {
+  return {
+    id: "review-abc",
+    kind: "review",
+    title: "Review",
+    status: "completed",
+    phase: "done",
+    summary: "Nothing to fix.",
+    duration: "12s",
+    progressPreview: [],
+    ...overrides
+  };
+}
+
+test("the status report says so when there is nothing to report", () => {
+  const output = renderStatusReport({
+    workspaceRoot: "/repo",
+    config: { stopReviewGate: false },
+    active: [],
+    finished: []
+  });
+
+  assert.match(output, /No active jobs\./);
+  assert.match(output, /No finished jobs recorded yet\./);
+  assert.match(output, /Review gate: disabled/);
+});
+
+// The only fact available is that no process answers to the pid. Naming a cause would
+// claim knowledge the check does not produce.
+test("a vanished worker is reported as an observation, not a diagnosis", () => {
+  const output = renderStatusReport({
+    workspaceRoot: "/repo",
+    config: { stopReviewGate: false },
+    active: [jobFixture({ status: "running", phase: "working", pid: 4242, elapsed: "3s", workerMissing: true })],
+    finished: []
+  });
+
+  assert.match(output, /No process is running under the recorded pid 4242/);
+  assert.doesNotMatch(output, /crash/i);
+  assert.doesNotMatch(output, /failed/i);
+});
+
+test("a summary containing a pipe cannot break the job table", () => {
+  const output = renderStatusReport({
+    workspaceRoot: "/repo",
+    config: { stopReviewGate: false },
+    active: [],
+    finished: [jobFixture({ summary: "a | b\nsecond line" })]
+  });
+
+  const row = output.split("\n").find((line) => line.includes("review-abc"));
+  // Only an unescaped pipe separates cells, so the row still holds exactly the six
+  // columns the header declared, and the summary keeps its own pipe as text.
+  assert.equal(row.split(/(?<!\\)\|/).length - 2, 6);
+  assert.match(row, /a \\\| b second line/);
+});
+
+// A cancelled run stored nothing, so pointing at `/claude-result` would promise output
+// that command cannot produce.
+test("a cancelled job is not advertised as having a stored result", () => {
+  const output = renderJobStatusReport(jobFixture({ status: "cancelled", phase: "cancelled" }));
+
+  assert.match(output, /This record was cancelled and stored no result/);
+  assert.doesNotMatch(output, /Read the stored output/);
+});
+
+test("waiting that timed out says the run was left alone", () => {
+  const output = renderJobStatusReport(
+    jobFixture({ status: "running", phase: "working", elapsed: "2m 0s", duration: null }),
+    { waitTimedOut: true, timeoutMs: 120000 }
+  );
+
+  assert.match(output, /Still running after waiting 120s\. The run was not stopped\./);
+});
+
+test("a job status report lists the progress the log recorded", () => {
+  const output = renderJobStatusReport(
+    jobFixture({ status: "running", progressPreview: ["Claude session ready.", "Using Read: AGENTS.md"] })
+  );
+
+  assert.match(output, /Progress:\n- Claude session ready\.\n- Using Read: AGENTS\.md/);
+});
+
+test("the stored result reproduces what the run itself rendered", () => {
+  const output = renderStoredJobResult(jobFixture(), { rendered: "# Claude Review\n\nVerdict: approve\n" });
+
+  assert.match(output, /# Claude Review\n\nVerdict: approve/);
+  assert.match(output, /Status: completed/);
+});
+
+test("a job with no stored output reports the reason rather than an empty section", () => {
+  const output = renderStoredJobResult(jobFixture({ status: "cancelled", errorMessage: "Cancelled by user." }), {});
+
+  assert.match(output, /The job did not produce output: Cancelled by user\./);
+});
+
+test("a job with neither output nor error says nothing was stored", () => {
+  const output = renderStoredJobResult(jobFixture(), {});
+
+  assert.match(output, /No output was stored for this job\./);
+});
+
+// Cancelling reports what happened to the process separately from what the record now
+// says, because the two can disagree.
+test("cancelling reports whether a process was actually terminated", () => {
+  const terminated = renderCancelReport(jobFixture({ pid: 4242 }), { attempted: true, delivered: true, method: "taskkill" });
+  assert.match(terminated, /Terminated the worker process tree under pid 4242 with taskkill\./);
+
+  const alreadyGone = renderCancelReport(jobFixture({ pid: 4242 }), { attempted: true, delivered: false, method: "taskkill" });
+  assert.match(alreadyGone, /taskkill found no process to terminate under pid 4242\./);
+
+  // Cancelling a job with no worker on record clears it without claiming a kill, and says
+  // what protects the record from a worker that starts afterwards.
+  const noPid = renderCancelReport(jobFixture({ pid: null }), { attempted: false, delivered: false, method: null });
+  assert.match(noPid, /No worker was recorded for this job, so nothing was stopped\./);
+  assert.match(noPid, /it may still run and replace this cancellation/);
+  // Nothing was stopped here, so the no-result promise the other branches make must not
+  // appear in this one.
+  assert.doesNotMatch(noPid, /stored no result/);
+  // Nothing here may promise the run was stopped, because that is exactly what could not
+  // be established.
+  assert.doesNotMatch(noPid, /Terminated/);
+});
+
+test("a queued launch points at the commands that follow it", () => {
+  const output = renderQueuedJobLaunch({ jobId: "review-abc", title: "Review", summary: "Review of HEAD" });
+
+  assert.match(output, /Queued as review-abc/);
+  assert.match(output, /\/claude-status review-abc/);
+  assert.match(output, /\/claude-result review-abc/);
+  assert.match(output, /\/claude-cancel review-abc/);
+});
+
+// A run that finished while the cancel was in flight is reported as what it is. Calling it
+// cancelled would hide a result the user can still read.
+test("a cancel that lost the race reports the outcome instead of a cancellation", () => {
+  const output = renderLateCancelReport(jobFixture(), "completed");
+
+  assert.match(output, /finished as completed before it could be cancelled/);
+  assert.match(output, /See what it recorded with `\/claude-result review-abc`/);
+  assert.doesNotMatch(output, /stored no result/);
 });

@@ -2,13 +2,19 @@
 // Single entry point for every bridge command. The Codex-side command and agent files
 // are thin: they decide which subcommand to run and print its stdout unchanged.
 
+import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { parseArgs, splitRawArgumentString } from "./lib/args.mjs";
 import { runClaudeOnce } from "./lib/claude-cli.mjs";
-import { getClaudeAuthStatus, getClaudeAvailability, MINIMUM_CLAUDE_VERSION } from "./lib/claude.mjs";
+import {
+  createStreamProgressListener,
+  getClaudeAuthStatus,
+  getClaudeAvailability,
+  MINIMUM_CLAUDE_VERSION
+} from "./lib/claude.mjs";
 import { readJsonFile } from "./lib/fs.mjs";
 import {
   collectReviewContext,
@@ -16,13 +22,52 @@ import {
   ensureGitRepository,
   resolveReviewTarget
 } from "./lib/git.mjs";
+import {
+  buildSingleJobSnapshot,
+  buildStatusSnapshot,
+  readStoredJob,
+  resolveCancelableJob,
+  resolveResultJob
+} from "./lib/job-control.mjs";
+import { terminateProcessTree } from "./lib/process.mjs";
 import { interpolateTemplate, loadPromptTemplate } from "./lib/prompts.mjs";
-import { renderNativeReviewResult, renderReviewResult, renderSetupReport } from "./lib/render.mjs";
-import { getConfig, setConfig } from "./lib/state.mjs";
+import {
+  renderCancelReport,
+  renderJobStatusReport,
+  renderLateCancelReport,
+  renderNativeReviewResult,
+  renderQueuedJobLaunch,
+  renderReviewResult,
+  renderSetupReport,
+  renderStatusReport,
+  renderStoredJobResult
+} from "./lib/render.mjs";
+import {
+  generateJobId,
+  getConfig,
+  isActiveJobStatus,
+  resolveJobFile,
+  setConfig,
+  upsertJob,
+  writeJobFile
+} from "./lib/state.mjs";
+import {
+  appendLogLine,
+  createJobLogFile,
+  createJobProgressUpdater,
+  createJobRecord,
+  createProgressReporter,
+  nowIso,
+  runTrackedJob
+} from "./lib/tracked-jobs.mjs";
 import { resolveWorkspaceRoot } from "./lib/workspace.mjs";
 
-const ROOT_DIR = path.resolve(fileURLToPath(import.meta.url), "..", "..");
+const COMPANION_PATH = fileURLToPath(import.meta.url);
+const ROOT_DIR = path.resolve(COMPANION_PATH, "..", "..");
 const REVIEW_SCHEMA_PATH = path.join(ROOT_DIR, "schemas", "review-output.schema.json");
+
+const DEFAULT_STATUS_WAIT_TIMEOUT_MS = 15 * 60 * 1000;
+const DEFAULT_STATUS_POLL_INTERVAL_MS = 2000;
 
 // The adversarial review needs no command and writes nothing, so it runs with the
 // smallest tool set that still lets it read surrounding code. `--tools` filters
@@ -59,8 +104,12 @@ function nodeStatus() {
 const USAGE = [
   "Usage:",
   "  node scripts/claude-companion.mjs setup [--json] [--enable-review-gate|--disable-review-gate] [--cwd <path>]",
-  "  node scripts/claude-companion.mjs review [--json] [--base <ref>] [--scope auto|working-tree|branch] [--model <model>] [--cwd <path>]",
-  "  node scripts/claude-companion.mjs adversarial-review [--json] [--base <ref>] [--scope auto|working-tree|branch] [--model <model>] [--cwd <path>] [focus text]",
+  "  node scripts/claude-companion.mjs review [--json] [--wait|--background] [--base <ref>] [--scope auto|working-tree|branch] [--model <model>] [--cwd <path>]",
+  "  node scripts/claude-companion.mjs adversarial-review [--json] [--wait|--background] [--base <ref>] [--scope auto|working-tree|branch] [--model <model>] [--cwd <path>] [focus text]",
+  "  node scripts/claude-companion.mjs status [job-id] [--json] [--all] [--wait] [--timeout-ms <ms>] [--poll-interval-ms <ms>] [--cwd <path>]",
+  "  node scripts/claude-companion.mjs result [job-id] [--json] [--cwd <path>]",
+  "  node scripts/claude-companion.mjs cancel [job-id] [--json] [--cwd <path>]",
+  "  node scripts/claude-companion.mjs run-job --job-id <id> [--cwd <path>]",
   ""
 ].join("\n");
 
@@ -107,7 +156,7 @@ function buildSetupReport(cwd, actionsTaken = []) {
   }
   if (!config.stopReviewGate) {
     nextSteps.push(
-      "Optional: run `/claude-setup --enable-review-gate` to require a fresh Claude review before a turn ends."
+      "Optional: run `/claude-setup --enable-review-gate` to record that this workspace wants a Claude review before a turn ends."
     );
   }
 
@@ -202,39 +251,67 @@ function buildNativeReviewPrompt(target) {
   return target.mode === "branch" ? `/code-review ${target.baseRef}` : "/code-review";
 }
 
-function resolveReviewRequest(options, positionals, scopeOptions = {}) {
+// The target is resolved once, by the process the user typed the command into. `auto`
+// reads the working tree to choose between a dirty-tree and a branch review, so a
+// background run that resolved it again could review something else entirely.
+function buildReviewRequest(kind, options, positionals) {
   const cwd = resolveCommandCwd(options);
   ensureClaudeAvailable(cwd);
   ensureGitRepository(cwd);
 
-  const target = resolveReviewTarget(cwd, { base: options.base, scope: options.scope });
+  const focusText = positionals.join(" ").trim();
+  if (kind === "review" && focusText) {
+    throw new Error(
+      `\`/claude-review\` runs the built-in reviewer and takes no focus text. Retry with \`/claude-adversarial-review ${focusText}\`.`
+    );
+  }
+
   return {
+    kind,
     cwd,
-    target,
-    scopeNote: describeReviewScope(cwd, target, scopeOptions),
-    focusText: positionals.join(" ").trim(),
+    target: resolveReviewTarget(cwd, { base: options.base, scope: options.scope }),
+    focusText,
     model: options.model ? String(options.model) : undefined
   };
 }
 
-async function runNativeReview(request) {
+function firstMeaningfulLine(text, fallback) {
+  const line = String(text ?? "")
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .find((entry) => entry && !entry.startsWith("#"));
+  return line ?? fallback;
+}
+
+async function runNativeReview(request, onProgress) {
+  // Read before the run, not after: the scope describes the tree the reviewer was pointed
+  // at, and a review takes long enough for that tree to have moved on by the time it ends.
+  const scopeNote = describeReviewScope(request.cwd, request.target, { authoritative: false });
   const result = await runClaudeOnce(request.cwd, buildNativeReviewPrompt(request.target), {
     ...NATIVE_REVIEW_SESSION,
-    model: request.model
+    model: request.model,
+    onEvent: createStreamProgressListener(onProgress)
   });
 
   const meta = {
     reviewLabel: "Review",
     targetLabel: request.target.label,
-    scopeNote: request.scopeNote,
+    scopeNote,
     evidenceNote: "the built-in reviewer collected its own evidence; this bridge supplied no diff"
   };
 
   return {
+    failed: result.isError,
+    sessionId: result.sessionId,
+    // The summary is what a status listing shows for this job, so a failed turn must not
+    // be summarised by whatever text it happened to leave behind.
+    summary: result.isError
+      ? `Review ended with ${result.subtype}.`
+      : firstMeaningfulLine(result.text, "Review finished."),
     payload: {
       review: "Review",
       target: request.target,
-      scopeNote: request.scopeNote,
+      scopeNote,
       sessionId: result.sessionId,
       claude: { subtype: result.subtype, isError: result.isError, stdout: result.text, stderr: result.stderr }
     },
@@ -265,27 +342,35 @@ function describeReviewEvidence(context) {
   return parts.join(". ");
 }
 
-async function runAdversarialReview(request) {
+async function runAdversarialReview(request, onProgress) {
+  // Scope and evidence must describe one instant. The context is what was collected and
+  // sent; reading the scope alongside it keeps the two lines from describing trees the
+  // working copy passed through at different times.
   const context = collectReviewContext(request.cwd, request.target);
+  const scopeNote = describeReviewScope(request.cwd, request.target);
   const result = await runClaudeOnce(context.repoRoot, buildAdversarialReviewPrompt(context, request.focusText), {
     ...READ_ONLY_SESSION,
     model: request.model,
-    jsonSchema: readJsonFile(REVIEW_SCHEMA_PATH)
+    jsonSchema: readJsonFile(REVIEW_SCHEMA_PATH),
+    onEvent: createStreamProgressListener(onProgress)
   });
   const parsed = parseReviewOutput(result);
 
   const meta = {
     reviewLabel: "Adversarial Review",
     targetLabel: request.target.label,
-    scopeNote: request.scopeNote,
+    scopeNote,
     evidenceNote: describeReviewEvidence(context)
   };
 
   return {
+    failed: result.isError,
+    sessionId: result.sessionId,
+    summary: parsed.parsed?.summary ?? parsed.parseError ?? "Adversarial review finished.",
     payload: {
       review: "Adversarial Review",
       target: request.target,
-      scopeNote: request.scopeNote,
+      scopeNote,
       sessionId: result.sessionId,
       context: {
         repoRoot: context.repoRoot,
@@ -303,31 +388,325 @@ async function runAdversarialReview(request) {
   };
 }
 
-async function handleReview(argv) {
-  const { options, positionals } = parseCommandInput(argv, {
-    valueOptions: ["cwd", "base", "scope", "model"],
-    booleanOptions: ["json"]
-  });
+const REVIEW_TITLES = Object.freeze({ review: "Review", "adversarial-review": "Adversarial Review" });
 
-  const request = resolveReviewRequest(options, positionals, { authoritative: false });
-  if (request.focusText) {
-    throw new Error(
-      `\`/claude-review\` runs the built-in reviewer and takes no focus text. Retry with \`/claude-adversarial-review ${request.focusText}\`.`
-    );
-  }
-
-  const outcome = await runNativeReview(request);
-  outputResult(options.json ? outcome.payload : outcome.rendered, Boolean(options.json));
+function executeReview(request, onProgress) {
+  return request.kind === "adversarial-review"
+    ? runAdversarialReview(request, onProgress)
+    : runNativeReview(request, onProgress);
 }
 
-async function handleAdversarialReview(argv) {
+// Progress is written where another process can read it: the job's log, and the phase on
+// the job record. Nothing is written to stdout, because a detached worker has none.
+function createTrackedProgress(job, options = {}) {
+  const logFile = options.logFile ?? createJobLogFile(job.workspaceRoot, job.id, job.title);
+  return {
+    logFile,
+    progress: createProgressReporter({
+      logFile,
+      onEvent: createJobProgressUpdater(job.workspaceRoot, job.id)
+    })
+  };
+}
+
+function createReviewJob(workspaceRoot, request) {
+  const title = REVIEW_TITLES[request.kind];
+  return createJobRecord({
+    id: generateJobId(request.kind === "adversarial-review" ? "adv" : "review"),
+    kind: request.kind,
+    title,
+    workspaceRoot,
+    summary: `${title} of ${request.target.label}`
+  });
+}
+
+function spawnDetachedWorker(cwd, jobId) {
+  const child = spawn(process.execPath, [COMPANION_PATH, "run-job", "--cwd", cwd, "--job-id", jobId], {
+    cwd,
+    env: process.env,
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true
+  });
+  // A spawn that fails says so twice: no pid now, and an `error` event on the next tick.
+  // The caller acts on the pid; this listener exists because an unhandled `error` event
+  // would take the process down before it could report anything.
+  child.on("error", () => {});
+  child.unref();
+  return child;
+}
+
+// The queued record carries the request, so the worker runs what the user asked for
+// rather than re-deriving it from a repository that may have moved on. It is written
+// before the worker exists, because a worker that wins the race to start would otherwise
+// find no request and fail where nothing can report it.
+//
+// Once the worker exists it owns the job file, and this process never writes that file
+// again. The pid goes to the index instead, as a patch carrying nothing but the pid, and
+// the index write is abandoned and retried if another process changed the file first.
+// Only the job file carries the request, so a progress update rewrites the small index
+// rather than a copy of the whole request.
+function enqueueBackgroundJob(job, request) {
+  const logFile = createJobLogFile(job.workspaceRoot, job.id, job.title);
+  appendLogLine(logFile, "Queued for background execution.");
+  const queued = { ...job, status: "queued", phase: "queued", pid: null, logFile };
+  writeJobFile(job.workspaceRoot, job.id, { ...queued, request });
+  upsertJob(job.workspaceRoot, queued);
+
+  // A spawn that fails reports it by handing back no pid, and the record is already on
+  // disk by then. Left alone it would sit at `queued` for a worker that will never exist,
+  // so the failure is written into the job before the command reports it.
+  const child = spawnDetachedWorker(request.cwd, job.id);
+  if (!child.pid) {
+    const failure = new Error(`Could not start a background worker for ${job.id}.`);
+    recordWorkerStartupFailure(job.workspaceRoot, job.id, failure);
+    throw failure;
+  }
+  upsertJob(job.workspaceRoot, { id: job.id, pid: child.pid });
+
+  return {
+    jobId: job.id,
+    status: "queued",
+    title: job.title,
+    summary: job.summary,
+    logFile,
+    jobFile: resolveJobFile(job.workspaceRoot, job.id)
+  };
+}
+
+async function handleReviewCommand(kind, argv) {
   const { options, positionals } = parseCommandInput(argv, {
     valueOptions: ["cwd", "base", "scope", "model"],
+    booleanOptions: ["json", "background", "wait"]
+  });
+
+  if (options.background && options.wait) {
+    throw new Error("Choose either --background or --wait.");
+  }
+
+  const request = buildReviewRequest(kind, options, positionals);
+  const job = createReviewJob(resolveWorkspaceRoot(request.cwd), request);
+
+  if (options.background) {
+    const payload = enqueueBackgroundJob(job, request);
+    outputResult(options.json ? payload : renderQueuedJobLaunch(payload), Boolean(options.json));
+    return;
+  }
+
+  const { logFile, progress } = createTrackedProgress(job);
+  const execution = await runTrackedJob({ ...job, logFile }, () => executeReview(request, progress), { logFile });
+  outputResult(options.json ? execution.payload : execution.rendered, Boolean(options.json));
+  if (execution.failed) {
+    process.exitCode = 1;
+  }
+}
+
+// A queued job that never reaches its run would otherwise sit at `queued` with nothing to
+// explain it — a detached worker has no stdout, and the process that queued it has already
+// returned. `runTrackedJob` records what happens once the run is under way; this records
+// what stopped it from getting there.
+function recordWorkerStartupFailure(workspaceRoot, jobId, error) {
+  const storedJob = readStoredJob(workspaceRoot, jobId);
+  if (!storedJob) {
+    return;
+  }
+  const failed = {
+    status: "failed",
+    phase: "failed",
+    pid: null,
+    completedAt: nowIso(),
+    errorMessage: error instanceof Error ? error.message : String(error)
+  };
+  appendLogLine(storedJob.logFile, `Failed to start: ${failed.errorMessage}`);
+  writeJobFile(workspaceRoot, jobId, { ...storedJob, ...failed });
+  upsertJob(workspaceRoot, { id: jobId, ...failed });
+}
+
+async function handleRunJob(argv) {
+  const { options } = parseCommandInput(argv, { valueOptions: ["cwd", "job-id"] });
+  const jobId = options["job-id"];
+  if (!jobId) {
+    throw new Error("run-job requires --job-id.");
+  }
+
+  const workspaceRoot = resolveCommandWorkspace(options);
+  let job;
+  let logFile;
+  let progress;
+  try {
+    const storedJob = readStoredJob(workspaceRoot, String(jobId));
+    if (!storedJob) {
+      throw new Error(`No stored job found for ${jobId}.`);
+    }
+    // A worker runs a job exactly once, and only the job it was queued for. Anything else
+    // means someone already decided this job's outcome — a cancellation, most likely —
+    // and starting the run now would carry it out after it was called off.
+    if (storedJob.status !== "queued") {
+      appendLogLine(storedJob.logFile, `Not started: the job is already ${storedJob.status}.`);
+      return;
+    }
+    if (!storedJob.request || typeof storedJob.request !== "object") {
+      throw new Error(`Stored job ${jobId} carries no request to run.`);
+    }
+    job = { ...storedJob, workspaceRoot };
+    ({ logFile, progress } = createTrackedProgress(job, { logFile: storedJob.logFile ?? null }));
+  } catch (error) {
+    recordWorkerStartupFailure(workspaceRoot, String(jobId), error);
+    throw error;
+  }
+
+  await runTrackedJob({ ...job, logFile }, () => executeReview(job.request, progress), { logFile });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+// Waiting stops for any answer, including the absence of a worker: a job whose process is
+// gone will never leave `running` on its own, so polling it to the deadline is pointless.
+async function waitForJobSnapshot(cwd, reference, options = {}) {
+  const timeoutMs = Math.max(0, Number(options.timeoutMs) || DEFAULT_STATUS_WAIT_TIMEOUT_MS);
+  const pollIntervalMs = Math.max(100, Number(options.pollIntervalMs) || DEFAULT_STATUS_POLL_INTERVAL_MS);
+  const deadline = Date.now() + timeoutMs;
+  let snapshot = buildSingleJobSnapshot(cwd, reference);
+
+  while (isActiveJobStatus(snapshot.job.status) && !snapshot.job.workerMissing && Date.now() < deadline) {
+    await sleep(Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())));
+    snapshot = buildSingleJobSnapshot(cwd, reference);
+  }
+
+  return { ...snapshot, waitTimedOut: isActiveJobStatus(snapshot.job.status) && !snapshot.job.workerMissing, timeoutMs };
+}
+
+async function handleStatus(argv) {
+  const { options, positionals } = parseCommandInput(argv, {
+    valueOptions: ["cwd", "timeout-ms", "poll-interval-ms"],
+    booleanOptions: ["json", "all", "wait"]
+  });
+
+  const cwd = resolveCommandCwd(options);
+  const reference = positionals[0] ?? "";
+
+  if (!reference) {
+    if (options.wait) {
+      throw new Error("`status --wait` needs a job id to wait for.");
+    }
+    const report = buildStatusSnapshot(cwd, { all: Boolean(options.all) });
+    outputResult(options.json ? report : renderStatusReport(report), Boolean(options.json));
+    return;
+  }
+
+  const snapshot = options.wait
+    ? await waitForJobSnapshot(cwd, reference, {
+        timeoutMs: options["timeout-ms"],
+        pollIntervalMs: options["poll-interval-ms"]
+      })
+    : buildSingleJobSnapshot(cwd, reference);
+
+  outputResult(
+    options.json ? snapshot : renderJobStatusReport(snapshot.job, { waitTimedOut: snapshot.waitTimedOut, timeoutMs: snapshot.timeoutMs }),
+    Boolean(options.json)
+  );
+}
+
+function handleResult(argv) {
+  const { options, positionals } = parseCommandInput(argv, {
+    valueOptions: ["cwd"],
     booleanOptions: ["json"]
   });
 
-  const outcome = await runAdversarialReview(resolveReviewRequest(options, positionals));
-  outputResult(options.json ? outcome.payload : outcome.rendered, Boolean(options.json));
+  const cwd = resolveCommandCwd(options);
+  const { workspaceRoot, job } = resolveResultJob(cwd, positionals[0] ?? "");
+  const storedJob = readStoredJob(workspaceRoot, job.id);
+  outputResult(options.json ? { job, storedJob } : renderStoredJobResult(job, storedJob), Boolean(options.json));
+}
+
+// A job with no worker on record is either an enqueue that was abandoned or one whose
+// worker is still starting, and the two look identical at a glance. Rather than guess, the
+// pid is waited for: a worker records its own within a moment of starting, so what is
+// still missing after the wait is the abandoned case.
+const WORKER_PID_WAIT_MS = 3000;
+const WORKER_PID_POLL_MS = 100;
+
+async function awaitRecordedWorker(cwd, job) {
+  const deadline = Date.now() + WORKER_PID_WAIT_MS;
+  let current = job;
+  while (!current.pid && isActiveJobStatus(current.status) && Date.now() < deadline) {
+    await sleep(WORKER_PID_POLL_MS);
+    current = buildSingleJobSnapshot(cwd, job.id).job;
+  }
+  return current;
+}
+
+function readCancellationBaseline(workspaceRoot, jobId) {
+  return readStoredJob(workspaceRoot, jobId) ?? {};
+}
+
+// Termination comes first so that, where there is a worker to stop, it has stopped writing
+// before the cancelled state is stored. Where there is none to stop — no pid on record, or
+// a pid nothing answers to — that ordering buys nothing, and the report says as much.
+async function handleCancel(argv) {
+  const { options, positionals } = parseCommandInput(argv, {
+    valueOptions: ["cwd"],
+    booleanOptions: ["json"]
+  });
+
+  const cwd = resolveCommandCwd(options);
+  const { workspaceRoot, job: selected } = resolveCancelableJob(cwd, positionals[0] ?? "", { env: process.env });
+  const job = selected.pid ? selected : await awaitRecordedWorker(cwd, selected);
+  const termination = terminateProcessTree(job.pid ?? Number.NaN);
+
+  // The worker may have finished between being chosen and being terminated. Its record is
+  // re-read afterwards, because overwriting a completed run with `cancelled` would leave a
+  // stored result behind a status that says none exists. The read sits as close to the
+  // write as it can: with no lock over the file, the two cannot be made one step, and a run
+  // that finishes inside that gap is still overwritten.
+  const stored = readCancellationBaseline(workspaceRoot, job.id);
+  if (stored.status && !isActiveJobStatus(stored.status)) {
+    // The run reached its outcome between being selected and being terminated, so the
+    // listing is brought in line with the record that now holds it. Cancel is the writer
+    // here; a reporting command must not repair state it only reads.
+    upsertJob(workspaceRoot, {
+      id: job.id,
+      status: stored.status,
+      phase: stored.phase ?? null,
+      pid: null,
+      completedAt: stored.completedAt ?? nowIso()
+    });
+    const payload = { jobId: job.id, status: stored.status, title: job.title, cancelled: false };
+    outputResult(
+      options.json ? payload : renderLateCancelReport(job, stored.status),
+      Boolean(options.json)
+    );
+    return;
+  }
+
+  appendLogLine(job.logFile, "Cancelled by user.");
+
+  // The job file keeps whatever the run recorded and gains only the cancellation. Building
+  // it from the listing instead would copy that listing's older idea of the run back over
+  // the record the worker itself wrote, so the file is read once more here and the write
+  // goes on top of that.
+  const cancelled = {
+    status: "cancelled",
+    phase: "cancelled",
+    pid: null,
+    completedAt: nowIso(),
+    errorMessage: "Cancelled by user."
+  };
+  writeJobFile(workspaceRoot, job.id, { ...readCancellationBaseline(workspaceRoot, job.id), ...cancelled });
+  upsertJob(workspaceRoot, { id: job.id, ...cancelled });
+
+  const payload = {
+    jobId: job.id,
+    status: "cancelled",
+    title: job.title,
+    terminationAttempted: termination.attempted,
+    terminationDelivered: termination.delivered
+  };
+  outputResult(options.json ? payload : renderCancelReport(job, termination), Boolean(options.json));
 }
 
 async function main() {
@@ -338,10 +717,22 @@ async function main() {
       handleSetup(argv);
       break;
     case "review":
-      await handleReview(argv);
+      await handleReviewCommand("review", argv);
       break;
     case "adversarial-review":
-      await handleAdversarialReview(argv);
+      await handleReviewCommand("adversarial-review", argv);
+      break;
+    case "run-job":
+      await handleRunJob(argv);
+      break;
+    case "status":
+      await handleStatus(argv);
+      break;
+    case "result":
+      handleResult(argv);
+      break;
+    case "cancel":
+      await handleCancel(argv);
       break;
     case undefined:
     case "--help":

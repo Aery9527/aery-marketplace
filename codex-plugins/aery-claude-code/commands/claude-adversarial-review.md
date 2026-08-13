@@ -16,6 +16,10 @@ constraints live here as instructions rather than as declared metadata.
 - `--scope auto|working-tree|branch` — choose the review target. `auto` is the
   default: it reviews the working tree when it is dirty, otherwise the branch.
 - `--model <model>` — run the review on a specific model.
+- `--background` — queue the review in a detached process and return at once
+  with its job id. Without it the review runs in the foreground.
+- `--wait` — state the foreground explicitly. It is the default, so this only
+  makes the choice visible; it cannot be combined with `--background`.
 - `--json` — return the raw payload instead of rendered Markdown.
 - `--cwd <path>` — review a repository other than the current directory.
 - Any remaining text is the user's focus area and is passed through unchanged.
@@ -38,8 +42,19 @@ constraints live here as instructions rather than as declared metadata.
   a patch, and MUST NOT offer to start making changes in the same turn.
 - MUST NOT soften the adversarial framing and MUST NOT rewrite the user's focus
   text. Pass it through as the user wrote it.
-- The review runs in the foreground and returns when it is finished. There is no
-  background mode. Do not claim a review is running in the background.
+- Without `--background` the review runs in the foreground and the command
+  returns when it is finished. MUST NOT claim such a review is running in the
+  background.
+- With `--background` the command returns a queued report: a job id and the
+  target that was resolved, with no findings and no `Scope` or `Evidence` line,
+  because nothing has been reviewed yet. MUST print that report as it is and
+  MUST NOT invent a result, wait for one, or poll in the same turn. The report
+  names the commands that collect it later.
+- A foreground review whose Claude turn failed still prints a report explaining
+  the failure, and the command exits non-zero. MUST print that report rather than
+  reporting only that a command failed. A background review reports nothing about
+  its outcome here: the queued report is printed and the command succeeds however
+  the run later ends, so MUST NOT read that success as the review having passed.
 - The `Scope` line states what was reviewed, and the `Evidence` line states what
   Claude was actually given. Both are exact here, because this command builds the
   review context itself. MUST repeat them rather than restating the result as

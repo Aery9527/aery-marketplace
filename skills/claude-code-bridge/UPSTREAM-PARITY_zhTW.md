@@ -88,7 +88,7 @@ git diff --stat db52e28f4d9ded852ab3942cea316258ae4ef346..origin/main \
 | runtime libraries | 於 `codex-plugin/` 執行 `node --test "tests/*.test.mjs"` |
 | companion 子指令 | `codex-plugin/tests/commands.test.mjs` 搭配 fake `claude` fixture |
 | git 目標解析 | `codex-plugin/tests/git.test.mjs` |
-| job 狀態 | `codex-plugin/tests/state.test.mjs` |
+| job 狀態 | `codex-plugin/tests/state.test.mjs`、`codex-plugin/tests/job-control.test.mjs` |
 | 輸出渲染 | `codex-plugin/tests/render.test.mjs` |
 | Claude session client | `codex-plugin/tests/claude-cli.test.mjs`、`codex-plugin/tests/stream-protocol.test.mjs` |
 | 靜態資產（prompts、schemas、授權、manifest） | `scripts/sync-codex-plugins.ps1` 完成且 `scripts/verify_codex_plugins.py` 通過 |
@@ -153,9 +153,9 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 | `plugins/codex/commands/adversarial-review.md` | `codex-plugin/commands/claude-adversarial-review.md` | partial | done |
 | `plugins/codex/commands/rescue.md` | `codex-plugin/commands/claude-rescue.md` | adapt | todo |
 | `plugins/codex/commands/transfer.md` | `codex-plugin/commands/claude-transfer.md` | adapt | todo |
-| `plugins/codex/commands/status.md` | `codex-plugin/commands/claude-status.md` | partial | todo |
-| `plugins/codex/commands/result.md` | `codex-plugin/commands/claude-result.md` | partial | todo |
-| `plugins/codex/commands/cancel.md` | `codex-plugin/commands/claude-cancel.md` | partial | todo |
+| `plugins/codex/commands/status.md` | `codex-plugin/commands/claude-status.md` | partial | done |
+| `plugins/codex/commands/result.md` | `codex-plugin/commands/claude-result.md` | partial | done |
+| `plugins/codex/commands/cancel.md` | `codex-plugin/commands/claude-cancel.md` | partial | done |
 | `plugins/codex/commands/setup.md` | `codex-plugin/commands/claude-setup.md` | adapt | done |
 | `plugins/codex/agents/codex-rescue.md` | `codex-plugin/agents/claude-rescue.md` | partial | todo |
 | — | `codex-plugin/agents/openai.yaml` | new | todo |
@@ -180,12 +180,16 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 | `plugins/codex/scripts/lib/workspace.mjs` | `codex-plugin/scripts/lib/workspace.mjs` | port | done |
 | `plugins/codex/scripts/lib/state.mjs` | `codex-plugin/scripts/lib/state.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/render.mjs` | `codex-plugin/scripts/lib/render.mjs` | adapt | wip |
-| `plugins/codex/scripts/lib/job-control.mjs` | `codex-plugin/scripts/lib/job-control.mjs` | adapt | todo |
-| `plugins/codex/scripts/lib/tracked-jobs.mjs` | `codex-plugin/scripts/lib/tracked-jobs.mjs` | adapt | todo |
+| `plugins/codex/scripts/lib/job-control.mjs` | `codex-plugin/scripts/lib/job-control.mjs` | adapt | done |
+| `plugins/codex/scripts/lib/tracked-jobs.mjs` | `codex-plugin/scripts/lib/tracked-jobs.mjs` | adapt | done |
 
 最後四個 `adapt` 列帶的是宿主語意而非純邏輯：`state.mjs` 在 `CLAUDE_PLUGIN_DATA` 底下
 解析狀態、`job-control.mjs` 與 `tracked-jobs.mjs` 建模 app-server 的進度事件、
 `render.mjs` 輸出 `codex resume` 後續指令。每一個都需要改寫其宿主相關的那一半。
+
+`process.mjs` 執行任何執行檔時都不經過 shell。上游可以用 shell，因為它只會 spawn
+`codex`；此處的 `taskkill` 使用 `/PID` 這類參數，Windows 上的 POSIX shell 會把它改寫成
+路徑，而 shell 收到的參數是串接而非逐一轉義的。
 
 ### Hooks 與 prompts
 
@@ -237,6 +241,7 @@ Codex CLI 與 Codex session；每一條這類指示都必須依 Claude CLI 契�
 | `tests/bump-version.test.mjs` | 無 | n/a | n/a |
 | — | `codex-plugin/tests/stream-protocol.test.mjs` | new | done |
 | — | `codex-plugin/tests/claude-cli.test.mjs` | new | done |
+| — | `codex-plugin/tests/job-control.test.mjs` | new | done |
 
 `runtime.test.mjs` 是 `adapt`：它驅動一個 fake Codex app server 並演練原生 import 與
 broker interrupt，這些都無法原封不動保留。
@@ -264,7 +269,7 @@ broker interrupt，這些都無法原封不動保留。
 | 長壽命 process 服務連續 turn | `-p --input-format stream-json --output-format stream-json`；單一 process 在同一個 `session_id` 下服務兩個 turn，stdin 關閉後以 0 結束 | probe |
 | turn 中斷（`interruptAppServerTurn`） | 帶 `{subtype: "interrupt"}` 的 `control_request`；由 `control_response` 回應，該 turn 以 `result`/`error_during_execution` 結束，且 session 仍可繼續使用 | probe |
 | 執行後的 session metadata | `system/init` 事件，或 `--output-format json` 中的 `session_id` | docs |
-| 分離式背景執行 | **無對應物** — `-p` 會拒絕 `--bg`；bridge 必須自行管理分離的子行程 | docs |
+| 分離式背景執行 | **無對應物** — `-p` 會拒絕 `--bg`；bridge 自行管理分離的子行程，見[調適](#調適) | docs |
 | 推理強度選擇 | `--effort <low\|medium\|high\|xhigh\|max>` | help — 見[缺口](#缺口) |
 | 乾淨關閉語意 | SIGTERM 會中止該 turn、終止 Bash process tree、執行 `SessionEnd` hooks，並以 143 結束 | docs |
 
@@ -317,9 +322,36 @@ broker interrupt，這些都無法原封不動保留。
   `git ls-files --others` 會走進 symlink 目錄或 NTFS junction，並把在那裡找到的東西當成
   一般的未追蹤路徑回報，讀起來就是普通檔案，因此單靠 `lstat` 沒有幫助。對應物改為檢查
   解析後的路徑是否仍在 repository 內，並在 review context 中回報每一個被跳過的項目。
-- **背景執行** — 上游以背景任務啟動 companion 並在 workspace state 中追蹤來達成分離。
-  `-p` 會拒絕 `--bg`，因此對應物必須自行 spawn 並監管分離的子行程；`claude agents`
-  管理的是 Claude Code 自己的背景 session，不是替代品。
+- **背景執行** — 上游的 companion 會解析 `--background`，但分離動作不由它完成：由宿主
+  以 Claude Code 的背景 `Bash` 任務執行該指令。對應物改為自行分離。`--background` 會把
+  已解析的審查目標寫進 job 紀錄、以分離子行程啟動 `claude-companion run-job`，並記下該
+  子行程的 pid；worker 讀回該 request，走與前景完全相同的程式路徑。因此整個機制不依賴
+  宿主是否具備背景 shell 模式。由此帶出兩個結果：目標只在使用者輸入指令的那個行程解析
+  一次，因為 `auto` 會讀取 working tree，稍後重新解析可能選到不同目標；以及 worker 的
+  stdout 無處可去，因此背景執行只透過 job 紀錄與 log 回報。`-p` 會拒絕 `--bg`，而
+  `claude agents` 管理的是 Claude Code 自己的背景 session，兩者都不是「自行擁有子行程」
+  的替代品。
+- **Job phase** — 上游的 app server 會為一個 turn 命名 phase，其 `inferLegacyJobPhase`
+  則從 log 文字重建出更早期紀錄的 phase。CLI 不會命名 phase，因此此處的 phase 只有兩個
+  來源，且絕不來自文字推測。由 bridge 自己決定的那些由 bridge 寫入：排入佇列時的
+  `queued`、開始執行時的 `starting`，以及結束時的 `done`、`failed` 或 `cancelled`。
+  其間的一切都從 stream 讀出：`system/init` 代表 `starting`、`tool_use` block 代表
+  `working`、assistant 的文字 block 代表 `responding`。
+- **Job 狀態寫入** — 上游直接就地覆寫其 state 檔。此處同一個檔案會被更多行程讀寫：
+  分離的 worker 會持續數分鐘記錄進度，而使用者同時在同一個 repository 執行其他指令。
+  因此此處改以 rename 替換整個檔案而非就地覆寫，且每次寫入都會遞增一個 revision。
+  每次寫入都會聲明自己是基於哪個 revision 建立的，若檔案在那之後已被改動就放棄該次寫入
+  並重跑整個 read-modify-write，而不是覆蓋到別的行程的變更之上。
+  rename 直接消除讀到半個檔案的問題 — 半寫入的檔案會被視為損毀並以空 job 清單回應。
+  它不是鎖：檢查之後還有 artifact 清理與 replace，落在這段之間的寫入仍會遺失。這種遺失掉的是
+  清單中的一筆，而不可能是結果：寫入者只會刪除自己那份清單中被丟棄的 job 的檔案，而
+  決定丟棄的 cap 只計算已完成的 job，因此沒有任何一次執行會在還在寫入時被奪走檔案。
+- **消失的 worker** — 結果由 job 自己的 worker 寫入，或由 `cancel` 代為寫入，或由
+  worker 啟動路徑在執行開始前失敗時寫入。若 worker 死掉而三者皆未發生，紀錄就停在原地。
+  上游有 broker 與 session-end hook 善後，對應物兩者皆無，因此 `status` 與 `result` 會
+  額外檢查是否還有行程回應所記下的 pid。只有 `ESRCH` 算作消失 — `EPERM` 代表行程存在
+  但無法觸及 — 而 pid 仍可解析時不下任何結論，因為作業系統會重用 pid；尚未記錄 pid 的
+  job 同樣不下結論，因為「還沒開始」不等於「已經死了」。此檢查只負責回報，絕不改寫紀錄。
 - **`hooks.json` 位置** — 上游放在 `hooks/hooks.json`。對應物放在 plugin root 並在
   `plugin.json` 宣告 `"hooks": "./hooks.json"`，與 Codex 自家出貨 plugin 的做法一致。
 - **協定契約** — 上游以 `app-server-protocol.d.ts` 在 build 期做型別檢查。對應物沒有
@@ -371,9 +403,30 @@ broker interrupt，這些都無法原封不動保留。
   「已讀取」。符合條件的 untracked 檔案仍會直接內嵌內容，因為它沒有可供 diff 的已提交
   版本。無論哪一種，reviewer 都看不到變更刪除了什麼；prompt 因此要求它在 summary 中明說
   這一點，而不是推測看不到的刪除內容。
-- **審查執行模式** — `commands/review.md`、`commands/adversarial-review.md`。上游提供
-  `--wait` 與 `--background`，並把背景審查當成 job 追蹤。在 job store 存在之前，兩個
-  對應物都只在前景執行。
+- **執行模式的選擇** — `commands/review.md`、`commands/adversarial-review.md`。兩邊宿主
+  都能在前景或背景執行審查。上游額外由 command 內文以 `git` 估算變更規模，再呼叫一次
+  `AskUserQuestion` 讓使用者選擇，並在變更不是明顯很小時建議背景。目前沒有觀察到任何
+  出貨的 Codex command 檔案做這兩件事，因此對應物只從旗標取得模式，並以前景為預設。
+  `--wait` 只是把該預設明講出來，而不是另一種模式，因為此處沒有需要被抑制的宿主提問。
+- **中斷執行中的 turn** — `commands/cancel.md`、`interruptAppServerTurn`。上游透過
+  broker 觸及執行中的 turn 並中斷它，thread 仍可續用。此處的 interrupt frame 走 Claude
+  session 的 stdin，只有 worker 行程持有，而對應物沒有 broker，因此 `cancel` 改為終止
+  worker 的行程樹。有 worker 可以停止時，session 隨之一起結束：不會留下任何部分結論，
+  該次執行也無法續跑。有兩種情況什麼都沒停止，報告會如實這麼說而不是宣稱已經終止：
+  一是 job 沒有記錄 pid，此時會先等待 pid 出現，若始終沒有就記為 cancelled，而正在啟動
+  的 worker 仍可能跑完並以自己的結果取代該紀錄；二是記錄了 pid 但沒有任何行程回應它，
+  此時該次執行早已自行結束。
+  若某次執行在被選中之後、被終止之前剛好完成，它會被回報為已完成並原樣保留，而不是在
+  已儲存的結果之上改標為 `cancelled`。被終止的是「當下持有該 pid 的行程」，而作業系統
+  可能已把該 pid 交給別的行程；此處沒有任何行程身分可供核對。
+  `ClaudeCliSession.interrupt` 在行程內仍可使用，是 broker 出現後優雅停止會走的路徑。
+- **Job 的 session 範圍** — `scripts/session-lifecycle-hook.mjs`。上游為每個 job 標上其
+  hook 匯出的宿主 session id，並據此限縮 `status` 與 `cancel` 的**預設**對象；明確指名的
+  job 在兩個方向都仍可觸及整個 workspace。出貨的 `codex`
+  執行檔字串中沒有出現任何 `CODEX_*` 的 session id 變數，因此今天沒有任何來源會匯出它；
+  對應物讀取 `CLAUDE_COMPANION_SESSION_ID`，在其不存在時退回 workspace 範圍，這正是
+  上游 hook 未執行時所走的同一條分支。因此同一 repository 中的兩個 Codex session 會看見
+  彼此的 job。
 - **推理強度範圍** — `scripts/codex-companion.mjs` 中的 `VALID_REASONING_EFFORTS` 接受
   `none|minimal|low|medium|high|xhigh`。`claude` CLI 接受 `low|medium|high|xhigh|max`。
   `none` 與 `minimal` 沒有對應物，必須明確拒絕而非默默改寫；`max` 在此可用，且沒有上游

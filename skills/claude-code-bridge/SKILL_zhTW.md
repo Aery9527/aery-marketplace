@@ -64,9 +64,13 @@ description: >-
 - `/claude-rescue` — 委派調查、修復，或延續先前的 Claude 工作。預設具寫入能力。
 - `/claude-transfer` — 把當前 Codex 對話延續到 Claude Code，回傳
   `claude --resume <session-id>` 指令。
-- `/claude-status` — 此 repository 中進行中與近期的 Claude job。
-- `/claude-result` — 已完成 job 的最終輸出。
-- `/claude-cancel` — 停止進行中的背景 job。
+- `/claude-status` — 此 repository 中進行中與近期的 Claude job。附上 job id 與 `--wait`
+  時，會輪詢到該 job 結束、等待逾時，或找不到行程持有該 job 所記錄的 pid 為止。
+- `/claude-result` — 已結束 job 所記錄的內容，直接重印而不重跑：有產出報告就印報告，
+  否則印讓它中止的錯誤。
+- `/claude-cancel` — 終止進行中 job 的 worker，該次執行就此停止且不會留下任何結果。
+  worker 尚未被記錄的 job 仍會被取消，但那時沒有任何東西被停止，正在啟動的 worker 仍
+  可能跑完；報告會明說發生的是哪一種。
 - `/claude-setup` — 檢查 Claude Code 是否已安裝並認證，並啟用或停用 stop-time review
   gate。
 
@@ -77,8 +81,11 @@ description: >-
   `/claude-adversarial-review`。
 - 若使用者要修改程式碼、診斷 bug，或延續先前的 Claude 工作，使用 `/claude-rescue`。
 - 若使用者想把同一段對話帶到 Claude Code 內繼續，使用 `/claude-transfer`。
-- 兩個審查進入點都在前景執行並在完成時回傳。嚴禁告訴使用者審查正在背景執行。
-- 若使用者詢問已啟動的工作，進度用 `/claude-status`，最終輸出用 `/claude-result`。
+- 除非帶上 `--background`，兩個審查進入點都在前景執行。嚴禁把前景審查說成正在背景執行，
+  也嚴禁把已排入佇列的 job 呈現為已完成的審查。
+- 若使用者不想等待審查結果，帶上 `--background` 並回傳排入佇列的報告。該次執行記錄了
+  什麼之後由 `/claude-result` 取得——只有在它確實產出結論時，那才是結論。
+- 若使用者詢問已啟動的工作，進度用 `/claude-status`，記錄到的內容用 `/claude-result`。
 
 ## 需求
 
