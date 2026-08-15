@@ -9,6 +9,7 @@ const STATE_VERSION = 1;
 const PLUGIN_DATA_ENV_VARS = ["PLUGIN_DATA", "CLAUDE_PLUGIN_DATA"];
 const FALLBACK_STATE_ROOT_DIR = path.join(os.tmpdir(), "claude-companion");
 const STATE_FILE_NAME = "state.json";
+const CONFIG_FILE_NAME = "config.json";
 const JOBS_DIR_NAME = "jobs";
 const MAX_JOBS = 50;
 
@@ -33,10 +34,13 @@ function defaultState() {
   return {
     version: STATE_VERSION,
     revision: 0,
-    config: {
-      stopReviewGate: false
-    },
     jobs: []
+  };
+}
+
+function defaultConfig() {
+  return {
+    stopReviewGate: false
   };
 }
 
@@ -81,10 +85,10 @@ export function loadState(cwd) {
       ...defaultState(),
       ...parsed,
       revision: Number.isInteger(parsed.revision) ? parsed.revision : 0,
-      config: {
-        ...defaultState().config,
-        ...(parsed.config ?? {})
-      },
+      // Carried under its own name so nothing here can mistake it for a live setting: it is
+      // only ever read from and written back, never updated. Presence is what is preserved,
+      // so a value that is merely falsy is still carried. See `getConfig`.
+      ...(Object.hasOwn(parsed, "config") ? { legacyConfig: parsed.config } : {}),
       jobs: Array.isArray(parsed.jobs) ? parsed.jobs : []
     };
   } catch {
@@ -112,12 +116,61 @@ function removeFileIfExists(filePath) {
   }
 }
 
+// Windows refuses to replace a file another process has open, and every command here reads
+// these files while runs write them, so the collision is ordinary rather than exceptional.
+// It is also brief — it lasts as long as one read — so the replace is retried instead of
+// being reported as a write that failed. Sleeping is synchronous because these writes are.
+const RENAME_ATTEMPTS = 10;
+const RENAME_RETRY_MS = 20;
+const RETRYABLE_RENAME_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+export function replaceFileAtomically(targetFile, contents, options = {}) {
+  const renameImpl = options.renameImpl ?? fs.renameSync;
+  const attempts = options.attempts ?? RENAME_ATTEMPTS;
+  const tempFile = `${targetFile}.${process.pid}.tmp`;
+  let swapped = false;
+
+  // Every way out of here that is not the swap itself leaves half a replacement on disk —
+  // a refused condition, a condition that threw, a write that failed part-way, a rename that
+  // never succeeded. One exit path removes it for all of them.
+  try {
+    fs.writeFileSync(tempFile, contents, "utf8");
+
+    for (let attempt = 1; ; attempt += 1) {
+      // A caller writing over a record another process may be finishing states the condition
+      // here rather than checking it before calling. Checked from inside, the condition and
+      // the swap are one syscall apart instead of a read, a build and a write apart. That is
+      // a narrower window, not no window: nothing across processes is held between the two,
+      // so a record that settles inside it is still written over.
+      if (options.guard && !options.guard()) {
+        return false;
+      }
+      try {
+        renameImpl(tempFile, targetFile);
+        swapped = true;
+        return true;
+      } catch (error) {
+        if (attempt >= attempts || !RETRYABLE_RENAME_CODES.has(error?.code)) {
+          throw error;
+        }
+        sleepSync(options.retryMs ?? RENAME_RETRY_MS);
+      }
+    }
+  } finally {
+    if (!swapped) {
+      fs.rmSync(tempFile, { force: true });
+    }
+  }
+}
+
 // The file is replaced rather than rewritten in place, so a reader always sees one whole
 // state: a partial read would parse as corrupt and be answered with an empty job list.
 function replaceStateFile(stateFile, state) {
-  const tempFile = `${stateFile}.${process.pid}.tmp`;
-  fs.writeFileSync(tempFile, `${JSON.stringify(state, null, 2)}\n`, "utf8");
-  fs.renameSync(tempFile, stateFile);
+  replaceFileAtomically(stateFile, `${JSON.stringify(state, null, 2)}\n`);
 }
 
 // `expectedRevision` makes this a conditional write: the caller states which version of
@@ -138,10 +191,10 @@ export function saveState(cwd, state, options = {}) {
     // Counted from what is on disk, never from the caller's copy: a caller that built its
     // state by hand would otherwise reset the counter and hide a concurrent write.
     revision: previous.revision + 1,
-    config: {
-      ...defaultState().config,
-      ...(state.config ?? {})
-    },
+    // Preferences are no longer part of this file. One left here by an older version is
+    // copied straight back from what is on disk — never from the caller — so a job write
+    // neither carries a setting of its own nor drops one it found.
+    ...(Object.hasOwn(previous, "legacyConfig") ? { config: previous.legacyConfig } : {}),
     jobs: nextJobs
   };
 
@@ -165,13 +218,16 @@ export function saveState(cwd, state, options = {}) {
 // do read-modify-write on this file. A write that would land on top of another one is
 // abandoned and the whole cycle restarts, which turns the losing writer into a retry
 // rather than a silent overwrite. This is not a lock: a write that arrives after the check
-// but before the replace is still lost. What can be lost is a listing entry — a job's own
-// file and log are never removed on the strength of another writer's list.
-export function updateState(cwd, mutate) {
+// but before the replace is still lost. What that loses is a listing entry; a job's own
+// file is removed only when the writer's own list dropped it, which the cap does to
+// finished jobs. The exception is a job the listing calls finished while its run is not —
+// see the cancel race in UPSTREAM-PARITY.md — where retention can take a report the run
+// wrote afterwards, and the listing holds no copy of one to fall back on.
+export function updateState(cwd, mutate, options = {}) {
   for (let attempt = 1; attempt <= MAX_STATE_WRITE_ATTEMPTS; attempt += 1) {
     const state = loadState(cwd);
     mutate(state);
-    const saved = saveState(cwd, state, { expectedRevision: state.revision });
+    const saved = saveState(cwd, state, { ...options, expectedRevision: state.revision });
     if (saved) {
       return saved;
     }
@@ -211,24 +267,70 @@ export function listJobs(cwd) {
   return loadState(cwd).jobs;
 }
 
-export function setConfig(cwd, key, value) {
-  return updateState(cwd, (state) => {
-    state.config = {
-      ...state.config,
-      [key]: value
-    };
-  });
+// The listing is a convenience, not the register of what exists: a lost write there would
+// otherwise put a job's own file out of reach of every command, results included. So the
+// jobs directory is enumerated as well, and an id found in either place counts.
+export function listJobIds(cwd) {
+  const ids = new Set(listJobs(cwd).map((job) => job.id));
+  const jobsDir = resolveJobsDir(cwd);
+  if (fs.existsSync(jobsDir)) {
+    for (const entry of fs.readdirSync(jobsDir)) {
+      if (entry.endsWith(".json")) {
+        ids.add(entry.slice(0, -".json".length));
+      }
+    }
+  }
+  return [...ids];
+}
+
+// Preferences live in their own file. Sharing one with the job list meant every job write
+// carried the settings it had read along with it, and a write built before a preference was
+// recorded put the old value back — narrowing that window never closed it, because the read
+// and the replace cannot be made one step. Separate files cannot collide at all, and this
+// one is the only place a preference is ever read from or written to.
+function resolveConfigFile(cwd) {
+  return path.join(resolveStateDir(cwd), CONFIG_FILE_NAME);
+}
+
+// Preferences were kept in the job listing before they had a file, and that version was
+// published on this repository's branch, so a workspace configured against it holds its
+// setting there. That value is still read, and `saveState` carries it forward untouched, so
+// a job write cannot drop a preference the user never withdrew. Nothing writes it any more:
+// the next `/claude-setup` records the preference in its own file, which then answers first.
+function readLegacyConfig(cwd) {
+  const legacy = loadState(cwd).legacyConfig;
+  return legacy && typeof legacy === "object" ? legacy : null;
 }
 
 export function getConfig(cwd) {
-  return loadState(cwd).config;
+  const configFile = resolveConfigFile(cwd);
+  if (!fs.existsSync(configFile)) {
+    return { ...defaultConfig(), ...(readLegacyConfig(cwd) ?? {}) };
+  }
+  try {
+    return { ...defaultConfig(), ...JSON.parse(fs.readFileSync(configFile, "utf8")) };
+  } catch {
+    // The preference was recorded here and this file is now unreadable. Falling back to the
+    // value it replaced would answer with a setting the user already changed.
+    return defaultConfig();
+  }
 }
 
-export function writeJobFile(cwd, jobId, payload) {
+export function setConfig(cwd, key, value) {
+  ensureStateDir(cwd);
+  const next = { ...getConfig(cwd), [key]: value };
+  replaceFileAtomically(resolveConfigFile(cwd), `${JSON.stringify(next, null, 2)}\n`);
+  return next;
+}
+
+// Replaced rather than rewritten, for the same reason the state file is: this is the file
+// a run's result lands in, and the process writing it can be terminated by `cancel` at any
+// moment — including between the truncate and the write, which would leave every reader
+// parsing half a job.
+export function writeJobFile(cwd, jobId, payload, options = {}) {
   ensureStateDir(cwd);
   const jobFile = resolveJobFile(cwd, jobId);
-  fs.writeFileSync(jobFile, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  return jobFile;
+  return replaceFileAtomically(jobFile, `${JSON.stringify(payload, null, 2)}\n`, options) ? jobFile : null;
 }
 
 export function readJobFile(jobFile) {

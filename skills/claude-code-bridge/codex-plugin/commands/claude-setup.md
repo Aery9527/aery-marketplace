@@ -1,15 +1,17 @@
 # /claude-setup
 
-Check whether Claude Code is ready to be driven from Codex, and manage the
-optional stop-time review gate.
+Check whether Claude Code is ready to be driven from Codex, and record whether
+this workspace wants a Claude review before a turn ends.
 
 Codex command files carry no frontmatter, so the argument list and the
 tool constraints live here as instructions rather than as declared metadata.
 
 ## Arguments
 
-- `--enable-review-gate` — require a fresh Claude review before a turn ends.
-- `--disable-review-gate` — stop requiring it.
+- `--enable-review-gate` — record that this workspace wants a Claude review
+  before a turn ends. This writes the preference; enforcing it is the review
+  gate hook's job, and this command neither installs nor runs one.
+- `--disable-review-gate` — clear that preference again.
 - `--json` — return the raw report instead of rendered Markdown.
 - `--cwd <path>` — check a directory other than the current one.
 
@@ -30,11 +32,12 @@ Passing both `--enable-review-gate` and `--disable-review-gate` is an error.
 ## Rules
 
 - This command is read-only with respect to the repository. It writes only the
-  bridge's own configuration, and only when a review-gate flag is passed.
+  bridge's own configuration, and only when a review-preference flag is passed.
 - If the report says Claude Code is missing or too old, tell the user to install
   or update Claude Code. Do not attempt the install without being asked.
 - If the report says Claude Code is not signed in, tell the user to run
   `claude auth login` in their own terminal. Never run a login command on their
   behalf, and never ask for credentials.
-- The review gate can create a long-running Codex/Claude loop and consume usage
-  quickly. When enabling it, say so.
+- Recording the preference changes nothing on its own: no command in this plugin
+  reads it to require or run a review. MUST NOT tell the user that a review will
+  now be required, or that turns will be blocked.

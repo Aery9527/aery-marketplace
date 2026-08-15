@@ -180,8 +180,9 @@ export function renderReviewResult(parsedResult, meta) {
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
-// The built-in reviewer writes its own prose, so the only job here is to frame it with
-// the scope it actually covered and to surface a failure rather than an empty section.
+// The built-in reviewer writes its own prose, so the only job here is to frame it with the
+// scope that was asked for — the reviewer sets its own and this side never learns it — and
+// to surface a failure rather than an empty section.
 export function renderNativeReviewResult(result, meta) {
   const text = String(result.text ?? "").trim();
   const stderr = String(result.stderr ?? "").trim();
@@ -265,7 +266,7 @@ export function renderStatusReport(report) {
     "# Claude Jobs",
     "",
     `Workspace: ${report.workspaceRoot}`,
-    `Review gate: ${report.config.stopReviewGate ? "enabled" : "disabled"}`,
+    `Stop-time review: ${report.config.stopReviewGate ? "requested" : "not requested"}`,
     "",
     "Active:"
   ];
@@ -332,8 +333,8 @@ export function renderJobStatusReport(job, options = {}) {
   } else if (active) {
     lines.push("", `Cancel with \`/claude-cancel ${job.id}\`.`);
   } else if (job.status === "cancelled") {
-    // Keyed on what the record says now: a worker that outlived its cancellation would have
-    // replaced this status with its own.
+    // Keyed on what this record says now. A worker that outlived its cancellation replaces
+    // the record when it finishes, so a later read can say something else.
     lines.push("", "This record was cancelled and stored no result. Rerun it to get one.");
   } else {
     lines.push("", `Read the stored output with \`/claude-result ${job.id}\`.`);
@@ -372,7 +373,7 @@ export function renderQueuedJobLaunch(payload) {
     `# Claude ${payload.title}`,
     "",
     `Queued as ${payload.jobId}: ${payload.summary}.`,
-    "It runs in a detached process, so this command returns now and its outcome is stored when it ends.",
+    "It runs in a detached process, so this command returns now. What the run records lands in the job, which the commands below read.",
     "",
     `- Progress: \`/claude-status ${payload.jobId}\``,
     `- Result: \`/claude-result ${payload.jobId}\``,
@@ -383,15 +384,18 @@ export function renderQueuedJobLaunch(payload) {
 
 // Losing the race is a different outcome from cancelling, and reporting it as a
 // cancellation would hide a result the user can still read.
-export function renderLateCancelReport(job, status) {
-  return [
-    "# Claude Cancel",
-    "",
-    `Job ${job.id} finished as ${status} before it could be cancelled, so it was left alone.`,
-    "",
-    `See what it recorded with \`/claude-result ${job.id}\`.`,
-    ""
-  ].join("\n");
+// Two facts, in the order they were established: a stop went out, and the record then read
+// as finished. Which happened first is not observable — a run can take a signal and still
+// complete — so no ordering between them is claimed.
+export function renderLateCancelReport(job, status, termination) {
+  const lines = ["# Claude Cancel", "", `Job ${job.id} is recorded as ${status}, so no cancellation was written over it.`];
+
+  if (termination?.delivered) {
+    lines.push("", `A stop had already been sent to pid ${job.pid} before that was read.`);
+  }
+
+  lines.push("", `See what it recorded with \`/claude-result ${job.id}\`.`, "");
+  return lines.join("\n");
 }
 
 // Cancelling ends with two independent facts — what happened to the process, and what the
@@ -405,21 +409,68 @@ export function renderCancelReport(job, termination) {
   // What follows the cancellation depends on whether a run was actually stopped, so the two
   // are decided together rather than closing with one sentence that fits only one of them.
   if (termination?.delivered) {
-    lines.push(
-      "",
-      `Terminated the worker process tree under pid ${job.pid} with ${termination.method}.`,
-      "",
-      "The run ended there and stored no result. Rerun it to get one."
-    );
+    // Each platform's termination is reported as the thing it actually does. `taskkill /T /F`
+    // ends a process tree and cannot be declined, so the run is over. A signal is a request:
+    // it was sent, and what the run does with it is not observed here.
+    const mayOutliveIt =
+      "What was signalled ends there if it takes the signal, and stores no result. Anything that does not may still finish and replace this cancellation with its own outcome — check `/claude-status` before rerunning.";
+    if (termination.method === "taskkill") {
+      lines.push(
+        "",
+        `Terminated the process tree under pid ${job.pid} with taskkill.`,
+        "",
+        "Nothing under that pid survives it, so the run stored no result. Rerun it to get one."
+      );
+    } else if (termination.method === "kill") {
+      // Windows without `taskkill`: Node's `kill` ends that one process outright, and there
+      // is no group to address, so whatever it had started is untouched.
+      lines.push(
+        "",
+        `Ended pid ${job.pid} on its own, because taskkill was not available; anything it had started was not reached.`,
+        "",
+        "The run may still be under way — check `/claude-status` before rerunning."
+      );
+    } else if (termination.method === "process-group") {
+      lines.push("", `Sent SIGTERM to the process group of pid ${job.pid}.`, "", mayOutliveIt);
+    } else {
+      // Reaching one process is all this branch did: no group answered, so anything the run
+      // started was not addressed by it.
+      lines.push(
+        "",
+        `Sent SIGTERM to pid ${job.pid} alone; no process group answered to it, so anything it had started was not signalled.`,
+        "",
+        mayOutliveIt
+      );
+    }
   } else if (termination?.attempted) {
     // Only the outcome is stated. Every route to this branch ends in the same observation —
     // nothing under that pid to signal — and whether the process stopped on its own or the
     // termination raced it is not distinguishable afterwards.
     lines.push(
       "",
-      `${termination.method} found no process to terminate under pid ${job.pid}.`,
+      termination.method === "process-group"
+        ? `Nothing answered as a process group under pid ${job.pid}, so nothing was signalled.`
+        : `${termination.method} did not stop anything under pid ${job.pid}; no process answered to it.`,
       "",
       "The job stored no result. Rerun it to get one."
+    );
+  } else if (termination?.identity === "mismatched") {
+    // What was observed is one thing: the process under that pid is not running this job.
+    // Why — the worker ended and the number was reused, or it was never this pid — is not
+    // observable from here, so neither is claimed.
+    lines.push(
+      "",
+      `Nothing was stopped: what is running under pid ${job.pid} is not this job, so no signal was sent to it.`,
+      "",
+      "The job stored no result. Rerun it to get one."
+    );
+  } else if (termination?.identity === "unverified") {
+    // Refusing costs a manual kill; killing on an unchecked pid costs whatever now holds it.
+    lines.push(
+      "",
+      `Nothing was stopped: what is running under pid ${job.pid} could not be read, so it could not be confirmed as this job's worker.`,
+      "",
+      `The record is cancelled either way. End it yourself with that pid if it is still running, then check \`/claude-status\`.`
     );
   } else {
     // No promise is made about a worker that may be starting: the record is what changed,
@@ -443,7 +494,7 @@ export function renderSetupReport(report) {
     `- node: ${report.node.detail}`,
     `- claude: ${report.claude.detail}${report.claude.available && !report.claude.meetsMinimum ? " (older than the recommended release)" : ""}`,
     `- auth: ${report.auth.detail}`,
-    `- review gate: ${report.reviewGateEnabled ? "enabled" : "disabled"}`,
+    `- stop-time review: ${report.stopReviewRequested ? "requested" : "not requested"}`,
     `- workspace: ${report.workspaceRoot}`,
     ""
   ];

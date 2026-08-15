@@ -349,9 +349,12 @@ is a loss of function.
   because a file count and a diff size can each trip alone — a summary and a file
   list it was told to read from for tracked changes, with inlined contents for
   eligible untracked ones, plus every untracked entry the context had to leave
-  out and why. The scope line is phrased as what
-  was covered only on the adversarial path, where the bridge builds the context;
-  see [Gaps](#gaps) for why the built-in reviewer's is phrased as a request.
+  out and why. The scope line is phrased as what was covered only on the
+  adversarial path, where the bridge builds the context and reads the scope from
+  the same working-tree state that collection started with — a sequence of git
+  commands, not a snapshot, so a tree edited mid-collection is described in
+  parts. See [Gaps](#gaps) for why the built-in reviewer's is phrased as a
+  request.
 - **Untracked file containment** — upstream reads untracked files with `stat`
   and `readFile`. `git ls-files --others` walks into a symlinked directory or an
   NTFS junction and reports what it finds there as an ordinary untracked path,
@@ -386,13 +389,54 @@ is a loss of function.
   every write bumps a revision. A write states the revision it was built from and
   is abandoned if the file has moved on since, restarting the read-modify-write
   rather than landing on top of the other process's change.
+  The rename is what Windows charges for that: it refuses to replace a file
+  another process has open, so a command reading the listing while a run writes
+  it makes the write fail with `EPERM`. The collision lasts as long as one read,
+  so the replace is retried for a short while before it is reported as a failure.
+  A run never ends because of one either: the listing is a projection, the job
+  files are the record, and a worker that died mid-update would leave no outcome
+  anywhere — so a run writes its row best-effort and carries on when it cannot.
   The rename removes torn reads outright — a half-written file would parse as
   corrupt and be answered with an empty job list. This is not a lock: the check
   is followed by the artifact cleanup and the replace, and a write landing in
-  that stretch is still lost. What such an update can drop is a listing entry. It cannot drop
-  a result: the files a writer removes are only those of jobs its own list
-  dropped, and the cap that drops them counts finished jobs alone, so no run has
-  its files taken while it is still writing them.
+  that stretch is still lost. Only the job list travels that way: preferences are
+  kept in a file of their own, so a job write carries none of them and cannot put
+  an older value back. A version of this package published on this repository's
+  branch kept them in the state file instead, and that value is still read when no
+  preference file exists — a job write copies it back exactly as it found it, from
+  disk rather than from its caller, so it can neither drop it nor revive it. Once
+  a preference file exists it answers on its own, including when it cannot be
+  parsed: the value it replaced is not a setting the user still holds. What such an update ordinarily drops is a listing
+  entry: the files a writer removes are only those of jobs its own list dropped,
+  and the cap that drops them counts finished jobs alone, so a run the listing
+  agrees is still going never has its files taken from under it. The exception is
+  a job the listing calls finished while its run is not — which only the cancel
+  race below produces. Retention then treats it as history and may delete a
+  result that run wrote afterwards. Nothing rebuilds a deleted job file, and the
+  listing never held the report: it carries a status and a summary line, so what
+  is lost is the findings themselves.
+
+  A dropped listing entry does not hide the job, because which jobs exist is read
+  from the listing and the jobs directory together. The cost is that such a job is
+  no longer counted against the cap: it stays until its file is removed, and
+  `--all` lists it beyond the fifty.
+
+  A job's own file is replaced the same way, for a sharper reason: it is where a
+  result lands, and `cancel` can terminate the process writing it at any moment,
+  including between a truncate and a write. Replacing means such a kill leaves
+  either the old file or the new one, never half of either for the next reader to
+  parse.
+- **Unwritable job record** — a job's own file is the only place its outcome is
+  recorded, and a replace that cannot be completed after its retries ends the
+  worker. What usually survives is the run's rendered output: it is appended to
+  the job log before the record is written, and an append does not take the rename
+  that collides. Usually, not always — a log write that fails is swallowed rather
+  than retried, because a log must never be what stops a run. `status` prints that
+  log's path when asked about the one job. `/claude-result`
+  does not read it: a log is not a second place a result may be claimed from, and
+  a block half-written by a terminated worker would be indistinguishable from a
+  whole one. The record left behind is active with a worker that is gone, which
+  `status` reports as such, and `/claude-cancel` is what clears it.
 - **Vanished worker** — an outcome is written by the job's own worker, by
   `cancel` on its behalf, or by the worker's startup path when it fails before
   the run begins. A worker that dies without any of those leaves the record where
@@ -402,8 +446,12 @@ is a loss of function.
   gone — `EPERM` means a process exists and is out of reach — and nothing is
   concluded from a pid that still resolves, because the operating system reuses
   them, nor from a job that has no pid recorded yet, because a job that has not
-  started is not a job that died. The check reports; it never rewrites the
-  record.
+  started is not a job that died. A pid that has stopped resolving is not
+  conclusive on its own either: the record supplying it was read first, so it can
+  predate the outcome the worker wrote on its way out. The record is read once
+  more after the probe, and only a record still active in that later read counts
+  as abandoned, because every write a gone worker will ever make landed before
+  its pid stopped resolving. The check reports; it never rewrites the record.
 - **`hooks.json` location** — upstream keeps it at `hooks/hooks.json`. The
   counterpart keeps it at the plugin root and declares `"hooks": "./hooks.json"`
   in `plugin.json`, matching how Codex's own bundled plugins ship hooks.
@@ -461,7 +509,8 @@ on a known limitation.
   with a staged file, it reviewed the branch diff **and** the staged file. The
   bridge therefore states the requested scope and says the reviewer may cover
   more. The adversarial path is unaffected, because there the bridge assembles
-  the context and so knows exactly what was seen.
+  the context and so knows what it handed over — which is what the scope line
+  reports, rather than the state of a tree it read across several commands.
 - **Self-collected review evidence** — `prompts/adversarial-review.md`. When the
   diff is withheld from the context, upstream tells the reviewer to gather it
   itself with read-only git commands. The counterpart's review session registers
@@ -485,17 +534,72 @@ on a known limitation.
   `interruptAppServerTurn`. Upstream reaches a live turn through its broker and
   interrupts it, leaving the thread resumable. The interrupt frame here travels
   over the Claude session's stdin, which only the worker process holds, and the
-  counterpart has no broker, so `cancel` terminates the worker's process tree
-  instead. Where there is a worker to stop, the session dies with it: no partial
-  findings are stored, and the run cannot be resumed. Two cases stop nothing and
+  counterpart has no broker, so `cancel` goes after the processes holding the
+  recorded pid instead. What it reaches is platform-shaped and the report says
+  which: `taskkill /T /F` ends the tree under that pid, Claude session included;
+  SIGTERM to
+  a process group reaches the run's own processes, because a detached worker
+  leads one; SIGTERM to a bare pid — the fallback when no group answers, which is
+  where a foreground run lands — reaches only that process, and what it started
+  keeps running, and a Windows install without `taskkill` ends the one process
+  and no more. Only the terminated tree ends a run outright; a signal is a
+  request, and a run that does not take it can finish and replace the
+  cancellation with its own outcome. Two further cases stop nothing and
   are reported as such rather than as a kill — a job with no pid on record, where
   the pid is waited for first and a worker that was starting up may still finish
   and replace the cancellation with its own outcome, and a recorded pid nothing
-  answers to, where the run had already ended on its own. A run that finished between being selected and being
-  terminated is reported as finished and left alone, rather than relabelled
-  `cancelled` on top of a result it already stored. What is terminated is
-  whatever now holds the recorded pid, which the operating system may have handed
-  to something else; there is no process identity to check it against.
+  answers to, which says the pid is gone and nothing more about the run. A run
+  that finished
+  between being selected and being terminated is reported as finished and left
+  alone, rather than relabelled `cancelled` on top of a result it already stored;
+  the record is read again immediately before the cancellation is written, so
+  the condition therefore travels with the write rather than being checked before
+  it: the record is read again from inside the replace, one syscall before the
+  file is swapped in, and a run that reached an outcome first keeps it — the
+  cancellation is reported as having arrived too late instead. The window is
+  narrowed, not closed. Nothing is held across the two processes, so this is not a
+  compare-and-swap either: a run that records its outcome between that read and
+  the rename still has it overwritten. Closing it needs a lock over the job file. A
+  kernel lock would be released with the holder's handle, but Node offers no
+  portable one; a lock file does not, and its holder here is a worker that cancel
+  exists to terminate, so it buys the gap back as a lock nobody will release. Progress updates cannot reopen the gap: they
+  write the listing only, and a running job takes its phase from there. What a pid
+  names is checked immediately before anything is sent to it, against the argv
+  this side spawns and nothing else: `<node> <this installation's companion>
+  run-job --cwd <cwd> --job-id <id>`, seven arguments compared as a whole — the
+  runtime by its full path rather than its name, since anything can be called
+  `node.exe`, and the `--cwd` among them: a job id is unique within a workspace and not across them,
+  so a worker running the same id for another repository is another run. Looking
+  for those parts instead of the whole is what would let `--job-id=other` sit
+  beside `--job-id <id>` — the worker's own parser takes the last value it is
+  given, so a process carrying both is running a different job than the one being
+  cancelled names. The arguments come from `/proc/<pid>/cmdline` where it exists,
+  NUL-separated with only the trailing separator dropped, or from
+  `Get-CimInstance Win32_Process` on Windows, one string split back by the rules
+  that built it: a backslash is ordinary except before a quote, where an even run
+  leaves the quote to open or close an argument and an odd run leaves it as a
+  character; a doubled quote inside a quoted argument is one quote and the
+  argument goes on; and only space and tab separate arguments, so a path holding
+  any other space-like character is still one argument. What is not reproduced is
+  the separate rule `CommandLineToArgvW` applies to the first argument alone,
+  where backslashes are not escapes — a runtime path that the two rules read
+  differently fails the comparison against this process's own, which refuses the
+  termination rather than misdirecting it. A system with neither is answered with nothing: `ps` hands
+  back an argv already flattened into a line, where a `--cwd` naming a directory
+  that contains `--job-id` cannot be told from a second option, so nothing there
+  can be established and nothing is signalled. Cancel still records the job and
+  says the pid could not be confirmed, which leaves the user to end it themselves
+  rather than leaving the bridge to end something else. What that establishes is how the command line reads, which is all a
+  command line can establish. That narrows the window rather than closing it:
+  nothing holds a handle on a process it did not start, so a worker that exits
+  between the answer and the signal leaves the number free to be taken again.
+  Closing it needs the worker to stop itself on request, which is the broker's
+  job and is why that row is still open. A number the
+  operating system has handed on is refused, and so is one whose process cannot be
+  read at all: refusing costs a manual kill, while acting on an unchecked pid
+  costs whatever now holds it, and on Windows its children too. Both refusals
+  still record the job as cancelled, so neither leaves a record no command can
+  clear.
   `ClaudeCliSession.interrupt` remains reachable in-process and is what a
   graceful stop would use once a broker exists.
 - **Session-scoped jobs** — `scripts/session-lifecycle-hook.mjs`. Upstream tags

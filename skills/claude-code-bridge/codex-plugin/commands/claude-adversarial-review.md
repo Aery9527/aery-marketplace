@@ -50,15 +50,19 @@ constraints live here as instructions rather than as declared metadata.
   because nothing has been reviewed yet. MUST print that report as it is and
   MUST NOT invent a result, wait for one, or poll in the same turn. The report
   names the commands that collect it later.
-- A foreground review whose Claude turn failed still prints a report explaining
-  the failure, and the command exits non-zero. MUST print that report rather than
-  reporting only that a command failed. A background review reports nothing about
+- A foreground review whose Claude turn came back an error still prints a report
+  explaining the failure, and the command exits non-zero. MUST print that report
+  rather than reporting only that a command failed. A run that never reached a
+  turn at all — Claude missing, or its session ending before it answered — has no
+  report to print: it fails with the reason on stderr and prints nothing, and MUST
+  be passed on as the reason it gives. A background review reports nothing about
   its outcome here: the queued report is printed and the command succeeds however
   the run later ends, so MUST NOT read that success as the review having passed.
 - The `Scope` line states what was reviewed, and the `Evidence` line states what
-  Claude was actually given. Both are exact here, because this command builds the
-  review context itself. MUST repeat them rather than restating the result as
-  covering anything wider.
+  Claude was actually given. Both describe what this command collected, which is
+  what makes them usable — but collection is a sequence of git reads, so a tree
+  edited while it runs can leave them describing it in parts. MUST repeat them
+  rather than restating the result as covering anything wider.
 - When the `Evidence` line says the tracked diff was not supplied inline, it also
   names the threshold that withheld it — a file count or a diff size, and either
   can trip on its own. In that case a tracked change reached Claude as a summary

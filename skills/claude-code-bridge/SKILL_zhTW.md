@@ -34,7 +34,8 @@ description: >-
 - 嚴禁把 `/claude-review` 描述為 sandbox 或唯讀。內建 reviewer 會自行檢視 repository，
   因此帶有 shell 存取權。只有 `/claude-adversarial-review` 執行在無法寫入的 session 中。
 - 必須重述審查印出的 `Scope` 與 `Evidence` 行，嚴禁把結果改述成涵蓋整個 repository。
-  在 `/claude-adversarial-review` 這兩行是精確的，因為 review context 由 bridge 組出。
+  在 `/claude-adversarial-review`，這兩行描述的是 bridge 自己蒐集到的內容，而那是由一連串
+  git 指令依序讀出的，不是單一時點的快照。
   在 `/claude-review`，Scope 只代表「所請求的範圍」：內建 reviewer 會自行決定最終範圍，
   因此嚴禁告訴使用者有任何東西被排除在外。
 - 當使用者要的是「把事情做完」而非「評估」時，必須路由到 `claude-rescue`，而非審查
@@ -68,11 +69,13 @@ description: >-
   時，會輪詢到該 job 結束、等待逾時，或找不到行程持有該 job 所記錄的 pid 為止。
 - `/claude-result` — 已結束 job 所記錄的內容，直接重印而不重跑：有產出報告就印報告，
   否則印讓它中止的錯誤。
-- `/claude-cancel` — 終止進行中 job 的 worker，該次執行就此停止且不會留下任何結果。
-  worker 尚未被記錄的 job 仍會被取消，但那時沒有任何東西被停止，正在啟動的 worker 仍
-  可能跑完；報告會明說發生的是哪一種。
-- `/claude-setup` — 檢查 Claude Code 是否已安裝並認證，並啟用或停用 stop-time review
-  gate。
+- `/claude-cancel` — 在動手前緊接著讀取該 pid 底下的參數、確認它讀起來就是這個 job 自己的
+  worker（而非作業系統事後把號碼轉交出去的其他行程）之後，才對它動手以結束該 job。若該系統
+  無法取回那組參數，就什麼都不送出，報告會明說。實際觸及到什麼因平台
+  而異，報告會明說，也會明說什麼都沒停止的情況——尚未記錄 pid 的 job 仍會被取消，而正在
+  啟動的 worker 仍可能跑完。
+- `/claude-setup` — 檢查 Claude Code 是否已安裝並認證，並記錄或清除此 workspace 對
+  stop-time review 的偏好設定。
 
 ## 決策邏輯
 

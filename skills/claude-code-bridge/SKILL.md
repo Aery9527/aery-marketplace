@@ -42,8 +42,9 @@ fix, or summarise Claude Code's output itself.
   Only `/claude-adversarial-review` runs in a session that cannot write.
 - MUST repeat the `Scope` and `Evidence` lines a review printed rather than
   restating the result as covering the whole repository. On
-  `/claude-adversarial-review` those lines are exact, because the bridge builds
-  the review context. On `/claude-review` the scope is only what was requested:
+  `/claude-adversarial-review` those lines describe what the bridge itself
+  collected, read across a sequence of git commands rather than as one snapshot.
+  On `/claude-review` the scope is only what was requested:
   the built-in reviewer sets its own, so MUST NOT tell the user anything was
   excluded from it.
 - MUST route to `claude-rescue` rather than to a review entry point when the
@@ -84,12 +85,15 @@ namespaced by plugin, so they carry a `claude-` prefix.
   or until no process is found under the job's recorded pid.
 - `/claude-result` — what a finished job recorded, reprinted without rerunning
   it: the report if it produced one, otherwise the error that stopped it.
-- `/claude-cancel` — end an active job by terminating its worker, which stops
-  that run for good and stores no result. A job with no worker on record is still
-  cancelled, but then nothing is stopped and a worker that was starting up can
-  still finish; the report says which of the two happened.
+- `/claude-cancel` — end an active job by going after the processes holding its
+  recorded pid, once the arguments under it read — immediately beforehand — as
+  this job's own worker rather than as something the operating system handed the
+  number to since. Where those arguments cannot be recovered, nothing is
+  signalled and the report says so. What that reaches differs by platform and is stated in the
+  report, which also says when nothing was stopped at all — a job with no pid on
+  record is still cancelled, and a worker that was starting up can still finish.
 - `/claude-setup` — check whether Claude Code is installed and authenticated,
-  and enable or disable the stop-time review gate.
+  and record or clear this workspace's preference for a stop-time review.
 
 ## Decision Logic
 

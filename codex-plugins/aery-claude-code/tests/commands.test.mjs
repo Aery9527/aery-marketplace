@@ -47,7 +47,7 @@ test("setup reports ready when Claude Code is installed and signed in", () => {
   assert.equal(report.claude.available, true);
   assert.equal(report.auth.loggedIn, true);
   assert.equal(report.auth.authMethod, "claude.ai");
-  assert.equal(report.reviewGateEnabled, false);
+  assert.equal(report.stopReviewRequested, false);
 });
 
 test("setup reports not ready and names the next step when signed out", () => {
@@ -157,23 +157,23 @@ test("setup renders Markdown when --json is absent", () => {
   assert.match(result.stdout, /Status: ready/);
 });
 
-test("setup toggles the review gate and persists it per workspace", () => {
+test("setup records the stop-time review preference and persists it per workspace", () => {
   const binDir = makeTempDir();
   installFakeClaude(binDir, "ready");
   const cwd = makeWorkspace();
   const env = isolatedEnv(binDir);
 
   const enabled = runCompanion(["setup", "--json", "--enable-review-gate"], { cwd, env });
-  assert.equal(JSON.parse(enabled.stdout).reviewGateEnabled, true);
+  assert.equal(JSON.parse(enabled.stdout).stopReviewRequested, true);
 
   const persisted = runCompanion(["setup", "--json"], { cwd, env });
-  assert.equal(JSON.parse(persisted.stdout).reviewGateEnabled, true);
+  assert.equal(JSON.parse(persisted.stdout).stopReviewRequested, true);
 
   const disabled = runCompanion(["setup", "--json", "--disable-review-gate"], { cwd, env });
-  assert.equal(JSON.parse(disabled.stdout).reviewGateEnabled, false);
+  assert.equal(JSON.parse(disabled.stdout).stopReviewRequested, false);
 });
 
-test("setup refuses to enable and disable the review gate at once", () => {
+test("setup refuses to record and clear the stop-time review preference at once", () => {
   const binDir = makeTempDir();
   installFakeClaude(binDir, "ready");
   const cwd = makeWorkspace();
@@ -199,7 +199,7 @@ test("setup accepts its flags as a single forwarded argument string", () => {
   });
 
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(JSON.parse(result.stdout).reviewGateEnabled, true);
+  assert.equal(JSON.parse(result.stdout).stopReviewRequested, true);
 });
 
 test("an unknown subcommand fails with usage instead of doing nothing", () => {
@@ -360,6 +360,21 @@ test("a review that ended in an error never renders as a verdict", () => {
   assert.match(result.stdout, /ended the review with error_during_execution/);
   assert.ok(!result.stdout.includes("Verdict:"), result.stdout);
   assert.ok(!result.stdout.includes("[high] Fixture finding"), result.stdout);
+});
+
+// A turn that comes back an error is reviewable output and gets a report. A session that
+// ends before answering produces none, and saying so is what keeps the two apart: there is
+// nothing to render, and rendering an empty verdict would be worse than the bare reason.
+test("a review whose Claude session ends before it answers fails with the reason and no report", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "exit-after-init");
+  const cwd = makeDirtyWorkspace();
+
+  const result = runCompanion(["adversarial-review"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout.trim(), "");
+  assert.match(result.stderr, /Claude exited before the turn completed/);
 });
 
 // The inline-diff threshold measures the tracked diff alone, so an untracked file that
@@ -634,8 +649,10 @@ test("a review cannot be asked to run in the background and in the foreground at
   assert.match(result.stderr, /Choose either --background or --wait/);
 });
 
-// Cancelling has to end the run itself, not merely relabel the record: the worker is
-// terminated first so it cannot write over the cancelled state afterwards.
+// Cancelling has to end the run itself, not merely relabel the record. This runs on
+// Windows, where `taskkill /T /F` ends the tree and the worker cannot write over the
+// cancelled state afterwards; the platforms that signal instead keep the weaker promise
+// the renderer tests pin.
 test("cancel stops a running background review and records it as cancelled", async () => {
   const binDir = makeTempDir();
   installFakeClaude(binDir, "slow-turn");
@@ -725,4 +742,33 @@ test("cancel waits for a worker that has not recorded its pid yet", () => {
   assert.equal(cancelled.status, 0, cancelled.stderr);
   assert.match(cancelled.stdout, /pid \d+/, cancelled.stdout);
   assert.doesNotMatch(cancelled.stdout, /No worker was recorded/, cancelled.stdout);
+});
+
+// A cancelled record must never carry a report: the run that produced one would otherwise
+// be described as cancelled with no result by `/claude-status` and printed in full by
+// `/claude-result`.
+test("cancelling clears any report the job file had picked up", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "slow-turn");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["adversarial-review", "--background", "--json", "SLOW"], { cwd, env }).stdout);
+  // A report is planted on the record by hand. The runtime writes one only together with a
+  // terminal status, so this is not that race — it pins the narrower rule cancel must obey:
+  // whatever report the record carries when the cancellation is written is cleared.
+  const stored = JSON.parse(fs.readFileSync(queued.jobFile, "utf8"));
+  fs.writeFileSync(
+    queued.jobFile,
+    JSON.stringify({ ...stored, rendered: "# Claude Adversarial Review\n\nVerdict: approve\n", result: { verdict: "approve" } }),
+    "utf8"
+  );
+
+  runCompanion(["cancel", queued.jobId], { cwd, env });
+
+  const after = JSON.parse(fs.readFileSync(queued.jobFile, "utf8"));
+  assert.equal(after.status, "cancelled");
+  assert.equal(after.rendered, null);
+  assert.equal(after.result, null);
+  assert.doesNotMatch(runCompanion(["result", queued.jobId], { cwd, env }).stdout, /Verdict: approve/);
 });

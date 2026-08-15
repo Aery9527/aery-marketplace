@@ -12,8 +12,8 @@ import {
   resolveCancelableJob,
   resolveResultJob
 } from "../scripts/lib/job-control.mjs";
-import { saveState, writeJobFile } from "../scripts/lib/state.mjs";
-import { appendLogBlock, appendLogLine, SESSION_ID_ENV } from "../scripts/lib/tracked-jobs.mjs";
+import { resolveStateFile, saveState, writeJobFile } from "../scripts/lib/state.mjs";
+import { appendLogBlock, appendLogLine, runTrackedJob, SESSION_ID_ENV } from "../scripts/lib/tracked-jobs.mjs";
 
 // Every case here needs its own state root, or a job written by one test would be visible
 // to the next.
@@ -149,6 +149,53 @@ test("asking for the result of a job whose worker vanished does not tell the use
   );
 });
 
+// The probe cannot happen at the same instant as the read that supplied the pid, and a
+// worker that finishes in between leaves the pair saying a job is running under a process
+// that is gone. That is the ordinary end of a run, not a lost one.
+test("a worker that finishes while it is being checked is not reported as vanished", () => {
+  // The probe runs once per check and leaves the job finished, so each call being tested
+  // needs a workspace that is still mid-race when it starts.
+  const midRace = () => {
+    const workspace = makeWorkspaceWithJobs([job({ id: "review-race", status: "running", pid: 424242 })]);
+    writeJobFile(workspace, "review-race", job({ id: "review-race", status: "running", pid: 424242 }));
+    return {
+      workspace,
+      killImpl: () => {
+        writeJobFile(workspace, "review-race", job({ id: "review-race", status: "completed", pid: 424242 }));
+        throw Object.assign(new Error("no such process"), { code: "ESRCH" });
+      }
+    };
+  };
+
+  const status = midRace();
+  assert.equal(buildSingleJobSnapshot(status.workspace, "review-race", status).job.workerMissing, false);
+
+  const result = midRace();
+  assert.throws(() => resolveResultJob(result.workspace, "review-race", result), /is still running/);
+});
+
+// The listing is a projection of the job files, and on Windows a write to it fails outright
+// whenever another command holds it open. A run must outlive that: dying mid-update would
+// leave no outcome anywhere, and a job stuck at `running` is what the user would be left
+// holding.
+test("a run outlives a listing it cannot write", async () => {
+  const workspace = makeWorkspaceWithJobs([]);
+  // Nothing can be renamed over a directory, so every listing write this run attempts fails.
+  fs.rmSync(resolveStateFile(workspace), { force: true });
+  fs.mkdirSync(resolveStateFile(workspace));
+
+  await runTrackedJob({ id: "review-locked", kind: "review", title: "Review", workspaceRoot: workspace }, async () => ({
+    failed: false,
+    summary: "Review finished",
+    payload: { verdict: "approve" },
+    rendered: "# Claude Review\n\nVerdict: approve"
+  }));
+
+  const snapshot = buildSingleJobSnapshot(workspace, "review-locked");
+  assert.equal(snapshot.job.status, "completed");
+  assert.equal(resolveResultJob(workspace, "review-locked").storedJob.rendered, "# Claude Review\n\nVerdict: approve");
+});
+
 test("cancelling a finished job reports it as finished rather than unknown", () => {
   const workspace = makeWorkspaceWithJobs([job({ id: "review-done", status: "completed" })]);
 
@@ -215,8 +262,9 @@ test("a job whose worker is not recorded yet can still be cancelled", () => {
   assert.equal(resolveCancelableJob(workspace, "").job.id, "review-new");
 });
 
-// The listing is a projection and can lose a write; a job's own file has one writer at a
-// time. A report about one job must not call it unfinished because the listing is stale.
+// The listing is a projection and can lose a write, while a job's own file is written by
+// the run and by cancel. A report about one job must not call it unfinished because the
+// listing is stale.
 test("a single job report takes its state from the job file, not the listing", () => {
   const workspace = makeWorkspaceWithJobs([job({ id: "review-x", status: "running", pid: 424242 })]);
   writeJobFile(workspace, "review-x", {
@@ -269,4 +317,110 @@ test("an active job takes the pid from whichever writer recorded one", () => {
   writeJobFile(workspace, "review-w", { id: "review-w", status: "queued", phase: "queued", pid: null });
 
   assert.equal(buildSingleJobSnapshot(workspace, "review-w").job.pid, 4242);
+});
+
+// Every command that judges a job reads its file, including the ones that take no id: the
+// listing's idea of which jobs are finished or active decides nothing on its own.
+test("result and cancel without an id judge from the job files too", () => {
+  const workspace = makeWorkspaceWithJobs([
+    job({ id: "review-new", status: "running", pid: 424242, updatedAt: "2026-01-02T00:00:00.000Z" }),
+    job({ id: "review-old", status: "completed", updatedAt: "2026-01-01T00:00:00.000Z" })
+  ]);
+  // The listing is stale for the newer job: its own file says the run finished.
+  writeJobFile(workspace, "review-new", { id: "review-new", status: "completed", phase: "done", pid: null });
+
+  // Without an id, "the most recent finished job" is the newer one, not the older listing
+  // entry that happens to say completed.
+  assert.equal(resolveResultJob(workspace, "").job.id, "review-new");
+  // And nothing is active, so cancel says so rather than refusing to choose between two.
+  assert.throws(() => resolveCancelableJob(workspace, ""), /No active Claude jobs to cancel/);
+});
+
+// A listing write lost to a concurrent one must not put a job's result out of reach: the
+// jobs directory is enumerated too, so the file alone is enough to find it.
+test("a job whose listing entry was lost is still reachable by its file", () => {
+  const workspace = makeWorkspaceWithJobs([]);
+  writeJobFile(workspace, "review-orphan", {
+    id: "review-orphan",
+    kind: "review",
+    title: "Review",
+    status: "completed",
+    phase: "done",
+    completedAt: "2026-01-01T00:01:00.000Z",
+    rendered: "# Claude Review\n"
+  });
+
+  assert.equal(buildSingleJobSnapshot(workspace, "review-orphan").job.status, "completed");
+  assert.equal(resolveResultJob(workspace, "").job.id, "review-orphan");
+  assert.deepEqual(buildStatusSnapshot(workspace).finished.map((entry) => entry.id), ["review-orphan"]);
+});
+
+// A run that ended without an error says so by writing none. Older records wrote nothing
+// at all, and treating that as "look in the listing" printed a stale cancellation over a
+// finished run.
+test("a finished job with no recorded error does not inherit one from the listing", () => {
+  const workspace = makeWorkspaceWithJobs([
+    job({ id: "review-old", status: "completed", errorMessage: "Cancelled by user." })
+  ]);
+  writeJobFile(workspace, "review-old", { id: "review-old", status: "completed", phase: "done" });
+
+  assert.equal(buildSingleJobSnapshot(workspace, "review-old").job.errorMessage, null);
+});
+
+// A block carries whatever the run produced, and a review can quote a line of its own
+// beginning with `[`. Only the timestamped lines are progress.
+test("a report line that looks like a log prefix is not read as progress", () => {
+  const logFile = path.join(makeTempDir(), "job.log");
+  fs.writeFileSync(logFile, "", "utf8");
+  appendLogLine(logFile, "Using Read: math.mjs");
+  appendLogBlock(logFile, "Final output", "# Claude Review\n[error] permission denied\nVerdict: needs-attention");
+
+  assert.deepEqual(readJobProgressPreview(logFile), ["Using Read: math.mjs"]);
+});
+
+// Logs written before block bodies were indented still hold report lines that begin with a
+// bracket, so the prefix is matched as a timestamp rather than as a leading `[`.
+test("an unindented report line in an older log is not read as progress", () => {
+  const logFile = path.join(makeTempDir(), "job.log");
+  fs.writeFileSync(
+    logFile,
+    ["[2026-01-01T00:00:00.000Z] Using Read: math.mjs", "", "=== Final output (2026-01-01T00:00:01.000Z) ===", "[error] permission denied", "Verdict: needs-attention", ""].join("\n"),
+    "utf8"
+  );
+
+  assert.deepEqual(readJobProgressPreview(logFile), ["Using Read: math.mjs"]);
+});
+
+// Progress writes only the listing, so a running job's phase is read from there. That is
+// what keeps a late progress update from putting a stale phase back over an outcome.
+test("a running job takes its phase from the listing, a finished one from its file", () => {
+  const workspace = makeWorkspaceWithJobs([
+    job({ id: "review-run", status: "running", phase: "working", pid: process.pid }),
+    job({ id: "review-done", status: "completed", phase: "working" })
+  ]);
+  writeJobFile(workspace, "review-run", { id: "review-run", status: "running", phase: "starting" });
+  writeJobFile(workspace, "review-done", { id: "review-done", status: "completed", phase: "done" });
+
+  assert.equal(buildSingleJobSnapshot(workspace, "review-run").job.phase, "working");
+  assert.equal(buildSingleJobSnapshot(workspace, "review-done").job.phase, "done");
+});
+
+// A block heading ends the progress. Before bodies were indented, a report line could look
+// exactly like a progress entry, and everything after that heading is report.
+test("progress stops at the block heading, whatever the body looks like", () => {
+  const logFile = path.join(makeTempDir(), "job.log");
+  fs.writeFileSync(
+    logFile,
+    [
+      "[2026-01-01T00:00:00.000Z] Using Read: math.mjs",
+      "",
+      "=== Final output (2026-01-01T00:00:01.000Z) ===",
+      "[2026-01-01T00:00:02.000Z] Verdict: approve",
+      "[error] permission denied",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+
+  assert.deepEqual(readJobProgressPreview(logFile), ["Using Read: math.mjs"]);
 });

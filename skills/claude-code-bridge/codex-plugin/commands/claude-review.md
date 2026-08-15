@@ -46,9 +46,12 @@ This command takes no focus text. Passing any is an error, and the error names
   nothing has been reviewed yet. MUST print that report as it is and MUST NOT
   invent a result, wait for one, or poll in the same turn. The report names the
   commands that collect it later.
-- A foreground review whose Claude turn failed still prints a report explaining
-  the failure, and the command exits non-zero. MUST print that report rather than
-  reporting only that a command failed. A background review reports nothing about
+- A foreground review whose Claude turn came back an error still prints a report
+  explaining the failure, and the command exits non-zero. MUST print that report
+  rather than reporting only that a command failed. A run that never reached a
+  turn at all — Claude missing, or its session ending before it answered — has no
+  report to print: it fails with the reason on stderr and prints nothing, and MUST
+  be passed on as the reason it gives. A background review reports nothing about
   its outcome here: the queued report is printed and the command succeeds however
   the run later ends, so MUST NOT read that success as the review having passed.
 - The `Scope` line states the scope that was **requested**, not a guarantee. The

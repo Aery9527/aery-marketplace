@@ -195,13 +195,18 @@ export function resolveReviewTarget(cwd, options = {}) {
 // otherwise be reported as "the current changes", so the scope is spelled out.
 //
 // `authoritative` distinguishes the two review paths. When the bridge assembles the
-// context, this describes exactly what the reviewer saw. The built-in reviewer instead
+// context, this describes what was put in front of the reviewer — not necessarily the tree
+// as it stands, because collection is a sequence of reads. The built-in reviewer instead
 // receives a target and decides for itself — it was observed to review staged work on
 // top of a requested branch diff — so there the scope is stated as what was asked for.
 export function describeReviewScope(cwd, target, options = {}) {
   const authoritative = options.authoritative !== false;
   const repoRoot = getRepoRoot(cwd);
-  const state = getWorkingTreeState(repoRoot);
+  // A caller that has already read the working tree passes that reading in, so the scope
+  // line counts what the collection started from rather than re-reading a tree that may
+  // have moved since. That makes the two lines consistent with each other; it does not
+  // make either of them a snapshot.
+  const state = options.state ?? getWorkingTreeState(repoRoot);
   const selection = target.explicit ? "requested" : "selected automatically";
   const caveat = authoritative
     ? ""
@@ -409,9 +414,13 @@ export function collectReviewContext(cwd, target, options = {}) {
   let includeDiff;
   let diffBytes;
   let inlineRefusalReason = null;
+  // Read once and handed back with the context, so the scope line and the collection that
+  // follows it start from the same reading. Neither is a snapshot: the git commands below
+  // run one after another, and a tree edited while they do is described in parts.
+  const workingTreeState = getWorkingTreeState(repoRoot);
 
   if (target.mode === "working-tree") {
-    const state = getWorkingTreeState(repoRoot);
+    const state = workingTreeState;
     diffBytes = measureCombinedGitOutputBytes(
       repoRoot,
       [
@@ -442,6 +451,7 @@ export function collectReviewContext(cwd, target, options = {}) {
     repoRoot,
     branch: currentBranch,
     target,
+    workingTreeState,
     fileCount: details.changedFiles.length,
     diffBytes,
     inputMode: includeDiff ? "inline-diff" : "self-collect",

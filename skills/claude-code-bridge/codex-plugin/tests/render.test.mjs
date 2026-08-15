@@ -202,7 +202,7 @@ test("the setup report keeps its next steps", () => {
     claude: { available: true, meetsMinimum: true, detail: "2.1.227" },
     auth: { loggedIn: false, detail: "signed out" },
     workspaceRoot: "/tmp/x",
-    reviewGateEnabled: false,
+    stopReviewRequested: false,
     actionsTaken: [],
     nextSteps: ["Run `claude auth login`."]
   });
@@ -235,7 +235,7 @@ test("the status report says so when there is nothing to report", () => {
 
   assert.match(output, /No active jobs\./);
   assert.match(output, /No finished jobs recorded yet\./);
-  assert.match(output, /Review gate: disabled/);
+  assert.match(output, /Stop-time review: not requested/);
 });
 
 // The only fact available is that no process answers to the pid. Naming a cause would
@@ -317,10 +317,13 @@ test("a job with neither output nor error says nothing was stored", () => {
 // says, because the two can disagree.
 test("cancelling reports whether a process was actually terminated", () => {
   const terminated = renderCancelReport(jobFixture({ pid: 4242 }), { attempted: true, delivered: true, method: "taskkill" });
-  assert.match(terminated, /Terminated the worker process tree under pid 4242 with taskkill\./);
+  assert.match(terminated, /Terminated the process tree under pid 4242 with taskkill\./);
+  // Only the pid is known to have been terminated; calling it the worker would claim an
+  // identity check the code does not make.
+  assert.doesNotMatch(terminated, /worker process tree/);
 
   const alreadyGone = renderCancelReport(jobFixture({ pid: 4242 }), { attempted: true, delivered: false, method: "taskkill" });
-  assert.match(alreadyGone, /taskkill found no process to terminate under pid 4242\./);
+  assert.match(alreadyGone, /taskkill did not stop anything under pid 4242; no process answered to it\./);
 
   // Cancelling a job with no worker on record clears it without claiming a kill, and says
   // what protects the record from a worker that starts afterwards.
@@ -349,7 +352,45 @@ test("a queued launch points at the commands that follow it", () => {
 test("a cancel that lost the race reports the outcome instead of a cancellation", () => {
   const output = renderLateCancelReport(jobFixture(), "completed");
 
-  assert.match(output, /finished as completed before it could be cancelled/);
+  assert.match(output, /is recorded as completed, so no cancellation was written over it/);
   assert.match(output, /See what it recorded with `\/claude-result review-abc`/);
   assert.doesNotMatch(output, /stored no result/);
+});
+
+// A signal is a request. Saying the run "ended there" would claim an outcome the code
+// never observed, and only `taskkill /T /F` cannot be declined.
+test("a signalled cancellation does not claim the run ended", () => {
+  const output = renderCancelReport(jobFixture({ pid: 4242 }), { attempted: true, delivered: true, method: "process" });
+
+  assert.match(output, /Sent SIGTERM to pid 4242 alone; no process group answered to it/);
+  // Only one process was reached, so nothing may be said about what the run started.
+  assert.match(output, /may still finish and replace this cancellation/);
+  assert.doesNotMatch(output, /Nothing under that pid survives it/);
+
+  // Windows without taskkill ends one process outright, and there is no group to address.
+  const killed = renderCancelReport(jobFixture({ pid: 4242 }), { attempted: true, delivered: true, method: "kill" });
+  assert.match(killed, /Ended pid 4242 on its own, because taskkill was not available/);
+  assert.doesNotMatch(killed, /SIGTERM/);
+
+  // Reaching the group is the case where the run's own processes were addressed.
+  const grouped = renderCancelReport(jobFixture({ pid: 4242 }), {
+    attempted: true,
+    delivered: true,
+    method: "process-group"
+  });
+  assert.match(grouped, /Sent SIGTERM to the process group of pid 4242/);
+  assert.match(grouped, /What was signalled ends there if it takes the signal/);
+});
+
+// The termination went out before the outcome came into view, so reporting only that the
+// job was left alone would hide a signal that was actually sent.
+test("a cancel that lost the race still reports the stop it had already sent", () => {
+  const output = renderLateCancelReport(jobFixture({ pid: 4242 }), "completed", {
+    attempted: true,
+    delivered: true,
+    method: "taskkill"
+  });
+
+  assert.match(output, /A stop had already been sent to pid 4242/);
+  assert.match(output, /is recorded as completed, so no cancellation was written over it/);
 });

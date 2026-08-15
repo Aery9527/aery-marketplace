@@ -48,7 +48,6 @@ import {
   isActiveJobStatus,
   resolveJobFile,
   setConfig,
-  upsertJob,
   writeJobFile
 } from "./lib/state.mjs";
 import {
@@ -58,7 +57,8 @@ import {
   createJobRecord,
   createProgressReporter,
   nowIso,
-  runTrackedJob
+  runTrackedJob,
+  upsertOrIgnore
 } from "./lib/tracked-jobs.mjs";
 import { resolveWorkspaceRoot } from "./lib/workspace.mjs";
 
@@ -166,7 +166,7 @@ function buildSetupReport(cwd, actionsTaken = []) {
     claude: claudeStatus,
     auth: authStatus,
     workspaceRoot,
-    reviewGateEnabled: Boolean(config.stopReviewGate),
+    stopReviewRequested: Boolean(config.stopReviewGate),
     actionsTaken,
     nextSteps
   };
@@ -188,10 +188,10 @@ function handleSetup(argv) {
 
   if (options["enable-review-gate"]) {
     setConfig(workspaceRoot, "stopReviewGate", true);
-    actionsTaken.push(`Enabled the stop-time review gate for ${workspaceRoot}.`);
+    actionsTaken.push(`Recorded that ${workspaceRoot} wants a Claude review before a turn ends.`);
   } else if (options["disable-review-gate"]) {
     setConfig(workspaceRoot, "stopReviewGate", false);
-    actionsTaken.push(`Disabled the stop-time review gate for ${workspaceRoot}.`);
+    actionsTaken.push(`Recorded that ${workspaceRoot} does not want a Claude review before a turn ends.`);
   }
 
   const report = buildSetupReport(cwd, actionsTaken);
@@ -343,11 +343,11 @@ function describeReviewEvidence(context) {
 }
 
 async function runAdversarialReview(request, onProgress) {
-  // Scope and evidence must describe one instant. The context is what was collected and
-  // sent; reading the scope alongside it keeps the two lines from describing trees the
-  // working copy passed through at different times.
+  // The scope line is built from the same reading the collection started with, so the two
+  // lines agree about where the review began. Collection is a sequence of git reads, though,
+  // and a tree edited while they run cannot be described as one moment by either line.
   const context = collectReviewContext(request.cwd, request.target);
-  const scopeNote = describeReviewScope(request.cwd, request.target);
+  const scopeNote = describeReviewScope(request.cwd, request.target, { state: context.workingTreeState });
   const result = await runClaudeOnce(context.repoRoot, buildAdversarialReviewPrompt(context, request.focusText), {
     ...READ_ONLY_SESSION,
     model: request.model,
@@ -451,7 +451,7 @@ function enqueueBackgroundJob(job, request) {
   appendLogLine(logFile, "Queued for background execution.");
   const queued = { ...job, status: "queued", phase: "queued", pid: null, logFile };
   writeJobFile(job.workspaceRoot, job.id, { ...queued, request });
-  upsertJob(job.workspaceRoot, queued);
+  upsertOrIgnore(job.workspaceRoot, queued);
 
   // A spawn that fails reports it by handing back no pid, and the record is already on
   // disk by then. Left alone it would sit at `queued` for a worker that will never exist,
@@ -462,7 +462,7 @@ function enqueueBackgroundJob(job, request) {
     recordWorkerStartupFailure(job.workspaceRoot, job.id, failure);
     throw failure;
   }
-  upsertJob(job.workspaceRoot, { id: job.id, pid: child.pid });
+  upsertOrIgnore(job.workspaceRoot, { id: job.id, pid: child.pid });
 
   return {
     jobId: job.id,
@@ -519,7 +519,7 @@ function recordWorkerStartupFailure(workspaceRoot, jobId, error) {
   };
   appendLogLine(storedJob.logFile, `Failed to start: ${failed.errorMessage}`);
   writeJobFile(workspaceRoot, jobId, { ...storedJob, ...failed });
-  upsertJob(workspaceRoot, { id: jobId, ...failed });
+  upsertOrIgnore(workspaceRoot, { id: jobId, ...failed });
 }
 
 async function handleRunJob(argv) {
@@ -566,9 +566,16 @@ function sleep(ms) {
 
 // Waiting stops for any answer, including the absence of a worker: a job whose process is
 // gone will never leave `running` on its own, so polling it to the deadline is pointless.
+// A value the user gave is used as given. Falling back on anything falsy would turn
+// `--timeout-ms 0` — "tell me now" — into a quarter-hour wait the flag says it set.
+function readMilliseconds(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 async function waitForJobSnapshot(cwd, reference, options = {}) {
-  const timeoutMs = Math.max(0, Number(options.timeoutMs) || DEFAULT_STATUS_WAIT_TIMEOUT_MS);
-  const pollIntervalMs = Math.max(100, Number(options.pollIntervalMs) || DEFAULT_STATUS_POLL_INTERVAL_MS);
+  const timeoutMs = readMilliseconds(options.timeoutMs, DEFAULT_STATUS_WAIT_TIMEOUT_MS);
+  const pollIntervalMs = Math.max(100, readMilliseconds(options.pollIntervalMs, DEFAULT_STATUS_POLL_INTERVAL_MS));
   const deadline = Date.now() + timeoutMs;
   let snapshot = buildSingleJobSnapshot(cwd, reference);
 
@@ -617,16 +624,19 @@ function handleResult(argv) {
     booleanOptions: ["json"]
   });
 
+  // Both halves come from the one read `resolveResultJob` already made, so the header and
+  // the report below it describe the same moment. Reading again could head a cancelled
+  // record with a finished review's findings.
   const cwd = resolveCommandCwd(options);
-  const { workspaceRoot, job } = resolveResultJob(cwd, positionals[0] ?? "");
-  const storedJob = readStoredJob(workspaceRoot, job.id);
+  const { job, storedJob } = resolveResultJob(cwd, positionals[0] ?? "");
   outputResult(options.json ? { job, storedJob } : renderStoredJobResult(job, storedJob), Boolean(options.json));
 }
 
 // A job with no worker on record is either an enqueue that was abandoned or one whose
 // worker is still starting, and the two look identical at a glance. Rather than guess, the
-// pid is waited for: a worker records its own within a moment of starting, so what is
-// still missing after the wait is the abandoned case.
+// pid is waited for: a worker records its own within a moment of starting. One slower than
+// the wait is still possible, which is why the report that follows says nothing was
+// stopped rather than that nothing was there.
 const WORKER_PID_WAIT_MS = 3000;
 const WORKER_PID_POLL_MS = 100;
 
@@ -644,9 +654,32 @@ function readCancellationBaseline(workspaceRoot, jobId) {
   return readStoredJob(workspaceRoot, jobId) ?? {};
 }
 
-// Termination comes first so that, where there is a worker to stop, it has stopped writing
-// before the cancelled state is stored. Where there is none to stop — no pid on record, or
-// a pid nothing answers to — that ordering buys nothing, and the report says as much.
+// A record with no status of its own has not reached an outcome, so it is still the
+// cancellation's to write.
+function stillCancelable(workspaceRoot, jobId) {
+  const status = readCancellationBaseline(workspaceRoot, jobId).status;
+  return !status || isActiveJobStatus(status);
+}
+
+// The run reached its outcome before the cancellation could be written, so the listing is
+// brought in line with the record that now holds it. Cancel is the writer here; a reporting
+// command must not repair state it only reads.
+function reportLateCancel(workspaceRoot, job, stored, termination, options) {
+  upsertOrIgnore(workspaceRoot, {
+    id: job.id,
+    status: stored.status,
+    phase: stored.phase ?? null,
+    pid: null,
+    completedAt: stored.completedAt ?? nowIso()
+  });
+  const payload = { jobId: job.id, status: stored.status, title: job.title, cancelled: false };
+  outputResult(options.json ? payload : renderLateCancelReport(job, stored.status, termination), Boolean(options.json));
+}
+
+// Termination comes first so that a worker which takes it has stopped writing before the
+// cancelled state is stored. It buys nothing where there is nothing to stop — no pid on
+// record, or a pid nothing answers to — nor where the run declines the signal, and the
+// report says which of those happened.
 async function handleCancel(argv) {
   const { options, positionals } = parseCommandInput(argv, {
     valueOptions: ["cwd"],
@@ -656,48 +689,59 @@ async function handleCancel(argv) {
   const cwd = resolveCommandCwd(options);
   const { workspaceRoot, job: selected } = resolveCancelableJob(cwd, positionals[0] ?? "", { env: process.env });
   const job = selected.pid ? selected : await awaitRecordedWorker(cwd, selected);
-  const termination = terminateProcessTree(job.pid ?? Number.NaN);
+  // The job id is what the worker was started with, so a process running the companion's
+  // `run-job` for this id is what the pid has to be answering as before anything is sent to
+  // it. That is a reading of its command line, not proof of which process it is.
+  const termination = terminateProcessTree(job.pid ?? Number.NaN, {
+    identity: job.id,
+    companionPath: COMPANION_PATH,
+    runtimePath: process.execPath,
+    // A job id is unique within a workspace, not across them, so the workspace the worker
+    // was started for is part of what identifies it.
+    sameWorkspace: (cwd) => resolveWorkspaceRoot(cwd) === workspaceRoot
+  });
 
   // The worker may have finished between being chosen and being terminated. Its record is
   // re-read afterwards, because overwriting a completed run with `cancelled` would leave a
-  // stored result behind a status that says none exists. The read sits as close to the
-  // write as it can: with no lock over the file, the two cannot be made one step, and a run
-  // that finishes inside that gap is still overwritten.
+  // stored result behind a status that says none exists.
   const stored = readCancellationBaseline(workspaceRoot, job.id);
   if (stored.status && !isActiveJobStatus(stored.status)) {
-    // The run reached its outcome between being selected and being terminated, so the
-    // listing is brought in line with the record that now holds it. Cancel is the writer
-    // here; a reporting command must not repair state it only reads.
-    upsertJob(workspaceRoot, {
-      id: job.id,
-      status: stored.status,
-      phase: stored.phase ?? null,
-      pid: null,
-      completedAt: stored.completedAt ?? nowIso()
-    });
-    const payload = { jobId: job.id, status: stored.status, title: job.title, cancelled: false };
-    outputResult(
-      options.json ? payload : renderLateCancelReport(job, stored.status),
-      Boolean(options.json)
-    );
-    return;
+    return reportLateCancel(workspaceRoot, job, stored, termination, options);
   }
 
-  appendLogLine(job.logFile, "Cancelled by user.");
+  // The record is read once more, as close to the write as it can be, and judged again on
+  // that read: a run that finished since the first look must not have its findings replaced
+  // by a cancellation. What is left is the gap between this read and the write below.
+  const baseline = readCancellationBaseline(workspaceRoot, job.id);
+  if (baseline.status && !isActiveJobStatus(baseline.status)) {
+    return reportLateCancel(workspaceRoot, job, baseline, termination, options);
+  }
 
-  // The job file keeps whatever the run recorded and gains only the cancellation. Building
-  // it from the listing instead would copy that listing's older idea of the run back over
-  // the record the worker itself wrote, so the file is read once more here and the write
-  // goes on top of that.
+  // A report is cleared rather than carried over: a run that recorded one and a record that
+  // says cancelled cannot both be true, and `/claude-result` would print the findings.
   const cancelled = {
     status: "cancelled",
     phase: "cancelled",
     pid: null,
     completedAt: nowIso(),
-    errorMessage: "Cancelled by user."
+    errorMessage: "Cancelled by user.",
+    result: null,
+    rendered: null
   };
-  writeJobFile(workspaceRoot, job.id, { ...readCancellationBaseline(workspaceRoot, job.id), ...cancelled });
-  upsertJob(workspaceRoot, { id: job.id, ...cancelled });
+  // The condition travels with the write: a run that reaches its outcome before the swap
+  // keeps it, and the cancellation is reported as having arrived too late instead.
+  const written = writeJobFile(
+    workspaceRoot,
+    job.id,
+    { ...baseline, ...cancelled },
+    { guard: () => stillCancelable(workspaceRoot, job.id) }
+  );
+  if (!written) {
+    return reportLateCancel(workspaceRoot, job, readCancellationBaseline(workspaceRoot, job.id), termination, options);
+  }
+
+  appendLogLine(job.logFile, "Cancelled by user.");
+  upsertOrIgnore(workspaceRoot, { id: job.id, ...cancelled });
 
   const payload = {
     jobId: job.id,

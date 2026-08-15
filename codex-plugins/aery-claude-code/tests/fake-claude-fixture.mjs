@@ -84,6 +84,12 @@ send({
     : ["interrupt_receipt_v1", "interrupt_cancel_queued_v1", "msg_lifecycle_v1"]
 });
 
+// Announces itself and then goes away, which leaves the bridge writing its turn into a
+// pipe nobody is reading — the shape a real CLI takes when it dies during startup.
+if (BEHAVIOR === "exit-after-init") {
+  process.exit(0);
+}
+
 const reader = readline.createInterface({ input: process.stdin });
 let inFlight = null;
 
