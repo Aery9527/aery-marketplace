@@ -14,7 +14,12 @@ export const DEFAULT_MAX_PROGRESS_LINES = 4;
 
 // An explicit environment replaces the ambient one rather than merely adding to it, so a
 // caller asking about a specific session cannot be answered about a different one.
+// `allSessions` is for the one question that is not about "my" jobs: whether a Claude session
+// is already being driven. A run started from another Codex session holds it just as firmly.
 function getCurrentSessionId(options = {}) {
+  if (options.allSessions) {
+    return null;
+  }
   return (options.env ?? process.env)[SESSION_ID_ENV] ?? null;
 }
 

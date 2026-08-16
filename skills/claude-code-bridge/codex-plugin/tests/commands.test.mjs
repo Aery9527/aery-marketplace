@@ -772,3 +772,388 @@ test("cancelling clears any report the job file had picked up", () => {
   assert.equal(after.result, null);
   assert.doesNotMatch(runCompanion(["result", queued.jobId], { cwd, env }).stdout, /Verdict: approve/);
 });
+
+// Rescue exists to change the repository, so the run it starts registers no tool
+// restrictions. Asserting the flags is what keeps a later edit from quietly handing the
+// write-capable entry point the review sessions' constraints.
+test("a rescue runs write-capable and passes the request through as written", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  const argvFile = path.join(makeTempDir(), "argv.json");
+  const env = { ...isolatedEnv(binDir), FAKE_CLAUDE_ARGV_FILE: argvFile };
+
+  const result = runCompanion(["rescue", "fix", "the", "flaky", "test"], { cwd, env });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /# Claude Rescue/);
+  assert.match(result.stdout, /fix the flaky test/);
+  const argv = JSON.parse(fs.readFileSync(argvFile, "utf8"));
+  assert.ok(!argv.includes("--tools"), argv.join(" "));
+  assert.ok(!argv.includes("--disallowed-tools"), argv.join(" "));
+  // A workspace's own MCP servers are part of what its Claude Code can reach, so taking
+  // them away would be taking something away.
+  assert.ok(!argv.includes("--strict-mcp-config"), argv.join(" "));
+});
+
+// The effort flag reaches the CLI through the one place that knows which values it accepts.
+// Passing an unsupported one straight through would let the CLI decide, and the CLI's answer
+// is not the one this package documents.
+test("a rescue refuses a reasoning effort the CLI does not take", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const refused = runCompanion(["rescue", "--effort", "minimal", "look at the parser"], { cwd, env });
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /Unsupported reasoning effort "minimal"/);
+
+  const argvFile = path.join(makeTempDir(), "argv.json");
+  const accepted = runCompanion(["rescue", "--effort", "max", "look at the parser"], {
+    cwd,
+    env: { ...env, FAKE_CLAUDE_ARGV_FILE: argvFile }
+  });
+  assert.equal(accepted.status, 0, accepted.stderr);
+  const argv = JSON.parse(fs.readFileSync(argvFile, "utf8"));
+  assert.deepEqual(argv.slice(argv.indexOf("--effort"), argv.indexOf("--effort") + 2), ["--effort", "max"]);
+});
+
+// The command promises an unauthenticated user is sent to `/claude-setup`. Nothing else on
+// this path keeps that promise: an unauthenticated CLI still starts.
+test("a rescue on an unauthenticated install names the setup command", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "logged-out");
+
+  const result = runCompanion(["rescue", "fix the loader"], { cwd: makeWorkspace(), env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /not authenticated/);
+  assert.match(result.stderr, /\/claude-setup/);
+});
+
+// A session id is recorded as soon as Claude announces it, so a run still going has one.
+// Continuing it would put a second turn into a session another process is driving.
+test("a session still being driven by a running job is not offered for resuming", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "slow-turn");
+  const cwd = makeWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["rescue", "--background", "--json", "SLOW rewrite"], { cwd, env }).stdout);
+  assert.equal(queued.status, "queued");
+
+  const candidate = JSON.parse(runCompanion(["rescue-resume-candidate", "--json"], { cwd, env }).stdout);
+  assert.equal(candidate.available, false);
+
+  runCompanion(["cancel", queued.jobId, "--json"], { cwd, env });
+});
+
+// A value option must not eat the flag after it: `--resume-session --fresh` would record
+// `--fresh` as a session id and leave the check that refuses those two with nothing to see.
+test("a flag is never taken as the value of another flag", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+
+  const result = runCompanion(["rescue", "--resume-session", "--fresh", "repair the loader"], {
+    cwd: makeWorkspace(),
+    env: isolatedEnv(binDir)
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Missing value for --resume-session/);
+});
+
+// The session id is what a later `--resume` continues, so it has to reach the user.
+test("a rescue reports the Claude session it used", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const rescued = runCompanion(["rescue", "look into the parser"], { cwd, env });
+  assert.match(rescued.stdout, /Claude session: `00000000-0000-4000-8000-000000000001`/);
+
+  const candidate = JSON.parse(runCompanion(["rescue-resume-candidate", "--json"], { cwd, env }).stdout);
+  assert.equal(candidate.available, true);
+  assert.equal(candidate.sessionId, "00000000-0000-4000-8000-000000000001");
+});
+
+// Resuming what does not exist would start a fresh run under a flag that promised to
+// continue one, which is a different piece of work than the user asked for.
+test("resuming a repository with no recorded session is refused", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  const env = isolatedEnv(binDir);
+
+  assert.equal(JSON.parse(runCompanion(["rescue-resume-candidate", "--json"], { cwd, env }).stdout).available, false);
+
+  const result = runCompanion(["rescue", "--resume", "keep going"], { cwd, env });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /nothing to resume/);
+});
+
+// A rescue with no request has nothing to forward, and inventing one would be doing the
+// user's thinking for them.
+test("a rescue with no request is refused rather than guessed at", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+
+  const result = runCompanion(["rescue"], { cwd: makeWorkspace(), env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Say what Claude should investigate/);
+});
+
+// A rescue is a job like any other, so the queue, the listing and the stored result all
+// have to hold it — that is what makes `--background` worth having.
+test("a background rescue is tracked as a job and its result kept", async () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["rescue", "--background", "--json", "rewrite the loader"], { cwd, env }).stdout);
+  assert.equal(queued.status, "queued");
+  assert.match(queued.jobId, /^rescue-/);
+
+  const finished = JSON.parse(
+    runCompanion(["status", queued.jobId, "--wait", "--timeout-ms", "60000", "--poll-interval-ms", "200", "--json"], {
+      cwd,
+      env
+    }).stdout
+  );
+  assert.equal(finished.job.status, "completed");
+  assert.match(finished.job.summary, /Rescue: rewrite the loader/);
+  assert.match(runCompanion(["result", queued.jobId], { cwd, env }).stdout, /# Claude Rescue/);
+});
+
+test("a rescue cannot be asked to resume and start fresh at once", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+
+  const result = runCompanion(["rescue", "--resume", "--fresh", "go"], { cwd: makeWorkspace(), env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Choose either --resume\/--resume-session or --fresh/);
+});
+
+// Naming a session does not make it free to take: the run that owns it publishes its id at
+// startup, so a named session can be one another process is still driving.
+test("a named session whose run is still going is refused", async () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "slow-turn");
+  const cwd = makeWorkspace();
+  const env = isolatedEnv(binDir);
+
+  const queued = JSON.parse(runCompanion(["rescue", "--background", "--json", "SLOW rewrite"], { cwd, env }).stdout);
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  const running = JSON.parse(runCompanion(["status", queued.jobId, "--json"], { cwd, env }).stdout).job;
+  assert.equal(running.status, "running");
+  assert.ok(running.claudeSessionId, "the running job should have announced a session");
+
+  const refused = runCompanion(["rescue", "--resume-session", running.claudeSessionId, "keep going"], { cwd, env });
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /still being run by job/);
+
+  runCompanion(["cancel", queued.jobId, "--json"], { cwd, env });
+});
+
+// A review's session is not a rescue's to continue: upstream offers only its own task
+// threads, and continuing a review would resume a run that was never write-capable.
+test("only a finished rescue is offered as the session to continue", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+  const env = isolatedEnv(binDir);
+
+  runCompanion(["rescue", "fix the loader"], { cwd, env });
+  runCompanion(["adversarial-review"], { cwd, env });
+
+  const candidate = JSON.parse(runCompanion(["rescue-resume-candidate", "--json"], { cwd, env }).stdout);
+  assert.equal(candidate.available, true);
+  assert.match(candidate.jobId, /^rescue-/);
+});
+
+// A named session is not "the last one recorded", and saying so would describe a different
+// run than the one that was continued.
+test("a named resume is reported as the session it named", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  const env = isolatedEnv(binDir);
+
+  runCompanion(["rescue", "first pass"], { cwd, env });
+  const named = runCompanion(
+    ["rescue", "--resume-session", "00000000-0000-4000-8000-000000000001", "keep going"],
+    { cwd, env }
+  );
+
+  assert.equal(named.status, 0, named.stderr);
+  assert.match(named.stdout, /Continued the Claude session `00000000-0000-4000-8000-000000000001`\./);
+  assert.ok(!named.stdout.includes("last recorded"), named.stdout);
+});
+
+// A session driven from another Codex session is just as busy as one driven from this one,
+// so the check that refuses it must not be scoped to the caller's own jobs.
+test("a session claimed by another Codex session is still refused", async () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "slow-turn");
+  const cwd = makeWorkspace();
+  const shared = isolatedEnv(binDir);
+
+  const queued = JSON.parse(
+    runCompanion(["rescue", "--background", "--json", "SLOW rewrite"], {
+      cwd,
+      env: { ...shared, CLAUDE_COMPANION_SESSION_ID: "codex-session-a" }
+    }).stdout
+  );
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  const running = JSON.parse(
+    runCompanion(["status", queued.jobId, "--json"], { cwd, env: { ...shared, CLAUDE_COMPANION_SESSION_ID: "codex-session-a" } })
+      .stdout
+  ).job;
+  assert.ok(running.claudeSessionId, "the running job should have announced a session");
+
+  const refused = runCompanion(["rescue", "--resume-session", running.claudeSessionId, "keep going"], {
+    cwd,
+    env: { ...shared, CLAUDE_COMPANION_SESSION_ID: "codex-session-b" }
+  });
+
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /still being run by job/);
+
+  runCompanion(["cancel", queued.jobId, "--json"], {
+    cwd,
+    env: { ...shared, CLAUDE_COMPANION_SESSION_ID: "codex-session-a" }
+  });
+});
+
+// Continuing still says what to continue with. Writing that sentence in the runtime would be
+// the runtime deciding what the user meant.
+test("a resume with no request is refused like any other empty request", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  const env = isolatedEnv(binDir);
+
+  runCompanion(["rescue", "first pass"], { cwd, env });
+
+  for (const flags of [["--resume"], ["--resume-session", "00000000-0000-4000-8000-000000000001"]]) {
+    const result = runCompanion(["rescue", ...flags], { cwd, env });
+    assert.equal(result.status, 1, flags.join(" "));
+    assert.match(result.stderr, /Say what Claude should investigate/);
+  }
+});
+
+// Upstream leaves write access on unless the user asked for diagnosis without edits. The same
+// choice is a flag here, and what it removes has to reach the CLI.
+test("a read-only rescue removes the edit tools", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  const argvFile = path.join(makeTempDir(), "argv.json");
+
+  const result = runCompanion(["rescue", "--read-only", "diagnose the parser"], {
+    cwd,
+    env: { ...isolatedEnv(binDir), FAKE_CLAUDE_ARGV_FILE: argvFile }
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const argv = JSON.parse(fs.readFileSync(argvFile, "utf8"));
+  const index = argv.indexOf("--disallowed-tools");
+  assert.ok(index >= 0, argv.join(" "));
+  assert.match(argv[index + 1], /Edit/);
+});
+
+// `spark` names a Codex model. Passing it on would ask the Claude CLI for a model that does
+// not exist, while looking like the name had been understood.
+test("a Codex-only model name is refused rather than forwarded", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+
+  const result = runCompanion(["rescue", "--model", "spark", "fix the loader"], {
+    cwd: makeWorkspace(),
+    env: isolatedEnv(binDir)
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /no Claude counterpart/);
+});
+
+// An apostrophe is a character in a request, not the start of a quoted run. Every command
+// shares this parser, so one of the others is exercised too — a claim about all of them is
+// worth no more than what is tested.
+test("an apostrophe in a request is not read as a quote", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+
+  const result = runCompanion(["rescue", "don't modify the API"], { cwd, env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /don't modify the API/);
+});
+
+// The same parser, reached through a different subcommand and a single forwarded string.
+test("an apostrophe survives another command's forwarded argument string", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeDirtyWorkspace();
+  const argvFile = path.join(makeTempDir(), "argv.json");
+
+  const promptFile = path.join(makeTempDir(), "prompt.txt");
+  const result = runCompanion(["adversarial-review", "don't trust the cache"], {
+    cwd,
+    env: { ...isolatedEnv(binDir), FAKE_CLAUDE_ARGV_FILE: argvFile, FAKE_CLAUDE_PROMPT_FILE: promptFile }
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  // The focus text reaches Claude inside the prompt, which is where an apostrophe eaten by
+  // the parser would go missing.
+  assert.match(fs.readFileSync(promptFile, "utf8"), /don't trust the cache/);
+});
+
+// A blank session id is a mistake, not a request for a fresh run: silently starting one
+// would answer a different question than the flag asked.
+test("an empty session id is refused rather than treated as a fresh run", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+
+  const result = runCompanion(["rescue", "--resume-session=", "fix the parser"], {
+    cwd: makeWorkspace(),
+    env: isolatedEnv(binDir)
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /needs the session id/);
+});
+
+// What the user said is checked before anything about the machine: someone who said nothing
+// needs to hear that, not a setup error they would fix first for no reason.
+test("an empty request is refused before the environment is inspected", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "logged-out");
+
+  const result = runCompanion(["rescue", "--resume"], { cwd: makeWorkspace(), env: isolatedEnv(binDir) });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Say what Claude should investigate/);
+  assert.ok(!result.stderr.includes("not authenticated"), result.stderr);
+});
+
+// Read-only closes every write route that can be closed from here, and the MCP servers are
+// one of them.
+test("a read-only rescue also shuts out MCP servers", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const argvFile = path.join(makeTempDir(), "argv.json");
+
+  runCompanion(["rescue", "--read-only", "diagnose the parser"], {
+    cwd: makeWorkspace(),
+    env: { ...isolatedEnv(binDir), FAKE_CLAUDE_ARGV_FILE: argvFile }
+  });
+
+  assert.ok(JSON.parse(fs.readFileSync(argvFile, "utf8")).includes("--strict-mcp-config"));
+});

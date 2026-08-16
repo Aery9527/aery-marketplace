@@ -484,6 +484,42 @@ export function renderCancelReport(job, termination) {
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
+// A rescue answers in Claude's own words, so this frames them and writes none of its own. A
+// turn that produced no text is reported as that — the absence is the outcome, and inventing
+// a sentence in its place would read as something Claude said. The session id is printed
+// because it is what a later `--resume` continues, and a failed turn is stated as one rather
+// than being left to read as finished work.
+export function renderRescueResult(result, meta = {}) {
+  const text = String(result.text ?? "").trim();
+  const stderr = String(result.stderr ?? "").trim();
+  const lines = ["# Claude Rescue", ""];
+
+  if (meta.resume) {
+    lines.push(
+      meta.resumedByName
+        ? `Continued the Claude session \`${meta.resume}\`.`
+        : "Continued the Claude session this repository last recorded.",
+      ""
+    );
+  }
+
+  if (result.isError) {
+    lines.push("The Claude turn ended in an error, so anything below is partial.", "");
+  }
+
+  lines.push(text || "_The turn produced no text._");
+
+  if (result.isError && stderr) {
+    lines.push("", "```", stderr, "```");
+  }
+
+  if (result.sessionId) {
+    lines.push("", `Claude session: \`${result.sessionId}\` — continue it with \`/claude-rescue --resume\`.`);
+  }
+
+  return `${lines.join("\n").trimEnd()}\n`;
+}
+
 export function renderSetupReport(report) {
   const lines = [
     "# Claude Code Setup",

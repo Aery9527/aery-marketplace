@@ -2,8 +2,8 @@
 name: claude-code-bridge
 description: >-
   用於 Codex session 需要把工作交給 Claude Code 時 — 讓 Claude 審查當前 diff 或
-  branch、挑戰某個設計決策、委派 bug 調查或修復、把 Codex 對話延續到 Claude Code
-  內，或查詢、取得與取消背景 Claude job。當使用者提到「問 Claude」「讓 Claude 審」
+  branch、挑戰某個設計決策、委派 bug 調查或修復，或查詢、取得與取消背景 Claude job。
+  當使用者提到「問 Claude」「讓 Claude 審」
   「委派給 Claude Code」「claude-review」「claude-rescue」「claude-transfer」，
   或詢問如何安裝、設定、排查此 bridge 時觸發。此 skill 只負責路由到正確的進入點，
   嚴禁自行執行審查或修復。
@@ -62,9 +62,9 @@ description: >-
 - `/claude-adversarial-review` — 挑戰所選方案、其取捨與假設的審查。目標選取方式與
   `/claude-review` 相同，且旗標之後可接聚焦文字。其 session 只註冊 `Read`、`Glob` 與
   `Grep`，沒有 shell，也沒有 MCP server。
-- `/claude-rescue` — 委派調查、修復，或延續先前的 Claude 工作。預設具寫入能力。
-- `/claude-transfer` — 把當前 Codex 對話延續到 Claude Code，回傳
-  `claude --resume <session-id>` 指令。
+- `/claude-rescue` — 委派調查、修復，或延續先前的 Claude 工作。預設具寫入能力，
+  且不移除任何工具。`--resume` 會延續最近一次已完成的 rescue 所記錄的 Claude session——此 Codex session 帶有
+  id 時只看它自己的執行，否則看整個 repository 的。
 - `/claude-status` — 此 repository 中進行中與近期的 Claude job。附上 job id 與 `--wait`
   時，會輪詢到該 job 結束、等待逾時，或找不到行程持有該 job 所記錄的 pid 為止。
 - `/claude-result` — 已結束 job 所記錄的內容，直接重印而不重跑：有產出報告就印報告，
@@ -83,7 +83,8 @@ description: >-
 - 若使用者想質疑方案、設計或取捨，或指名要聚焦的風險區域，使用
   `/claude-adversarial-review`。
 - 若使用者要修改程式碼、診斷 bug，或延續先前的 Claude 工作，使用 `/claude-rescue`。
-- 若使用者想把同一段對話帶到 Claude Code 內繼續，使用 `/claude-transfer`。
+  嚴禁把此 session 自己就能快速完成的工作路由過去——交出一個小請求要付出一次來回，
+  換回來的是此 session 本來就寫得出來的東西。
 - 除非帶上 `--background`，兩個審查進入點都在前景執行。嚴禁把前景審查說成正在背景執行，
   也嚴禁把已排入佇列的 job 呈現為已完成的審查。
 - 若使用者不想等待審查結果，帶上 `--background` 並回傳排入佇列的報告。該次執行記錄了

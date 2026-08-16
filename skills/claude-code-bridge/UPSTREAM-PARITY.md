@@ -167,14 +167,14 @@ contract moved to a runtime validator instead of a build step.
 |---------------|-------------|------|-------|
 | `plugins/codex/commands/review.md` | `codex-plugin/commands/claude-review.md` | partial | done |
 | `plugins/codex/commands/adversarial-review.md` | `codex-plugin/commands/claude-adversarial-review.md` | partial | done |
-| `plugins/codex/commands/rescue.md` | `codex-plugin/commands/claude-rescue.md` | adapt | todo |
+| `plugins/codex/commands/rescue.md` | `codex-plugin/commands/claude-rescue.md` | adapt | done |
 | `plugins/codex/commands/transfer.md` | `codex-plugin/commands/claude-transfer.md` | adapt | todo |
 | `plugins/codex/commands/status.md` | `codex-plugin/commands/claude-status.md` | partial | done |
 | `plugins/codex/commands/result.md` | `codex-plugin/commands/claude-result.md` | partial | done |
 | `plugins/codex/commands/cancel.md` | `codex-plugin/commands/claude-cancel.md` | partial | done |
 | `plugins/codex/commands/setup.md` | `codex-plugin/commands/claude-setup.md` | adapt | done |
-| `plugins/codex/agents/codex-rescue.md` | `codex-plugin/agents/claude-rescue.md` | partial | todo |
-| — | `codex-plugin/agents/openai.yaml` | new | todo |
+| `plugins/codex/agents/codex-rescue.md` | none — Codex has no subagent declaration, see [Gaps](#gaps) | drop | n/a |
+| — | `codex-plugin/agents/openai.yaml` | new | done |
 
 ### Runtime
 
@@ -304,7 +304,7 @@ Verified against `codex-cli` 0.147.0 and the plugins it ships (`figma`,
 |-------------------------------|-------------------------|----------|
 | `skills/*/SKILL.md` with `name` / `description` frontmatter | same, plus `disable-model-invocation` | probe, shipped plugin |
 | `commands/*.md` slash commands | `commands/*.md`; no frontmatter observed in any shipped plugin | shipped plugin |
-| `agents/*.md` subagents | `agents/*.md` plus `agents/openai.yaml`; no frontmatter observed | shipped plugin |
+| `agents/*.md` subagents | not from a plugin. Codex's own subagents are TOML under `.codex/agents/`; a plugin's `agents/` holds `openai.yaml` alone — interface metadata | shipped plugins, `plugin.json` spec, binary strings |
 | `hooks/hooks.json` | `hooks` entry in `plugin.json`, or the default `hooks/hooks.json` | docs, binary strings |
 | `${CLAUDE_PLUGIN_ROOT}` | `${PLUGIN_ROOT}`, `${PLUGIN_DATA}`; `${CLAUDE_PLUGIN_ROOT}` still accepted | docs, binary strings |
 | hook `command` accepts any shell string | must be a bare executable name or a `./` path contained in the plugin root | docs, binary strings |
@@ -364,7 +364,8 @@ is a loss of function.
 - **Background execution** — upstream's companion parses `--background` but does
   not detach: the host does, by running the command as a Claude Code background
   `Bash` task. The counterpart detaches itself instead. `--background` writes the
-  job record with the resolved review target, spawns `claude-companion run-job`
+  job record with the request that was resolved — a review's target, a rescue's
+  prompt and routing — spawns `claude-companion run-job`
   as a detached child, and records that child's pid; the worker reads the request
   back and runs the same code path the foreground uses. Nothing therefore depends
   on the host having a background shell mode. Two consequences follow: the target
@@ -611,8 +612,9 @@ on a known limitation.
   workspace scope when it is absent, which is the same branch upstream takes when
   its hook has not run. Two Codex sessions in one repository therefore see each
   other's jobs.
-- **Reasoning effort range** — `VALID_REASONING_EFFORTS` in
-  `scripts/codex-companion.mjs` accepts `none|minimal|low|medium|high|xhigh`.
+- **Reasoning effort range** — upstream's `VALID_REASONING_EFFORTS` accepts
+  `none|minimal|low|medium|high|xhigh`; the counterpart's lives in
+  `scripts/lib/claude.mjs` and every path that takes `--effort` goes through it.
   The `claude` CLI accepts `low|medium|high|xhigh|max`. `none` and `minimal`
   have no counterpart and must be rejected rather than silently remapped; `max`
   is available here and has no upstream counterpart.
@@ -622,24 +624,50 @@ on a known limitation.
   Codex command file observed uses substitution, so the counterpart instructs
   the model to run the script instead. The model can in principle paraphrase or
   skip the call.
+- **Forwarded request text** — `commands/rescue.md`. Upstream hands the raw user
+  request to its subagent as one string. A Codex command forwards its arguments as
+  one string too, but the runtime has to split it to find the flags. The grammar
+  it splits by is whole: whitespace separates arguments, a double quote groups
+  until its matching double quote, one that never closes is an error rather than a
+  group running to the end, and every other character stands for itself — an
+  apostrophe because requests contain them, a backslash because paths do, and
+  nothing escapes a quote,
+  which is what lets a path like `C:\Program Files\` end where it appears to. What
+  reaches Claude is therefore the request's words in their order, rejoined with
+  single spaces; the quotes that grouped them and any run of whitespace between
+  them do not survive.
+- **Codex-only model names** — `commands/rescue.md`, `agents/codex-rescue.md`.
+  Upstream maps `spark` to a Codex model. Nothing on this side answers to that
+  name, so it is refused with what to do instead rather than forwarded to a CLI
+  that would reject it as an unknown model.
 - **Command metadata** — every file under `commands/`. Upstream declares
   `description`, `argument-hint`, `allowed-tools` and `disable-model-invocation`
   in frontmatter. No shipped Codex command file carries frontmatter, so argument
   hints live in prose and tool access is not constrained per command.
-- **Subagent declaration** — `agents/codex-rescue.md`. Upstream declares
-  `model`, `tools` and `skills` in frontmatter, pinning the rescue forwarder to
-  one model with `Bash` only. No shipped Codex agent file carries frontmatter,
-  so the same constraints are stated as instructions the agent is asked to
-  follow.
+- **Subagent declaration** — `agents/codex-rescue.md`. Upstream declares a
+  subagent in markdown — `model`, `tools` and `skills` in frontmatter — and its
+  rescue command delegates to it, which pins the forwarder to one model with
+  `Bash` alone and keeps the forwarding out of the command file. Codex has
+  subagents of its own, but a plugin cannot declare one: they are standalone TOML
+  files under `.codex/agents/` or `~/.codex/agents/`, and nothing a plugin ships
+  becomes one. No shipped plugin contains an `agents/*.md` file, `plugin.json`
+  names no `agents` key, and the binary describes `agents/openai.yaml` as
+  something created "for a skill directory" — interface metadata, not a subagent.
+  A plugin therefore has no forwarder of its own to constrain. `/claude-rescue`
+  calls the runtime itself and carries the forwarding rules as its own, so the
+  model and tool limits that upstream declares are stated there as instructions
+  and are not enforced by the host.
 - **Session transfer** — `commands/transfer.md`,
   `scripts/lib/claude-session-transfer.mjs`. Upstream uses Codex's documented
   external-agent session importer to turn a Claude Code transcript into a real
   Codex thread, producing visible, continuable turns. Claude Code exposes no
   session importer — `claude import` imports *configuration* from Codex, not
-  conversations. The counterpart therefore creates a bridge-owned Claude session
-  from a handoff prompt carrying the converted Codex transcript and its
-  provenance, and returns a `claude --resume <session-id>` command. It promises
-  continuable work, **not** natively visible imported history. Synthesising
+  conversations. The counterpart is therefore to create a bridge-owned Claude
+  session from a handoff prompt carrying the converted Codex transcript and its
+  provenance, and to return a `claude --resume <session-id>` command — the
+  contract this row is held to, not something it does yet; its File Map State says
+  where it stands. It promises continuable work, **not** natively visible
+  imported history. Synthesising
   session files directly under `~/.claude/projects/` is deliberately rejected:
   that format is undocumented and private, and writing it would risk corrupting
   real user sessions.

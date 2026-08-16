@@ -90,6 +90,7 @@ if (BEHAVIOR === "exit-after-init") {
   process.exit(0);
 }
 
+// A test that cares what reached Claude needs the prompt itself, not only the flags.
 const reader = readline.createInterface({ input: process.stdin });
 let inFlight = null;
 
@@ -112,6 +113,9 @@ const REVIEW_OUTPUT = {
 };
 
 function completeTurn(text) {
+  if (process.env.FAKE_CLAUDE_PROMPT_FILE) {
+    fs.appendFileSync(process.env.FAKE_CLAUDE_PROMPT_FILE, String(text ?? "") + "\\n");
+  }
   // A schema-constrained turn answers with the object as well as the text, which is what
   // the real CLI does on the final result event.
   if (argv.includes("--json-schema")) {

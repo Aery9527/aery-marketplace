@@ -13,7 +13,8 @@ import {
   createStreamProgressListener,
   getClaudeAuthStatus,
   getClaudeAvailability,
-  MINIMUM_CLAUDE_VERSION
+  MINIMUM_CLAUDE_VERSION,
+  normalizeReasoningEffort
 } from "./lib/claude.mjs";
 import { readJsonFile } from "./lib/fs.mjs";
 import {
@@ -37,6 +38,7 @@ import {
   renderLateCancelReport,
   renderNativeReviewResult,
   renderQueuedJobLaunch,
+  renderRescueResult,
   renderReviewResult,
   renderSetupReport,
   renderStatusReport,
@@ -106,6 +108,8 @@ const USAGE = [
   "  node scripts/claude-companion.mjs setup [--json] [--enable-review-gate|--disable-review-gate] [--cwd <path>]",
   "  node scripts/claude-companion.mjs review [--json] [--wait|--background] [--base <ref>] [--scope auto|working-tree|branch] [--model <model>] [--cwd <path>]",
   "  node scripts/claude-companion.mjs adversarial-review [--json] [--wait|--background] [--base <ref>] [--scope auto|working-tree|branch] [--model <model>] [--cwd <path>] [focus text]",
+  "  node scripts/claude-companion.mjs rescue [--json] [--wait|--background] [--resume|--resume-session <id>|--fresh] [--read-only] [--model <model>] [--effort <level>] [--cwd <path>] [what Claude should do]",
+  "  node scripts/claude-companion.mjs rescue-resume-candidate [--json] [--cwd <path>]",
   "  node scripts/claude-companion.mjs status [job-id] [--json] [--all] [--wait] [--timeout-ms <ms>] [--poll-interval-ms <ms>] [--cwd <path>]",
   "  node scripts/claude-companion.mjs result [job-id] [--json] [--cwd <path>]",
   "  node scripts/claude-companion.mjs cancel [job-id] [--json] [--cwd <path>]",
@@ -196,6 +200,16 @@ function handleSetup(argv) {
 
   const report = buildSetupReport(cwd, actionsTaken);
   outputResult(options.json ? report : renderSetupReport(report), Boolean(options.json));
+}
+
+// The rescue command promises to send an unauthenticated user to `/claude-setup`. Without
+// this the promise is kept by nothing: an unauthenticated CLI still starts, and the failure
+// arrives as whatever text the turn produced.
+function ensureClaudeAuthenticated(cwd) {
+  const auth = getClaudeAuthStatus(cwd);
+  if (!auth.loggedIn) {
+    throw new Error(`Claude Code is not authenticated (${auth.detail}). Run \`/claude-setup\` for what to do next.`);
+  }
 }
 
 function ensureClaudeAvailable(cwd) {
@@ -388,9 +402,64 @@ async function runAdversarialReview(request, onProgress) {
   };
 }
 
-const REVIEW_TITLES = Object.freeze({ review: "Review", "adversarial-review": "Adversarial Review" });
+// Rescue is the one entry point that exists to change the repository, so it takes nothing
+// away: no tool filter, and no `--strict-mcp-config` either, because a workspace's MCP
+// servers are part of what its own Claude Code can reach. The review sessions above remove
+// both deliberately; removing either here would take away the thing the user asked for.
+const RESCUE_SESSION = Object.freeze({
+  permissionMode: "dontAsk"
+});
 
-function executeReview(request, onProgress) {
+// Upstream's forwarder leaves write access on unless the user asked for review, diagnosis or
+// research without edits. The same choice is a flag here, because a Codex command has no
+// forwarder to make it. What it removes is the direct edit tools and the workspace's MCP
+// servers, which is every write route that can be closed from here. The CLI offers no
+// sandbox, so a session that can still run commands can still write through them.
+const RESCUE_READ_ONLY_SESSION = Object.freeze({
+  permissionMode: "dontAsk",
+  strictMcpConfig: true,
+  disallowedTools: ["Edit", "Write", "NotebookEdit"]
+});
+
+// A rescue has no structured output to parse: what Claude was asked to do is what it
+// reports, so the turn's own text is the answer and the render only frames it.
+async function runRescue(request, onProgress) {
+  const result = await runClaudeOnce(request.cwd, request.prompt, {
+    ...(request.readOnly ? RESCUE_READ_ONLY_SESSION : RESCUE_SESSION),
+    model: request.model,
+    effort: request.effort,
+    resume: request.resume,
+    onEvent: createStreamProgressListener(onProgress)
+  });
+
+  return {
+    failed: result.isError,
+    sessionId: result.sessionId,
+    summary: result.isError ? "The Claude turn ended in an error." : "Rescue finished.",
+    payload: {
+      kind: "rescue",
+      failed: result.isError,
+      sessionId: result.sessionId ?? null,
+      text: String(result.text ?? "").trim(),
+      stderr: result.stderr ?? ""
+    },
+    rendered: renderRescueResult(result, {
+      resume: request.resume ?? null,
+      resumedByName: Boolean(request.resumedByName)
+    })
+  };
+}
+
+const JOB_TITLES = Object.freeze({
+  review: "Review",
+  "adversarial-review": "Adversarial Review",
+  rescue: "Rescue"
+});
+
+function executeJob(request, onProgress) {
+  if (request.kind === "rescue") {
+    return runRescue(request, onProgress);
+  }
   return request.kind === "adversarial-review"
     ? runAdversarialReview(request, onProgress)
     : runNativeReview(request, onProgress);
@@ -409,14 +478,27 @@ function createTrackedProgress(job, options = {}) {
   };
 }
 
+const JOB_ID_PREFIXES = Object.freeze({ review: "review", "adversarial-review": "adv", rescue: "rescue" });
+
+// A job's summary is the one line `/claude-status` shows for it, so it has to say which run
+// this was. A review names the target it was pointed at; a rescue has no target, so it names
+// the request itself, shortened to fit a listing.
+function summariseJob(title, request) {
+  if (request.kind !== "rescue") {
+    return `${title} of ${request.target.label}`;
+  }
+  const prompt = request.prompt.replace(/\s+/g, " ").trim();
+  return prompt.length > 80 ? `${title}: ${prompt.slice(0, 77)}...` : `${title}: ${prompt}`;
+}
+
 function createReviewJob(workspaceRoot, request) {
-  const title = REVIEW_TITLES[request.kind];
+  const title = JOB_TITLES[request.kind];
   return createJobRecord({
-    id: generateJobId(request.kind === "adversarial-review" ? "adv" : "review"),
+    id: generateJobId(JOB_ID_PREFIXES[request.kind]),
     kind: request.kind,
     title,
     workspaceRoot,
-    summary: `${title} of ${request.target.label}`
+    summary: summariseJob(title, request)
   });
 }
 
@@ -474,6 +556,153 @@ function enqueueBackgroundJob(job, request) {
   };
 }
 
+// A rescue is the user's own words. Nothing is added to them and no word is dropped, but the
+// words are what survives: the flags this command consumes are taken out, the quotes that
+// grouped the rest are spent doing that, and what is left is rejoined with single spaces. `--resume` continues the Claude session a previous
+// rescue in this workspace left behind; `--fresh` states the opposite explicitly, because a
+// caller that means "start over" should not have to rely on a default.
+function buildRescueRequest(options, positionals) {
+  // Even a continuation says what to continue with. Writing one here would be this runtime
+  // deciding what the user wanted; the command asks them instead, which is where the user is.
+  // It is asked before anything about the environment, so a user who said nothing hears that
+  // rather than a setup error that is not what they need to fix first.
+  const prompt = positionals.join(" ").trim();
+  if (!prompt) {
+    throw new Error("Say what Claude should investigate, fix, or continue.");
+  }
+
+  const cwd = resolveCommandCwd(options);
+  ensureClaudeAvailable(cwd);
+  ensureClaudeAuthenticated(cwd);
+
+  const namesSession = Object.hasOwn(options, "resume-session");
+  const resume = options.resume || namesSession ? resolveResumeTarget(cwd, options) : undefined;
+  return {
+    kind: "rescue",
+    cwd,
+    prompt,
+    model: resolveRescueModel(options.model),
+    readOnly: Boolean(options["read-only"]),
+    effort: normalizeReasoningEffort(options.effort) ?? undefined,
+    resume,
+    resumedByName: namesSession
+  };
+}
+
+// `--resume` continues the last Claude session this workspace recorded; naming one takes
+// `--resume-session`, because a flag that swallowed the next word would eat the first word of
+// the request instead. Either way the session has to belong to a run that has ended: a job
+// publishes its session id as soon as Claude announces it, long before the run is over, so a
+// session named while its own run is still going would take a second turn from another
+// process. A workspace with nothing finished to continue is told so rather than being started
+// fresh in silence.
+// Upstream maps `spark` to a Codex model of its own. Nothing on this side answers to that
+// name, and passing it through would ask the Claude CLI for a model that does not exist while
+// looking like it had been understood.
+function resolveRescueModel(model) {
+  if (model === undefined) {
+    return undefined;
+  }
+  const name = String(model).trim();
+  if (name.toLowerCase() === "spark") {
+    throw new Error("`spark` names a Codex model and has no Claude counterpart. Name a Claude model instead.");
+  }
+  return name;
+}
+
+function resolveResumeTarget(cwd, options) {
+  if (Object.hasOwn(options, "resume-session")) {
+    const sessionId = String(options["resume-session"]).trim();
+    if (!sessionId) {
+      throw new Error("--resume-session needs the session id to continue.");
+    }
+    const owner = findActiveJobForSession(cwd, sessionId);
+    if (owner) {
+      throw new Error(
+        `Session ${sessionId} is still being run by job ${owner.id}. Wait for it to finish, or cancel it with /claude-cancel ${owner.id}.`
+      );
+    }
+    return sessionId;
+  }
+  const candidate = findResumableSession(cwd);
+  if (!candidate) {
+    throw new Error(
+      "No Claude session recorded for this repository yet, so there is nothing to resume. Run the rescue without --resume."
+    );
+  }
+  return candidate.sessionId;
+}
+
+// Only finished runs are offered, ordered by when they finished, for the reason above.
+// A session is claimed by the job that is going to drive it, not only by the one already
+// driving it: a queued job records the session it was asked to resume before its worker
+// exists. Both are searched, and across every Codex session, because a session driven from
+// another one is just as busy as a session driven from this one.
+function findActiveJobForSession(cwd, sessionId) {
+  return (
+    buildStatusSnapshot(cwd, { all: true, allSessions: true }).active.find(
+      (job) => job.claudeSessionId === sessionId || job.resumeSessionId === sessionId
+    ) ?? null
+  );
+}
+
+function findResumableSession(cwd) {
+  const job = buildStatusSnapshot(cwd, { all: true })
+    .finished.filter((candidate) => candidate.kind === "rescue" && candidate.claudeSessionId)
+    .sort((left, right) =>
+      String(right.completedAt ?? right.updatedAt ?? "").localeCompare(String(left.completedAt ?? left.updatedAt ?? ""))
+    )[0];
+  return job ? { jobId: job.id, sessionId: job.claudeSessionId, title: job.title ?? null } : null;
+}
+
+// The command file asks once whether to continue, and only when there is something to
+// continue. Answering that question is all this reports; it starts nothing.
+function handleRescueResumeCandidate(argv) {
+  const { options } = parseCommandInput(argv, { valueOptions: ["cwd"], booleanOptions: ["json"] });
+  const candidate = findResumableSession(resolveCommandCwd(options));
+  const payload = candidate ? { available: true, ...candidate } : { available: false };
+  outputResult(options.json ? payload : `${payload.available ? "resumable" : "none"}
+`, Boolean(options.json));
+}
+
+async function handleRescue(argv) {
+  const { options, positionals } = parseCommandInput(argv, {
+    valueOptions: ["cwd", "model", "effort", "resume-session"],
+    booleanOptions: ["json", "background", "wait", "resume", "fresh", "read-only"]
+  });
+
+  if (options.background && options.wait) {
+    throw new Error("Choose either --background or --wait.");
+  }
+  if ((options.resume || Object.hasOwn(options, "resume-session")) && options.fresh) {
+    throw new Error("Choose either --resume/--resume-session or --fresh.");
+  }
+
+  const request = buildRescueRequest(options, positionals);
+  // The record carries the session it means to resume, so the next caller asking whether that
+  // session is free sees this run before it has started. The two are still a read and a write
+  // apart: two callers that pass the check together both claim it. Narrowing that further
+  // needs a lock whose holder `cancel` exists to terminate, which buys the gap back as a lock
+  // nobody releases.
+  const job = {
+    ...createReviewJob(resolveWorkspaceRoot(request.cwd), request),
+    resumeSessionId: request.resume ?? null
+  };
+
+  if (options.background) {
+    const payload = enqueueBackgroundJob(job, request);
+    outputResult(options.json ? payload : renderQueuedJobLaunch(payload), Boolean(options.json));
+    return;
+  }
+
+  const { logFile, progress } = createTrackedProgress(job);
+  const execution = await runTrackedJob({ ...job, logFile }, () => executeJob(request, progress), { logFile });
+  outputResult(options.json ? execution.payload : execution.rendered, Boolean(options.json));
+  if (execution.failed) {
+    process.exitCode = 1;
+  }
+}
+
 async function handleReviewCommand(kind, argv) {
   const { options, positionals } = parseCommandInput(argv, {
     valueOptions: ["cwd", "base", "scope", "model"],
@@ -494,7 +723,7 @@ async function handleReviewCommand(kind, argv) {
   }
 
   const { logFile, progress } = createTrackedProgress(job);
-  const execution = await runTrackedJob({ ...job, logFile }, () => executeReview(request, progress), { logFile });
+  const execution = await runTrackedJob({ ...job, logFile }, () => executeJob(request, progress), { logFile });
   outputResult(options.json ? execution.payload : execution.rendered, Boolean(options.json));
   if (execution.failed) {
     process.exitCode = 1;
@@ -555,7 +784,7 @@ async function handleRunJob(argv) {
     throw error;
   }
 
-  await runTrackedJob({ ...job, logFile }, () => executeReview(job.request, progress), { logFile });
+  await runTrackedJob({ ...job, logFile }, () => executeJob(job.request, progress), { logFile });
 }
 
 function sleep(ms) {
@@ -768,6 +997,12 @@ async function main() {
       break;
     case "run-job":
       await handleRunJob(argv);
+      break;
+    case "rescue":
+      await handleRescue(argv);
+      break;
+    case "rescue-resume-candidate":
+      handleRescueResumeCandidate(argv);
       break;
     case "status":
       await handleStatus(argv);

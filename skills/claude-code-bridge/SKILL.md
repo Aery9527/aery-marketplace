@@ -3,8 +3,8 @@ name: claude-code-bridge
 description: >-
   Use when a Codex session should hand work to Claude Code — reviewing the
   current diff or branch with Claude, challenging a design decision, delegating
-  a bug investigation or fix, continuing a Codex conversation inside Claude
-  Code, or checking, retrieving and cancelling background Claude jobs. Triggers
+  a bug investigation or fix, or checking, retrieving and cancelling background
+  Claude jobs. Triggers
   on "ask Claude", "let Claude review this", "delegate this to Claude Code",
   "claude-review", "claude-rescue", "claude-transfer", and on any request to
   install, configure or troubleshoot this bridge. This skill routes to the right
@@ -77,9 +77,9 @@ namespaced by plugin, so they carry a `claude-` prefix.
   accepts focus text after the flags. Runs in a session that registers only
   `Read`, `Glob` and `Grep`, with no shell and no MCP server.
 - `/claude-rescue` — delegate an investigation, a fix, or continuation of
-  earlier Claude work. Write-capable by default.
-- `/claude-transfer` — continue the current Codex conversation inside Claude
-  Code, returning a `claude --resume <session-id>` command.
+  earlier Claude work. Write-capable by default, and it takes no tools away.
+  `--resume` continues the last Claude session a finished rescue recorded — this
+  Codex session's own runs when it carries an id, the repository's otherwise.
 - `/claude-status` — active and recent Claude jobs for this repository. With a
   job id and `--wait`, polls until that job finishes, until the wait times out,
   or until no process is found under the job's recorded pid.
@@ -102,9 +102,9 @@ namespaced by plugin, so they carry a `claude-` prefix.
 - If the user wants the approach, design or tradeoffs questioned, or names a
   risk area to focus on, use `/claude-adversarial-review`.
 - If the user wants code changed, a bug diagnosed, or earlier Claude work
-  continued, use `/claude-rescue`.
-- If the user wants to keep working on this same conversation inside Claude
-  Code, use `/claude-transfer`.
+  continued, use `/claude-rescue`. MUST NOT route work there that this session can
+  finish quickly on its own — handing over a small ask costs a round trip and
+  returns something this session could have written.
 - Both review entry points run in the foreground unless `--background` is
   passed. MUST NOT tell the user a foreground review is running in the
   background, and MUST NOT present a queued job as a finished review.

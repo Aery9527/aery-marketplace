@@ -151,14 +151,14 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 |----------|--------|------|-------|
 | `plugins/codex/commands/review.md` | `codex-plugin/commands/claude-review.md` | partial | done |
 | `plugins/codex/commands/adversarial-review.md` | `codex-plugin/commands/claude-adversarial-review.md` | partial | done |
-| `plugins/codex/commands/rescue.md` | `codex-plugin/commands/claude-rescue.md` | adapt | todo |
+| `plugins/codex/commands/rescue.md` | `codex-plugin/commands/claude-rescue.md` | adapt | done |
 | `plugins/codex/commands/transfer.md` | `codex-plugin/commands/claude-transfer.md` | adapt | todo |
 | `plugins/codex/commands/status.md` | `codex-plugin/commands/claude-status.md` | partial | done |
 | `plugins/codex/commands/result.md` | `codex-plugin/commands/claude-result.md` | partial | done |
 | `plugins/codex/commands/cancel.md` | `codex-plugin/commands/claude-cancel.md` | partial | done |
 | `plugins/codex/commands/setup.md` | `codex-plugin/commands/claude-setup.md` | adapt | done |
-| `plugins/codex/agents/codex-rescue.md` | `codex-plugin/agents/claude-rescue.md` | partial | todo |
-| — | `codex-plugin/agents/openai.yaml` | new | todo |
+| `plugins/codex/agents/codex-rescue.md` | 無 — Codex 沒有 subagent 宣告，見[缺口](#缺口) | drop | n/a |
+| — | `codex-plugin/agents/openai.yaml` | new | done |
 
 ### Runtime
 
@@ -281,7 +281,7 @@ broker interrupt，這些都無法原封不動保留。
 |-------------------------|---------------------|------|
 | 帶 `name` / `description` frontmatter 的 `skills/*/SKILL.md` | 相同，另加 `disable-model-invocation` | probe, shipped plugin |
 | `commands/*.md` slash commands | `commands/*.md`；在任何已出貨 plugin 中都未觀察到 frontmatter | shipped plugin |
-| `agents/*.md` subagents | `agents/*.md` 加上 `agents/openai.yaml`；未觀察到 frontmatter | shipped plugin |
+| `agents/*.md` subagents | plugin 無法提供。Codex 自己的 subagent 是 `.codex/agents/` 底下的 TOML；plugin 的 `agents/` 只有 `openai.yaml` — 那是介面中繼資料 | shipped plugins、`plugin.json` 規格、binary 字串 |
 | `hooks/hooks.json` | `plugin.json` 的 `hooks` 欄位，或預設的 `hooks/hooks.json` | docs, binary strings |
 | `${CLAUDE_PLUGIN_ROOT}` | `${PLUGIN_ROOT}`、`${PLUGIN_DATA}`；`${CLAUDE_PLUGIN_ROOT}` 仍被接受 | docs, binary strings |
 | hook `command` 接受任意 shell 字串 | 必須是裸執行檔名稱，或包含在 plugin root 內的 `./` 路徑 | docs, binary strings |
@@ -326,7 +326,7 @@ broker interrupt，這些都無法原封不動保留。
   解析後的路徑是否仍在 repository 內，並在 review context 中回報每一個被跳過的項目。
 - **背景執行** — 上游的 companion 會解析 `--background`，但分離動作不由它完成：由宿主
   以 Claude Code 的背景 `Bash` 任務執行該指令。對應物改為自行分離。`--background` 會把
-  已解析的審查目標寫進 job 紀錄、以分離子行程啟動 `claude-companion run-job`，並記下該
+  已解析的請求寫進 job 紀錄（review 是它的目標，rescue 是它的提示與路由）、以分離子行程啟動 `claude-companion run-job`，並記下該
   子行程的 pid；worker 讀回該 request，走與前景完全相同的程式路徑。因此整個機制不依賴
   宿主是否具備背景 shell 模式。由此帶出兩個結果：目標只在使用者輸入指令的那個行程解析
   一次，因為 `auto` 會讀取 working tree，稍後重新解析可能選到不同目標；以及 worker 的
@@ -499,28 +499,45 @@ broker interrupt，這些都無法原封不動保留。
   對應物讀取 `CLAUDE_COMPANION_SESSION_ID`，在其不存在時退回 workspace 範圍，這正是
   上游 hook 未執行時所走的同一條分支。因此同一 repository 中的兩個 Codex session 會看見
   彼此的 job。
-- **推理強度範圍** — `scripts/codex-companion.mjs` 中的 `VALID_REASONING_EFFORTS` 接受
-  `none|minimal|low|medium|high|xhigh`。`claude` CLI 接受 `low|medium|high|xhigh|max`。
+- **推理強度範圍** — 上游的 `VALID_REASONING_EFFORTS` 接受
+  `none|minimal|low|medium|high|xhigh`；對應物的那一份放在 `scripts/lib/claude.mjs`，
+  每一條接受 `--effort` 的路徑都會經過它。`claude` CLI 接受 `low|medium|high|xhigh|max`。
   `none` 與 `minimal` 沒有對應物，必須明確拒絕而非默默改寫；`max` 在此可用，且沒有上游
   對應物。
 - **決定性的 command 內文** — `commands/status.md`、`commands/result.md`、
   `commands/cancel.md`。上游用 `` !`...` `` 替換在 command 內文直接執行 companion
   script，因此該 script 一定會跑。在已出貨的 Codex command 檔案中未觀察到任何替換語法，
   因此對應物改為指示模型去執行該 script。模型原則上可能改寫或跳過該呼叫。
+- **轉發的請求文字** — `commands/rescue.md`。上游把使用者的原始請求整串交給它的
+  subagent。Codex command 同樣是把參數整串轉發，但 runtime 必須切開它才能找出旗標。
+  它所依據的文法是完整的：空白分隔參數、雙引號分組直到配對的雙引號、永不閉合的雙引號
+  視為錯誤而不是一路延伸到結尾的分組、其餘每個字元都代表它自己——單引號因為請求裡會有、
+  反斜線因為路徑裡會有——沒有
+  任何東西可以跳脫引號，這正是 `C:\Program Files\` 這種路徑能在看起來結束的地方結束的原因。
+  因此抵達 Claude 的是該請求的「詞」及其順序，以單一空白重新接起；分組用的引號與詞之間的
+  連續空白則不會留存。
+- **Codex 專屬的模型名稱** — `commands/rescue.md`、`agents/codex-rescue.md`。上游把 `spark`
+  映射到一個 Codex 模型。此處沒有任何東西回應那個名字，因此會連同「該怎麼做」一起拒絕，
+  而不是把它轉交給一個只會回報未知模型的 CLI。
 - **Command metadata** — `commands/` 底下所有檔案。上游在 frontmatter 宣告
   `description`、`argument-hint`、`allowed-tools` 與 `disable-model-invocation`。已出貨
   的 Codex command 檔案都沒有 frontmatter，因此參數提示改寫在內文，工具存取也無法逐一
   指令限制。
-- **Subagent 宣告** — `agents/codex-rescue.md`。上游在 frontmatter 宣告 `model`、
-  `tools` 與 `skills`，把 rescue 轉發者釘在單一模型且只有 `Bash`。已出貨的 Codex agent
-  檔案都沒有 frontmatter，因此同樣的限制只能寫成要求 agent 遵守的指示。
+- **Subagent 宣告** — `agents/codex-rescue.md`。上游以 markdown 宣告一個 subagent
+  （frontmatter 中的 `model`、`tools` 與 `skills`），其 rescue 指令再委派給它；這把轉發者
+  釘在單一模型且只有 `Bash`，也讓轉發規則不必寫進指令檔。Codex 自己有 subagent，但 plugin 無法宣告它：
+  那是放在 `.codex/agents/` 或 `~/.codex/agents/` 底下的獨立 TOML 檔案，plugin 出貨的任何
+  東西都不會成為 subagent。已出貨的 plugin 沒有任何 `agents/*.md`，`plugin.json` 規格沒有
+  `agents` 鍵，而 binary 自己把 `agents/openai.yaml` 描述為「為某個 skill 目錄建立」的
+  東西——那是介面中繼資料，不是 subagent。因此 plugin 沒有屬於自己、可加以約束的轉發者：`/claude-rescue` 直接呼叫 runtime，並自行
+  承載轉發規則，所以上游用宣告釘住的模型與工具限制，在此處只是寫下來的指示，宿主並不強制。
 - **Session transfer** — `commands/transfer.md`、
   `scripts/lib/claude-session-transfer.mjs`。上游使用 Codex 官方文件化的 external-agent
   session importer，把 Claude Code transcript 轉成真正的 Codex thread，產生可見且可延續
   的 turn。Claude Code 沒有 session importer — `claude import` 匯入的是 Codex 的
-  *設定*，不是對話。因此對應物改為以一段 handoff prompt 建立 bridge 自有的 Claude
+  *設定*，不是對話。因此對應物「應」以一段 handoff prompt 建立 bridge 自有的 Claude
   session，內含轉換後的 Codex transcript 與其出處，並回傳 `claude --resume <session-id>`
-  指令。它承諾的是可延續的工作，**不是**原生可見的匯入歷史。直接在
+  指令——這是本列被要求滿足的契約，不是它已經做到的事；做到與否由 File Map 的 State 欄表示。它承諾的是可延續的工作，**不是**原生可見的匯入歷史。直接在
   `~/.claude/projects/` 底下合成 session 檔案的做法被刻意否決：該格式未文件化且屬私有，
   寫入它有損毀真實使用者 session 的風險。
 

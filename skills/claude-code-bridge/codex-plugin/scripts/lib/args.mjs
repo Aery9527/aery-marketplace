@@ -35,7 +35,11 @@ export function parseArgs(argv, config = {}) {
 
       if (valueOptions.has(key)) {
         const nextValue = inlineValue ?? argv[index + 1];
-        if (nextValue === undefined) {
+        // A flag is never the value of another flag. Taking one would swallow it whole:
+        // `--resume-session --fresh` would record `--fresh` as a session id and leave the
+        // check that refuses those two together with nothing to refuse. A value that really
+        // does begin with `--` is written `--option=--value`, where nothing is ambiguous.
+        if (nextValue === undefined || (inlineValue === undefined && String(nextValue).startsWith("--"))) {
           throw new Error(`Missing value for --${rawKey}`);
         }
         options[key] = nextValue;
@@ -59,7 +63,7 @@ export function parseArgs(argv, config = {}) {
 
     if (valueOptions.has(key)) {
       const nextValue = argv[index + 1];
-      if (nextValue === undefined) {
+      if (nextValue === undefined || String(nextValue).startsWith("--")) {
         throw new Error(`Missing value for -${shortKey}`);
       }
       options[key] = nextValue;
@@ -76,51 +80,40 @@ export function parseArgs(argv, config = {}) {
 export function splitRawArgumentString(raw) {
   const tokens = [];
   let current = "";
-  let quote = null;
-  let escaping = false;
+  let quoted = false;
+  let started = false;
 
+  // The whole grammar: whitespace separates arguments, a double quote groups until its
+  // matching double quote, and every other character stands for itself. An apostrophe is a
+  // character because requests contain them — `don't modify the API`, `C:\Users\O'Brien` — and a
+  // backslash is a character because paths contain those. Nothing escapes a quote, so
+  // `"C:\Program Files\"` ends where it looks like it ends. An unclosed quote is an error:
+  // running it to the end would hand the rest of the request to whatever the quote opened.
   for (const character of raw) {
-    if (escaping) {
-      current += character;
-      escaping = false;
+    if (character === '"') {
+      quoted = !quoted;
+      started = true;
       continue;
     }
 
-    if (character === "\\") {
-      escaping = true;
-      continue;
-    }
-
-    if (quote) {
-      if (character === quote) {
-        quote = null;
-      } else {
-        current += character;
-      }
-      continue;
-    }
-
-    if (character === "'" || character === "\"") {
-      quote = character;
-      continue;
-    }
-
-    if (/\s/.test(character)) {
-      if (current) {
+    if (!quoted && /\s/.test(character)) {
+      if (started) {
         tokens.push(current);
         current = "";
+        started = false;
       }
       continue;
     }
 
     current += character;
+    started = true;
   }
 
-  if (escaping) {
-    current += "\\";
+  if (quoted) {
+    throw new Error("Unbalanced double quote in the forwarded arguments.");
   }
 
-  if (current) {
+  if (started) {
     tokens.push(current);
   }
 
