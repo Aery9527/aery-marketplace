@@ -44,6 +44,11 @@ not the source of truth for the skill list.
   correct flow is to modify the `skills/` source and rerun the sync script. The
   synchronized Codex package keeps only the English primary files, and no
   `*_zhTW.md` files should remain in that tree.
+- Everything under a skill directory is packaged and shipped with that skill, so
+  a document written only for whoever maintains the skill does not belong there.
+  Keep it under `docs/<skill-name>/` instead. Before changing anything under
+  `skills/claude-code-bridge/codex-plugin/`, read
+  `docs/claude-code-bridge/UPSTREAM-PARITY.md` and update it in the same change.
 - A Codex plugin may need plugin-root content that is not a skill, such as
   `commands/`, `agents/`, `scripts/` and `hooks.json`. Keep the source of truth
   for that content under `skills/` as well: put it in a `codex-plugin/` overlay
