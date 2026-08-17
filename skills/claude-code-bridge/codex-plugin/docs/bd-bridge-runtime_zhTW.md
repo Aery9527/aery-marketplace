@@ -12,8 +12,8 @@
 
 Bridge runtime 讓 Codex session 能把工作委派給長期運行的 Claude Code CLI
 session、安全地觀察與停止委派工作、選擇性要求停止前審查，並把產生的脈絡交給可續接的
-Claude session。它保留 packaged `claude-code-bridge` skill 上游 parity 契約所記錄的
-host 限制，不會宣稱 Codex 能重現其實無法提供的 Claude Code 原生機制。
+Claude session。它如實回報各機制實際帶有的 host 限制，不會宣稱 CLI 其實無法提供的
+Claude Code 原生行為。
 
 [返回頂端](#快速導覽)
 

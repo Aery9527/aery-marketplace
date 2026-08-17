@@ -131,16 +131,3 @@ namespaced by plugin, so they carry a `claude-` prefix.
 - An authenticated Claude Code installation. The bridge uses the local CLI
   login; it holds no credentials of its own.
 - Node.js 18.18 or later for the runtime scripts.
-
-## Maintenance
-
-This skill is a reverse port of the Codex plugin for Claude Code, which runs the
-bridge in the opposite direction.
-[UPSTREAM-PARITY.md](UPSTREAM-PARITY.md) pins the upstream revision, maps every
-upstream file to its counterpart here, and records what the reverse direction
-cannot reproduce.
-
-- MUST read [UPSTREAM-PARITY.md](UPSTREAM-PARITY.md) before changing anything
-  under `codex-plugin/`, and MUST update it in the same change.
-- MUST NOT mark a File Map row `done` before the verification named for its area
-  passes.

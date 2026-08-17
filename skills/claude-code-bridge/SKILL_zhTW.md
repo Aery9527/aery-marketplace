@@ -103,13 +103,3 @@ description: >-
   送出該欄位，因此像中斷執行中 job 這類能力在其上就是不可用。版本本身絕不阻擋執行。
 - 已認證的 Claude Code 安裝。此 bridge 使用本機 CLI 的登入狀態，本身不保存任何憑證。
 - Node.js 18.18 或更新版本，供 runtime scripts 使用。
-
-## 維護
-
-此 skill 是 Codex plugin for Claude Code 的反向移植，該專案把 bridge 跑在相反方向。
-[UPSTREAM-PARITY.md](UPSTREAM-PARITY_zhTW.md) 釘住上游修訂版本、把每個上游檔案對應到
-此處的對應物，並記錄反向實作無法重現的部分。
-
-- 修改 `codex-plugin/` 底下任何內容前，必須先讀
-  [UPSTREAM-PARITY.md](UPSTREAM-PARITY_zhTW.md)，並在同一次變更中更新它。
-- 在該區域對應的驗證通過之前，嚴禁把 File Map 的某一列標記為 `done`。
