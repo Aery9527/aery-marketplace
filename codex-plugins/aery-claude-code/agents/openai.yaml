@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Code Bridge"
+  short_description: "Run Claude Code from inside Codex"
+  default_prompt: "Use claude-code-bridge to have Claude Code review the current change, challenge an approach, or take over an investigation or fix."

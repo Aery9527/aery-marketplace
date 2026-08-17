@@ -12,16 +12,109 @@ def normalize_relative_path(path: str) -> pathlib.Path:
     return pathlib.Path(trimmed.replace("\\", "/"))
 
 
-def collect_entries(root: pathlib.Path, *, exclude_zh_tw: bool) -> tuple[set[pathlib.Path], set[pathlib.Path]]:
+# A skill may carry an overlay directory that sync lifts to the Codex plugin root
+# instead of copying it into the packaged skill.
+OVERLAY_DIR_NAME = "codex-plugin"
+
+# The plugin root is a closed set: these two entries are owned by the sync script,
+# and every other entry must come from an overlay.
+RESERVED_PLUGIN_ROOT_ENTRIES = frozenset({".codex-plugin", "skills"})
+
+
+def collect_entries(
+    root: pathlib.Path,
+    *,
+    exclude_zh_tw: bool,
+    exclude_top_level: str | None = None,
+) -> tuple[set[pathlib.Path], set[pathlib.Path]]:
     directories: set[pathlib.Path] = set()
     files: set[pathlib.Path] = set()
     for path in sorted(root.rglob("*")):
         relative_path = path.relative_to(root)
+        if exclude_top_level is not None and relative_path.parts[0] == exclude_top_level:
+            continue
         if path.is_dir():
             directories.add(relative_path)
         elif not (exclude_zh_tw and path.name.endswith("_zhTW.md")):
             files.add(relative_path)
     return directories, files
+
+
+def compare_trees(
+    source_root: pathlib.Path,
+    target_root: pathlib.Path,
+    repo_root: pathlib.Path,
+    *,
+    exclude_top_level: str | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    expected_directories, expected_files = collect_entries(
+        source_root, exclude_zh_tw=True, exclude_top_level=exclude_top_level
+    )
+    actual_directories, actual_files = collect_entries(target_root, exclude_zh_tw=False)
+
+    for relative_path in sorted(expected_directories - actual_directories):
+        errors.append(
+            "Missing directory: "
+            f"{(target_root / relative_path).relative_to(repo_root)} "
+            f"(expected from {(source_root / relative_path).relative_to(repo_root)})"
+        )
+
+    for relative_path in sorted(actual_directories - expected_directories):
+        errors.append(f"Unexpected directory: {(target_root / relative_path).relative_to(repo_root)}")
+
+    for relative_path in sorted(expected_files - actual_files):
+        errors.append(
+            "Missing file: "
+            f"{(target_root / relative_path).relative_to(repo_root)} "
+            f"(expected from {(source_root / relative_path).relative_to(repo_root)})"
+        )
+
+    for relative_path in sorted(actual_files - expected_files):
+        errors.append(f"Unexpected file: {(target_root / relative_path).relative_to(repo_root)}")
+
+    for relative_path in sorted(expected_files & actual_files):
+        source_file = source_root / relative_path
+        target_file = target_root / relative_path
+        if source_file.read_bytes() != target_file.read_bytes():
+            errors.append(
+                "Content mismatch: "
+                f"{target_file.relative_to(repo_root)} != {source_file.relative_to(repo_root)}"
+            )
+
+    return errors
+
+
+def verify_overlay(
+    overlay_root: pathlib.Path,
+    plugin_root: pathlib.Path,
+    repo_root: pathlib.Path,
+) -> tuple[list[str], set[str]]:
+    """Compare one overlay against the plugin root, and report which root entries it owns."""
+    errors: list[str] = []
+    owned_names: set[str] = set()
+    for source_entry in sorted(overlay_root.iterdir()):
+        if source_entry.is_file() and source_entry.name.endswith("_zhTW.md"):
+            continue
+
+        owned_names.add(source_entry.name)
+        target_entry = plugin_root / source_entry.name
+        if not target_entry.exists():
+            errors.append(
+                f"Missing overlay entry: {target_entry.relative_to(repo_root)} "
+                f"(expected from {source_entry.relative_to(repo_root)})"
+            )
+            continue
+
+        if source_entry.is_dir():
+            errors.extend(compare_trees(source_entry, target_entry, repo_root))
+        elif source_entry.read_bytes() != target_entry.read_bytes():
+            errors.append(
+                "Content mismatch: "
+                f"{target_entry.relative_to(repo_root)} != {source_entry.relative_to(repo_root)}"
+            )
+
+    return errors, owned_names
 
 
 def verify_repo(repo_root: pathlib.Path) -> list[str]:
@@ -32,13 +125,15 @@ def verify_repo(repo_root: pathlib.Path) -> list[str]:
     for plugin in marketplace.get("plugins", []):
         plugin_name = str(plugin["name"])
         plugin_source_root = repo_root / normalize_relative_path(str(plugin["source"]))
-        target_skills_root = repo_root / "codex-plugins" / plugin_name / "skills"
+        plugin_root = repo_root / "codex-plugins" / plugin_name
+        target_skills_root = plugin_root / "skills"
 
         if not target_skills_root.is_dir():
             errors.append(f"Missing skills directory: {target_skills_root.relative_to(repo_root)}")
             continue
 
         declared_skill_names: set[str] = set()
+        overlay_owned_names: set[str] = set()
         for skill_path in plugin.get("skills", []):
             normalized_skill_path = normalize_relative_path(str(skill_path))
             skill_name = normalized_skill_path.name
@@ -55,43 +150,56 @@ def verify_repo(repo_root: pathlib.Path) -> list[str]:
                 errors.append(f"Missing target skill directory: {target_skill_root.relative_to(repo_root)}")
                 continue
 
-            expected_directories, expected_files = collect_entries(source_skill_root, exclude_zh_tw=True)
-            actual_directories, actual_files = collect_entries(target_skill_root, exclude_zh_tw=False)
-
-            for relative_path in sorted(expected_directories - actual_directories):
-                errors.append(
-                    "Missing directory: "
-                    f"{(target_skill_root / relative_path).relative_to(repo_root)} "
-                    f"(expected from {(source_skill_root / relative_path).relative_to(repo_root)})"
+            errors.extend(
+                compare_trees(
+                    source_skill_root,
+                    target_skill_root,
+                    repo_root,
+                    exclude_top_level=OVERLAY_DIR_NAME,
                 )
+            )
 
-            for relative_path in sorted(actual_directories - expected_directories):
-                errors.append(f"Unexpected directory: {(target_skill_root / relative_path).relative_to(repo_root)}")
-
-            for relative_path in sorted(expected_files - actual_files):
-                errors.append(
-                    "Missing file: "
-                    f"{(target_skill_root / relative_path).relative_to(repo_root)} "
-                    f"(expected from {(source_skill_root / relative_path).relative_to(repo_root)})"
+            overlay_root = source_skill_root / OVERLAY_DIR_NAME
+            if overlay_root.is_dir():
+                overlay_errors, owned_names = verify_overlay(
+                    overlay_root, plugin_root, repo_root
                 )
-
-            for relative_path in sorted(actual_files - expected_files):
-                errors.append(f"Unexpected file: {(target_skill_root / relative_path).relative_to(repo_root)}")
-
-            for relative_path in sorted(expected_files & actual_files):
-                source_file = source_skill_root / relative_path
-                target_file = target_skill_root / relative_path
-                if source_file.read_bytes() != target_file.read_bytes():
+                errors.extend(overlay_errors)
+                for name in sorted(owned_names & overlay_owned_names):
                     errors.append(
-                        "Content mismatch: "
-                        f"{target_file.relative_to(repo_root)} != {source_file.relative_to(repo_root)}"
+                        f"Overlay entry '{name}' is declared by more than one skill "
+                        f"in plugin '{plugin_name}'"
                     )
+                overlay_owned_names |= owned_names
 
         for path in sorted(target_skills_root.iterdir()):
             if path.is_dir() and path.name not in declared_skill_names:
                 errors.append(f"Unexpected skill directory: {path.relative_to(repo_root)}")
             elif path.is_file():
                 errors.append(f"Unexpected file in skills root: {path.relative_to(repo_root)}")
+
+        for path in sorted(plugin_root.iterdir()):
+            if path.name in RESERVED_PLUGIN_ROOT_ENTRIES:
+                continue
+            if path.name not in overlay_owned_names:
+                errors.append(f"Unexpected plugin root entry: {path.relative_to(repo_root)}")
+
+        manifest_path = plugin_root / ".codex-plugin" / "plugin.json"
+        if not manifest_path.is_file():
+            errors.append(f"Missing plugin manifest: {manifest_path.relative_to(repo_root)}")
+            continue
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        expected_hooks = "./hooks.json" if "hooks.json" in overlay_owned_names else None
+        if expected_hooks is not None and manifest.get("hooks") != expected_hooks:
+            errors.append(
+                f"Plugin manifest {manifest_path.relative_to(repo_root)} must declare "
+                f"hooks as {expected_hooks!r}"
+            )
+        elif expected_hooks is None and "hooks" in manifest:
+            errors.append(
+                f"Plugin manifest {manifest_path.relative_to(repo_root)} declares hooks "
+                "without an overlay-owned hooks.json"
+            )
 
     return errors
 

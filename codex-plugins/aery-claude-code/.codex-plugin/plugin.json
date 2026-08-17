@@ -1,0 +1,24 @@
+{
+  "name": "aery-claude-code",
+  "version": "0.10.0",
+  "description": "Use Claude Code from Codex to review code or delegate tasks.",
+  "author": {
+    "name": "Aery Lin"
+  },
+  "repository": "https://github.com/Aery9527/aery-marketplace",
+  "license": "Apache-2.0",
+  "keywords": [
+    "claude-code",
+    "code-review",
+    "delegation",
+    "bridge"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Claude Code",
+    "shortDescription": "Call Claude Code from Codex",
+    "developerName": "Aery Lin",
+    "category": "Developer Tools"
+  },
+  "hooks": "./hooks.json"
+}

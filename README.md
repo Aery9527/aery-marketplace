@@ -1,6 +1,6 @@
 # aery-marketplace
 
-Current version: [`v0.9.0`](release-note/v0.9.0.md)
+Current version: [`v0.10.0`](release-note/v0.10.0.md)
 
 將 Aery Lin 多年開發經驗與工程慣例收斂成可重複使用的 AI Agent Skills，並透過 Plugin Bundle 機制按情境組裝載入。
 
@@ -119,5 +119,8 @@ AI agent 需要掌握可用 skills 時，應掃描 [`skills/`](skills/) 底下�
 ```
 
 [`codex-plugins/*/skills`](codex-plugins/) 是封裝副本，不是 source of truth；不要直接編輯它們。同步腳本會先複製整個 skill tree，再移除整棵目錄中的 [`*_zhTW.md`](skills/)，並用 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 的 `metadata.version` 回寫 [`codex-plugins/*/.codex-plugin/plugin.json`](codex-plugins/) 的 `version`。同步完成後，驗證腳本會檢查 [`codex-plugins/*/skills`](codex-plugins/) 與 source [`skills/`](skills/) 是否完全一致，唯一允許的差異是移除 [`*_zhTW.md`](skills/)。若新增新的 Codex plugin package，先補齊 [`codex-plugins/<plugin>/.codex-plugin/plugin.json`](codex-plugins/)，再執行同步腳本。
+
+有些 Codex plugin 需要 skills 以外的 plugin-root 內容，例如 `commands/`、`agents/`、`scripts/` 與 `hooks.json`。這類檔案的 source of truth 一樣放在 [`skills/`](skills/) 底下：在該 skill 目錄內建立 `codex-plugin/` overlay 目錄，同步腳本會把它的內容提升到 [`codex-plugins/<plugin>/`](codex-plugins/) 的 plugin root，同時把 overlay 本身排除在 skill 副本之外。overlay 只擁有它自己宣告的那幾個 plugin-root 項目，因此 `.codex-plugin/` 與 `skills/` 不會被覆蓋；overlay 內也嚴禁出現這兩個名稱。驗證腳本會一併比對 overlay 與 plugin root 的內容。
+當 overlay 提供 `hooks.json` 時，同步腳本也會在該 package 的 [`plugin.json`](codex-plugins/) 自動產生 `"hooks": "./hooks.json"`；移除 overlay hook 時，該宣告也會一併移除，避免 generated manifest 成為第二份設定來源。
 
 [Back to top](#quick-navigation)
