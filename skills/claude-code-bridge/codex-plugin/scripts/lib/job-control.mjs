@@ -20,7 +20,8 @@ function getCurrentSessionId(options = {}) {
   if (options.allSessions) {
     return null;
   }
-  return (options.env ?? process.env)[SESSION_ID_ENV] ?? null;
+  const env = options.env ?? process.env;
+  return env[SESSION_ID_ENV] ?? (options.env ? env.CODEX_THREAD_ID : null) ?? null;
 }
 
 // Without a session identifier every job in the workspace is in scope. That is the same
@@ -200,7 +201,7 @@ function jobSortKey(job) {
   return String(job.completedAt ?? job.updatedAt ?? job.startedAt ?? job.createdAt ?? "");
 }
 
-function loadAuthoritativeJobs(workspaceRoot) {
+export function loadAuthoritativeJobs(workspaceRoot) {
   const listed = new Map(listJobs(workspaceRoot).map((job) => [job.id, job]));
   return listJobIds(workspaceRoot)
     .map((id) => readAuthoritativeJob(workspaceRoot, listed.get(id) ?? { id }))

@@ -8,6 +8,21 @@
 修改 `codex-plugin/` 底下任何內容前必須先讀本檔案，並在同一次變更中更新它。本檔案只
 記錄**當前狀態與當前契約** — 某一列為何改變屬於 commit message，不屬於這裡。
 
+## 快速導覽
+
+- [上游釘選](#上游釘選)
+- [如何閱讀本檔案](#如何閱讀本檔案)
+- [追隨上游](#追隨上游)
+- [驗證矩陣](#驗證矩陣)
+- [版面對應](#版面對應)
+- [File Map](#file-map)
+- [宿主能力比較](#宿主能力比較)
+- [調適](#調適)
+- [缺口](#缺口)
+- [宿主驗證](#宿主驗證)
+
+---
+
 ## 上游釘選
 
 | 欄位 | 值 |
@@ -18,6 +33,10 @@
 | Commit 標題 | Remove shell expansion for git commands (#447) |
 | 上游 plugin 版本 | `1.0.6`（`plugins/codex/.claude-plugin/plugin.json`） |
 | 上游授權 | Apache-2.0 |
+
+[回到頂端](#快速導覽)
+
+---
 
 ## 如何閱讀本檔案
 
@@ -30,13 +49,13 @@
 | `port` | 直接重現行為 |
 | `adapt` | 以不同的宿主機制重現行為，見[調適](#調適) |
 | `partial` | 重現但有已記錄的損失，見[缺口](#缺口) |
-| `open` | 可重現性尚未定案；必須由指名的 probe 決定，見[待驗證](#待驗證) |
+| `open` | 可重現性尚未定案；必須由指名的 probe 決定，見[宿主驗證](#宿主驗證) |
 | `drop` | 刻意不提供對應物，見[缺口](#缺口) |
 | `new` | 本套件需要此檔案，上游沒有對應物 |
 | `n/a` | 上游的基礎設施，本 repository 已用自己的方式解決 |
 | `removed` | 上游已刪除此檔案；保留該列讓其對應物仍在審視範圍內 |
 
-**State** — 對應物的交付狀態。
+**State** — 此列上游契約的交付狀態。同一個對應物可服務多列，而各列契約可能處於不同狀態。
 
 | State | 意義 |
 |-------|------|
@@ -49,6 +68,10 @@
 
 File Map 之後的章節 — [調適](#調適)、[缺口](#缺口) — 描述的是每個對應物必須滿足的
 **契約**。某個對應物是否已經滿足，一律由 File Map 的 State 欄表示，絕不由這些章節表示。
+
+[回到頂端](#快速導覽)
+
+---
 
 ## 追隨上游
 
@@ -79,6 +102,10 @@ git diff --stat db52e28f4d9ded852ab3942cea316258ae4ef346..origin/main \
 斷言每個路徑都恰好對應一列 File Map，並在新增、刪除或改名時失敗。在該測試存在之前，
 步驟 1–4 都依賴執行升級的人。
 
+[回到頂端](#快速導覽)
+
+---
+
 ## 驗證矩陣
 
 某區域的列要被標記為 `done` 之前必須通過的驗證。
@@ -91,16 +118,28 @@ git diff --stat db52e28f4d9ded852ab3942cea316258ae4ef346..origin/main \
 | job 狀態 | `codex-plugin/tests/state.test.mjs`、`codex-plugin/tests/job-control.test.mjs` |
 | 輸出渲染 | `codex-plugin/tests/render.test.mjs` |
 | Claude session client | `codex-plugin/tests/claude-cli.test.mjs`、`codex-plugin/tests/stream-protocol.test.mjs` |
+| session transfer resumability | `codex-plugin/tests/session-transfer.test.mjs` 的 deterministic coverage，加上真實雙行程 probe：透過 `transfer` 建立、在另一個行程 resume 回傳的 Claude session，並取回完全一致的 provenance token |
 | 靜態資產（prompts、schemas、授權、manifest） | `scripts/sync-codex-plugins.ps1` 完成且 `scripts/verify_codex_plugins.py` 通過 |
 | commands、agents、skills（文字） | 對照其映射的上游檔案人工審閱；無自動化關卡 |
-| hooks | [待驗證](#待驗證)中的 TUI probe |
+| hooks | deterministic hook tests，加上[宿主驗證](#宿主驗證)中的互動式 TUI probe |
 
 本 repository 沒有 CI，因此這些都在 release 前於本機執行。
+
+[回到頂端](#快速導覽)
+
+---
 
 ## 版面對應
 
 上游在 `plugins/codex/` 出貨單一 Claude Code plugin。本 repository 是 skills
 marketplace，因此同一個套件由兩種來源形狀組裝：
+
+```mermaid
+flowchart LR
+    SkillSource["Skill source"] --> Sync["Codex plugin sync"]
+    Overlay["Plugin-root overlay"] --> Sync
+    Sync --> Package["Packaged Codex plugin"]
+```
 
 | 上游位置 | 此處的 source of truth | 封裝到 |
 |----------|------------------------|--------|
@@ -111,6 +150,10 @@ overlay 之所以存在，是因為 Codex plugin 把 `scripts/`、`commands/`、
 `hooks.json` 放在 *plugin root*，而不是放在某個 skill 內；但本 repository 要求所有原始
 檔案都住在 `skills/` 底下。`scripts/sync-codex-plugins.ps1` 會把 overlay 的內容複製到
 plugin root，並把 overlay 從 skill 複本中排除，方式與排除 `*_zhTW.md` 相同。
+
+[回到頂端](#快速導覽)
+
+---
 
 ## File Map
 
@@ -123,7 +166,7 @@ Counterpart 欄的路徑相對於 `skills/claude-code-bridge/`，除非它以 re
 |----------|--------|------|-------|
 | `LICENSE` | `codex-plugin/LICENSE`（Apache-2.0 全文，未修改） | port | done |
 | `NOTICE` | `codex-plugin/NOTICE`（attribution，已加入本移植） | adapt | done |
-| `README.md` | `skills/claude-code-bridge/SKILL.md` | adapt | wip |
+| `README.md` | `skills/claude-code-bridge/SKILL.md` | adapt | done |
 | `package.json` | 無 — 零相依 ESM，測試以 `node --test` 執行 | n/a | n/a |
 | `package-lock.json` | 無 — 沒有相依可鎖定 | n/a | n/a |
 | `tsconfig.app-server.json` | `codex-plugin/scripts/lib/stream-protocol.mjs`（runtime 驗證取代 build 期型別） | adapt | done |
@@ -140,7 +183,7 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 
 | 上游路徑 | 對應物 | Plan | State |
 |----------|--------|------|-------|
-| `plugins/codex/.claude-plugin/plugin.json` | `codex-plugins/aery-claude-code/.codex-plugin/plugin.json` | adapt | wip |
+| `plugins/codex/.claude-plugin/plugin.json` | `codex-plugins/aery-claude-code/.codex-plugin/plugin.json` | adapt | done |
 | `plugins/codex/CHANGELOG.md` | `release-note/vX.Y.Z.md`（repository 層級） | n/a | n/a |
 | `plugins/codex/LICENSE` | `codex-plugin/LICENSE` | port | done |
 | `plugins/codex/NOTICE` | `codex-plugin/NOTICE` | adapt | done |
@@ -152,7 +195,7 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 | `plugins/codex/commands/review.md` | `codex-plugin/commands/claude-review.md` | partial | done |
 | `plugins/codex/commands/adversarial-review.md` | `codex-plugin/commands/claude-adversarial-review.md` | partial | done |
 | `plugins/codex/commands/rescue.md` | `codex-plugin/commands/claude-rescue.md` | adapt | done |
-| `plugins/codex/commands/transfer.md` | `codex-plugin/commands/claude-transfer.md` | adapt | todo |
+| `plugins/codex/commands/transfer.md` | `codex-plugin/commands/claude-transfer.md` | adapt | done |
 | `plugins/codex/commands/status.md` | `codex-plugin/commands/claude-status.md` | partial | done |
 | `plugins/codex/commands/result.md` | `codex-plugin/commands/claude-result.md` | partial | done |
 | `plugins/codex/commands/cancel.md` | `codex-plugin/commands/claude-cancel.md` | partial | done |
@@ -164,14 +207,14 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 
 | 上游路徑 | 對應物 | Plan | State |
 |----------|--------|------|-------|
-| `plugins/codex/scripts/codex-companion.mjs` | `codex-plugin/scripts/claude-companion.mjs` | adapt | wip |
-| `plugins/codex/scripts/lib/codex.mjs` | `codex-plugin/scripts/lib/claude.mjs` | adapt | wip |
+| `plugins/codex/scripts/codex-companion.mjs` | `codex-plugin/scripts/claude-companion.mjs` | adapt | done |
+| `plugins/codex/scripts/lib/codex.mjs` | `codex-plugin/scripts/lib/claude.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/app-server.mjs` | `codex-plugin/scripts/lib/claude-cli.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/app-server-protocol.d.ts` | `codex-plugin/scripts/lib/stream-protocol.mjs`（runtime 驗證，非型別） | adapt | done |
-| `plugins/codex/scripts/app-server-broker.mjs` | `codex-plugin/scripts/claude-broker.mjs` | adapt | todo |
-| `plugins/codex/scripts/lib/broker-endpoint.mjs` | `codex-plugin/scripts/lib/broker-endpoint.mjs` | adapt | todo |
-| `plugins/codex/scripts/lib/broker-lifecycle.mjs` | `codex-plugin/scripts/lib/broker-lifecycle.mjs` | adapt | todo |
-| `plugins/codex/scripts/lib/claude-session-transfer.mjs` | `codex-plugin/scripts/lib/codex-session-transfer.mjs` | partial | todo |
+| `plugins/codex/scripts/app-server-broker.mjs` | `codex-plugin/scripts/claude-broker.mjs` | adapt | done |
+| `plugins/codex/scripts/lib/broker-endpoint.mjs` | `codex-plugin/scripts/lib/broker-endpoint.mjs` | adapt | done |
+| `plugins/codex/scripts/lib/broker-lifecycle.mjs` | `codex-plugin/scripts/lib/broker-lifecycle.mjs` | adapt | done |
+| `plugins/codex/scripts/lib/claude-session-transfer.mjs` | `codex-plugin/scripts/lib/codex-session-transfer.mjs` | partial | done |
 | `plugins/codex/scripts/lib/args.mjs` | `codex-plugin/scripts/lib/args.mjs` | port | done |
 | `plugins/codex/scripts/lib/fs.mjs` | `codex-plugin/scripts/lib/fs.mjs` | port | done |
 | `plugins/codex/scripts/lib/git.mjs` | `codex-plugin/scripts/lib/git.mjs` | adapt | done |
@@ -179,13 +222,14 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 | `plugins/codex/scripts/lib/prompts.mjs` | `codex-plugin/scripts/lib/prompts.mjs` | port | done |
 | `plugins/codex/scripts/lib/workspace.mjs` | `codex-plugin/scripts/lib/workspace.mjs` | port | done |
 | `plugins/codex/scripts/lib/state.mjs` | `codex-plugin/scripts/lib/state.mjs` | adapt | done |
-| `plugins/codex/scripts/lib/render.mjs` | `codex-plugin/scripts/lib/render.mjs` | adapt | wip |
+| `plugins/codex/scripts/lib/render.mjs` | `codex-plugin/scripts/lib/render.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/job-control.mjs` | `codex-plugin/scripts/lib/job-control.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/tracked-jobs.mjs` | `codex-plugin/scripts/lib/tracked-jobs.mjs` | adapt | done |
 
 最後四個 `adapt` 列帶的是宿主語意而非純邏輯：`state.mjs` 在 `CLAUDE_PLUGIN_DATA` 底下
-解析狀態、`job-control.mjs` 與 `tracked-jobs.mjs` 建模 app-server 的進度事件、
-`render.mjs` 輸出 `codex resume` 後續指令。每一個都需要改寫其宿主相關的那一半。
+解析狀態、`job-control.mjs` 與 `tracked-jobs.mjs` 將 Claude stream progress 建模成 durable
+jobs，`render.mjs` 則輸出 `claude --resume` 後續指令。它們的 host-specific halves 正是其
+屬於 adaptation 而非直接 port 的原因。
 
 `process.mjs` 執行任何執行檔時都不經過 shell。上游可以用 shell，因為它只會 spawn
 `codex`；此處的 `taskkill` 使用 `/PID` 這類參數，Windows 上的 POSIX shell 會把它改寫成
@@ -195,35 +239,40 @@ protocol 契約則改由 runtime validator 承擔，而非 build 步驟。
 
 | 上游路徑 | 對應物 | Plan | State |
 |----------|--------|------|-------|
-| `plugins/codex/hooks/hooks.json` | `codex-plugin/hooks.json` | adapt | todo |
-| `plugins/codex/scripts/session-lifecycle-hook.mjs` | `codex-plugin/scripts/session-lifecycle-hook.mjs` | adapt | todo |
-| `plugins/codex/scripts/stop-review-gate-hook.mjs` | `codex-plugin/scripts/stop-review-gate-hook.mjs` | adapt | todo |
+| `plugins/codex/hooks/hooks.json` | `codex-plugin/hooks.json` | adapt | done |
+| `plugins/codex/scripts/session-lifecycle-hook.mjs` | `codex-plugin/scripts/session-lifecycle-hook.mjs` | adapt | done |
+| `plugins/codex/scripts/stop-review-gate-hook.mjs` | `codex-plugin/scripts/stop-review-gate-hook.mjs` | adapt | done |
 | `plugins/codex/prompts/adversarial-review.md` | `codex-plugin/prompts/adversarial-review.md` | adapt | done |
-| `plugins/codex/prompts/stop-review-gate.md` | `codex-plugin/prompts/stop-review-gate.md` | port | todo |
+| `plugins/codex/prompts/stop-review-gate.md` | `codex-plugin/prompts/stop-review-gate.md` | port | done |
 | `plugins/codex/schemas/review-output.schema.json` | `codex-plugin/schemas/review-output.schema.json` | port | done |
 
 兩個 hook script 都是 `adapt` 而非 `port`，但理由不同。
-`session-lifecycle-hook.mjs` 在 `SessionStart` 時把狀態匯出到 `CLAUDE_ENV_FILE`，並在
-`SessionEnd` 時拆除 broker；Codex 的 hook payload 與環境契約都不同，而它要拆除的對象
-又取決於 broker 的決策。`stop-review-gate-hook.mjs` 讀取 `last_assistant_message` 並
-spawn `codex-companion task --json`；它需要 Codex 的 `Stop` payload 形狀，以及反向
-companion 的 task 契約。
+`session-lifecycle-hook.mjs` 接受 Codex `SessionStart` 與 `SessionEnd` payload，從 listing
+與 authoritative files 共同找出結束 session 的 jobs。它先要求 active broker shutdown，
+失敗才 fallback 到經驗證的 process termination，並在任一路徑後確認 worker 已退出；
+acknowledged shutdown 或 verified fallback 後仍無法觀察到 exit 時會保留 job evidence，
+不會逕自刪除。`stop-review-gate-hook.mjs` 讀取 `last_assistant_message`、套用已儲存的 workspace
+偏好、檢查 installation 與 authentication readiness，並執行有明確 `ALLOW` 或 `BLOCK`
+協定的隔離 Claude review。Response 會以 escaped JSON string 進入 prompt，而不是可執行的
+prompt markup。直接呼叫測試涵蓋其行為，而[宿主驗證](#宿主驗證)中的互動式 TUI probe
+確認了宿主送達。
 
 ### Skills
 
 | 上游路徑 | 對應物 | Plan | State |
 |----------|--------|------|-------|
-| `plugins/codex/skills/codex-cli-runtime/SKILL.md` | `skills/claude-cli-runtime/SKILL.md` | adapt | todo |
-| `plugins/codex/skills/codex-result-handling/SKILL.md` | `skills/claude-result-handling/SKILL.md` | adapt | todo |
-| `plugins/codex/skills/gpt-5-4-prompting/SKILL.md` | `skills/claude-code-prompting/SKILL.md` | adapt | todo |
-| `plugins/codex/skills/gpt-5-4-prompting/references/prompt-blocks.md` | `skills/claude-code-prompting/references/prompt-blocks.md` | adapt | todo |
-| `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-recipes.md` | `skills/claude-code-prompting/references/claude-prompt-recipes.md` | adapt | todo |
-| `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-antipatterns.md` | `skills/claude-code-prompting/references/claude-prompt-antipatterns.md` | adapt | todo |
-| — | `skills/claude-code-bridge/SKILL.md` | new | wip |
-| — | `skills/claude-code-bridge/UPSTREAM-PARITY.md` | new | wip |
+| `plugins/codex/skills/codex-cli-runtime/SKILL.md` | 無 — 唯一 consumer 是已捨棄的 rescue subagent，見[缺口](#缺口) | drop | n/a |
+| `plugins/codex/skills/codex-result-handling/SKILL.md` | `skills/claude-code-bridge/SKILL.md` | adapt | done |
+| `plugins/codex/skills/gpt-5-4-prompting/SKILL.md` | 無 — rescue 保留使用者請求，見[缺口](#缺口) | drop | n/a |
+| `plugins/codex/skills/gpt-5-4-prompting/references/prompt-blocks.md` | 無 — 所屬 prompting skill 已捨棄 | drop | n/a |
+| `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-recipes.md` | 無 — 所屬 prompting skill 已捨棄 | drop | n/a |
+| `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-antipatterns.md` | 無 — 所屬 prompting skill 已捨棄 | drop | n/a |
+| — | `skills/claude-code-bridge/SKILL.md` | new | done |
+| — | `skills/claude-code-bridge/UPSTREAM-PARITY.md` | new | done |
 
-三個上游 skill 全部是 `adapt`。它們的內文直接以名稱指示 agent 呼叫 `codex-companion`、
-Codex CLI 與 Codex session；每一條這類指示都必須依 Claude CLI 契約改寫。
+bridge skill 負責結果呈現，因為每個 command 都原樣回傳 companion 的 stdout。另兩個上游
+skill 只服務已捨棄的 rescue subagent，或改寫本移植刻意保留的請求；把它們複製成獨立 skill
+只會產生互相衝突且沒有 consumer 的指示。
 
 ### Tests
 
@@ -234,17 +283,24 @@ Codex CLI 與 Codex session；每一條這類指示都必須依 Claude CLI 契�
 | `tests/process.test.mjs` | `codex-plugin/tests/process.test.mjs` | port | done |
 | `tests/state.test.mjs` | `codex-plugin/tests/state.test.mjs` | adapt | done |
 | `tests/render.test.mjs` | `codex-plugin/tests/render.test.mjs` | adapt | done |
-| `tests/commands.test.mjs` | `codex-plugin/tests/commands.test.mjs` | adapt | wip |
-| `tests/runtime.test.mjs` | `codex-plugin/tests/runtime.test.mjs` | adapt | todo |
+| `tests/commands.test.mjs` | `codex-plugin/tests/commands.test.mjs` | adapt | done |
+| `tests/runtime.test.mjs` | `codex-plugin/tests/broker-session-lifecycle.test.mjs` | adapt | done |
 | `tests/fake-codex-fixture.mjs` | `codex-plugin/tests/fake-claude-fixture.mjs` | adapt | done |
-| `tests/broker-endpoint.test.mjs` | `codex-plugin/tests/broker-endpoint.test.mjs` | adapt | todo |
+| `tests/broker-endpoint.test.mjs` | `codex-plugin/tests/broker-session-lifecycle.test.mjs` | adapt | done |
 | `tests/bump-version.test.mjs` | 無 | n/a | n/a |
 | — | `codex-plugin/tests/stream-protocol.test.mjs` | new | done |
 | — | `codex-plugin/tests/claude-cli.test.mjs` | new | done |
 | — | `codex-plugin/tests/job-control.test.mjs` | new | done |
+| — | `codex-plugin/tests/stop-review-gate.test.mjs` | new | done |
+| — | `codex-plugin/tests/session-transfer.test.mjs` | new | done |
 
-`runtime.test.mjs` 是 `adapt`：它驅動一個 fake Codex app server 並演練原生 import 與
-broker interrupt，這些都無法原封不動保留。
+`runtime.test.mjs` 是 `adapt`：其 broker 行為由專用 broker lifecycle suite 覆蓋。
+Stop gate 與 transfer 使用各自的新 suite，因為兩者的宿主 acceptance probe 與 runtime
+protocol 測試不同。
+
+[回到頂端](#快速導覽)
+
+---
 
 ## 宿主能力比較
 
@@ -284,10 +340,14 @@ broker interrupt，這些都無法原封不動保留。
 | `agents/*.md` subagents | plugin 無法提供。Codex 自己的 subagent 是 `.codex/agents/` 底下的 TOML；plugin 的 `agents/` 只有 `openai.yaml` — 那是介面中繼資料 | shipped plugins、`plugin.json` 規格、binary 字串 |
 | `hooks/hooks.json` | `plugin.json` 的 `hooks` 欄位，或預設的 `hooks/hooks.json` | docs, binary strings |
 | `${CLAUDE_PLUGIN_ROOT}` | `${PLUGIN_ROOT}`、`${PLUGIN_DATA}`；`${CLAUDE_PLUGIN_ROOT}` 仍被接受 | docs, binary strings |
-| hook `command` 接受任意 shell 字串 | 必須是裸執行檔名稱，或包含在 plugin root 內的 `./` 路徑 | docs, binary strings |
+| hook `command` 接受任意 shell 字串 | 支援帶參數的 executable 與 `${PLUGIN_ROOT}` 展開；互動式 probe 對每個已註冊 event 實際執行了 `node "${PLUGIN_ROOT}/scripts/hook-probe.mjs" <Event>` | probe |
 | `SessionStart`、`SessionEnd`、`Stop` hook 事件 | 名稱相同，另有 `PreToolUse`、`PostToolUse`、`PermissionRequest`、`PreCompact`、`PostCompact`、`UserPromptSubmit`、`SubagentStart`、`SubagentStop` | docs |
 | `Stop` hook 以 `decision: "block"` 阻擋 | 相同 | docs |
-| plugin hooks 確實會觸發 | 在 `codex exec` 下未觀察到 | probe — 見[待驗證](#待驗證) |
+| plugin hooks 確實會觸發 | 互動式 TUI 與 `codex exec` 都會觸發 `SessionStart`、`Stop` 與 `SessionEnd`；兩者的 session identity 形態不同 | probe — 見[宿主驗證](#宿主驗證) |
+
+[回到頂端](#快速導覽)
+
+---
 
 ## 調適
 
@@ -378,9 +438,9 @@ broker interrupt，這些都無法原封不動保留。
   的區塊，與完整的區塊無法區分。留下的紀錄會是「進行中、但 worker 已消失」，`status` 會如實
   回報，而 `/claude-cancel` 是清除它的方式。
 - **消失的 worker** — 結果由 job 自己的 worker 寫入，或由 `cancel` 代為寫入，或由
-  worker 啟動路徑在執行開始前失敗時寫入。若 worker 死掉而三者皆未發生，紀錄就停在原地。
-  上游有 broker 與 session-end hook 善後，對應物兩者皆無，因此 `status` 與 `result` 會
-  額外檢查是否還有行程回應所記下的 pid。只有 `ESRCH` 算作消失 — `EPERM` 代表行程存在
+  worker 啟動路徑在執行開始前失敗時寫入。broker 與 session-end hook 會清理由 active job
+  或結束中的 Codex session 可歸屬的路徑，但兩者仍可能無法使用或未被宿主送達。因此
+  `status` 與 `result` 仍會檢查是否還有行程回應所記下的 pid。只有 `ESRCH` 算作消失 — `EPERM` 代表行程存在
   但無法觸及 — 而 pid 仍可解析時不下任何結論，因為作業系統會重用 pid；尚未記錄 pid 的
   job 同樣不下結論，因為「還沒開始」不等於「已經死了」。pid 已無法解析本身同樣不足以定論：
   提供該 pid 的紀錄是先讀出來的，可能早於 worker 收尾時寫下的結果。因此探測之後會再讀一次
@@ -400,8 +460,10 @@ broker interrupt，這些都無法原封不動保留。
   區塊載明該 session 實際註冊的工具集。上游不需要這個區塊，因為 Codex 的 sandbox 會在
   執行當下拒絕寫入；而此處的限制是工具根本不存在，reviewer 若規劃了跑不了的指令就白費
   一個 turn。
-- **Prompt skill** — `gpt-5-4-prompting` 教的是 GPT-5.4 的 prompting。其對應物教的是
-  Claude Code 的 prompting，因此檔案有對應關係，但內容是重新撰寫而非翻譯。
+
+[回到頂端](#快速導覽)
+
+---
 
 ## 缺口
 
@@ -413,6 +475,11 @@ broker interrupt，這些都無法原封不動保留。
 - **CI workflow** — `.github/workflows/pull-request-ci.yml`。這是專案選擇而非宿主限制：
   本 repository 沒有 CI。取代它的品質關卡是[驗證矩陣](#驗證矩陣)，在 release 前於本機
   執行。
+- **Rescue 專用 helper skills** — `skills/codex-cli-runtime/SKILL.md` 與
+  `skills/gpt-5-4-prompting/`。上游只在其宣告的 rescue subagent 內載入兩者。Codex plugin
+  無法宣告該 subagent，因此對應 command 直接擁有 runtime 呼叫；它也保留使用者請求而不
+  改寫，使獨立 prompting skill 成為沒有 consumer 的衝突規則。結果呈現仍由 bridge skill
+  本身承接。
 
 ### 已降級
 
@@ -444,14 +511,17 @@ broker interrupt，這些都無法原封不動保留。
   出貨的 Codex command 檔案做這兩件事，因此對應物只從旗標取得模式，並以前景為預設。
   `--wait` 只是把該預設明講出來，而不是另一種模式，因為此處沒有需要被抑制的宿主提問。
 - **中斷執行中的 turn** — `commands/cancel.md`、`interruptAppServerTurn`。上游透過
-  broker 觸及執行中的 turn 並中斷它，thread 仍可續用。此處的 interrupt frame 走 Claude
-  session 的 stdin，只有 worker 行程持有，而對應物沒有 broker，因此 `cancel` 改為對持有
-  所記錄 pid 的行程動手。實際觸及到什麼由平台決定，報告也會說明是哪一種：`taskkill /T /F`
+  broker 觸及執行中的 turn 並中斷它，thread 仍可續用。對應物由持有 Claude stdin 的 worker
+  公開 per-job control endpoint。`cancel` 先要求 broker 傳送 Claude interrupt control frame，
+  只有 Claude acknowledgement 才回報 graceful interruption。endpoint 不存在、無法連線、
+  拒絕或未回答時，fallback 到經驗證的 process termination。該 fallback 實際觸及到什麼由
+  平台決定，報告也會說明是哪一種：`taskkill /T /F`
   會結束該 pid 底下的整棵行程樹，Claude session 也包含在內；對 process group 送 SIGTERM
   會觸及該次執行自己的行程，因為分離的 worker 就是 group leader；對單一 pid 送 SIGTERM
   ——沒有 group 回應時的 fallback，前景執行正好落在這裡——只觸及該行程本身，它啟動的東西
   會繼續跑；Windows 上若沒有 `taskkill`，同樣只結束那一個行程。
-  只有被結束的行程樹才代表該次執行確定結束；訊號只是一項請求，不接受它的執行仍可能跑完
+  broker acknowledgement 會保留可 resume 的 session，但不代表 worker 已記錄 terminal
+  result。被結束的行程樹代表該次執行確定結束；訊號只是一項請求，不接受它的執行仍可能跑完
   並以自己的結果取代這次取消。另有兩種情況什麼都沒停止，報告會如實這麼說而不是宣稱已經
   終止：
   一是 job 沒有記錄 pid，此時會先等待 pid 出現，若始終沒有就記為 cancelled，而正在啟動
@@ -486,19 +556,20 @@ broker interrupt，這些都無法原封不動保留。
   把動手的權利留給使用者，而不是讓 bridge 去終止別的東西。這確立的是這條命令列「讀起來是什麼」，而那也是一條
   命令列所能確立的全部。這是把
   窗口縮小，不是關閉：對於不是自己啟動的行程，此處無法持有任何 handle，因此在回答與訊號
-  之間退出的 worker，會讓那個號碼重新可被取用。要關掉它需要 worker 自己在收到請求時停下，
-  那是 broker 的職責，也是該列仍未完成的原因。已被作業系統轉交出去的號碼會被拒絕，
+  之間退出的 worker，會讓那個號碼重新可被取用。broker 的 primary path 會要求 worker 自行
+  停下而關閉此縫隙；經驗證的 process 路徑仍保留較窄的 fallback window。已被作業系統轉交出去的號碼會被拒絕，
   讀不到行程內容的號碼也會被拒絕：拒絕的代價是使用者得自己動手殺，而對未經核對的 pid 動手
   的代價是當下持有它的東西，在 Windows 上還包含它的子行程。兩種拒絕仍然會把 job 記為
   cancelled，因此都不會留下任何指令都清不掉的紀錄。
-  `ClaudeCliSession.interrupt` 在行程內仍可使用，是 broker 出現後優雅停止會走的路徑。
+  `ClaudeCliSession.interrupt` 是 broker 執行 graceful stop 時使用的 in-process 路徑。
 - **Job 的 session 範圍** — `scripts/session-lifecycle-hook.mjs`。上游為每個 job 標上其
   hook 匯出的宿主 session id，並據此限縮 `status` 與 `cancel` 的**預設**對象；明確指名的
-  job 在兩個方向都仍可觸及整個 workspace。出貨的 `codex`
-  執行檔字串中沒有出現任何 `CODEX_*` 的 session id 變數，因此今天沒有任何來源會匯出它；
-  對應物讀取 `CLAUDE_COMPANION_SESSION_ID`，在其不存在時退回 workspace 範圍，這正是
-  上游 hook 未執行時所走的同一條分支。因此同一 repository 中的兩個 Codex session 會看見
-  彼此的 job。
+  job 在兩個方向都仍可觸及整個 workspace。對應物優先記錄明確提供的
+  `CLAUDE_COMPANION_SESSION_ID`，否則使用 `CODEX_THREAD_ID`；兩者都沒有時才退回 workspace
+範圍。宿主送達 `SessionEnd` 時，hook 會要求相符 broker shutdown，且只移除該 session 中
+  acknowledged shutdown 或 verified termination 後已觀察到 worker exit 的 job artifacts；
+  不確定的 active record 會保留供人工處理。互動式 TUI probe 已確認會送達帶有 session
+  scope 的 `SessionStart` 與 `SessionEnd` payload。
 - **推理強度範圍** — 上游的 `VALID_REASONING_EFFORTS` 接受
   `none|minimal|low|medium|high|xhigh`；對應物的那一份放在 `scripts/lib/claude.mjs`，
   每一條接受 `--effort` 的路徑都會經過它。`claude` CLI 接受 `low|medium|high|xhigh|max`。
@@ -535,25 +606,36 @@ broker interrupt，這些都無法原封不動保留。
   `scripts/lib/claude-session-transfer.mjs`。上游使用 Codex 官方文件化的 external-agent
   session importer，把 Claude Code transcript 轉成真正的 Codex thread，產生可見且可延續
   的 turn。Claude Code 沒有 session importer — `claude import` 匯入的是 Codex 的
-  *設定*，不是對話。因此對應物「應」以一段 handoff prompt 建立 bridge 自有的 Claude
-  session，內含轉換後的 Codex transcript 與其出處，並回傳 `claude --resume <session-id>`
-  指令——這是本列被要求滿足的契約，不是它已經做到的事；做到與否由 File Map 的 State 欄表示。它承諾的是可延續的工作，**不是**原生可見的匯入歷史。直接在
+  *設定*，不是對話。因此對應物會以一段 handoff prompt 建立 bridge 自有的 Claude
+  session；其中的單一 JSON value 承載轉換後的 Codex transcript 與 provenance，不會把
+  conversation text 插值成 prompt markup，並回傳 `claude --resume <session-id>`
+  指令。Deterministic tests 已通過，而第二個 process 的 acceptance probe 也成功 resume
+  所建立的 session，並取回完全一致的出處 token。Bridge 只讀取 Codex transcript 並呼叫
+  Claude CLI；私有 session 檔案由 Claude CLI 建立與擁有，不是由 bridge 寫入。它承諾的是
+  可延續的工作，**不是**原生可見的匯入歷史。直接在
   `~/.claude/projects/` 底下合成 session 檔案的做法被刻意否決：該格式未文件化且屬私有，
   寫入它有損毀真實使用者 session 的風險。
 
-## 待驗證
+[回到頂端](#快速導覽)
 
-無法在本機定案的宣稱。每一項都指名可定案的 probe，以及依賴該答案的列。任何項目在其
-probe 執行之前，嚴禁從 `open` 移到具體的 Plan。
+---
 
-- **Handoff transfer。** Probe：建立一個 bridge 自有的 session、在第二個行程中 resume
-  它、確認出處文字存在於回復後的 context，並確認 bridge 本身沒有在
-  `~/.claude/projects/` 底下寫入任何東西。決定 `transfer` 的契約。
-- **Plugin `Stop` hook 執行。** 一個宣告 `"hooks": "./hooks.json"` 並帶 `Stop` handler
-  的 probe plugin，在 `codex exec` 下五種 command 形式（裸 `.mjs`、`node ./path`、
-  `.cmd` shim、巢狀 `./skills/...` 路徑、`${PLUGIN_ROOT}`）皆未被執行。repository 層級
-  的 `.codex/hooks.json` 同樣未被執行。這與「`codex exec` 完全不跑 hooks」一致，但並未
-  被證明。Probe：在 Codex TUI 中重跑。決定 review gate 是否根本可重現。
-- **Hook 工作目錄。** 文件指出 hook command 從 session 工作目錄執行，而 `./` 路徑在
-  plugin root 內解析。對應物依賴 `${PLUGIN_ROOT}` 而非相對解析；上述 TUI probe 應確認
-  何者成立。
+## 宿主驗證
+
+Probe 使用一個宣告 `"hooks": "./hooks.json"` 的拋棄式 plugin，command handler 則位於
+`${PLUGIN_ROOT}` 底下。多次完整 TUI session 都各自送達 `SessionStart`、`Stop` 與
+`SessionEnd`。所有 payload 都帶有 session identifier 與 repository workspace；hook
+process 的工作目錄也是同一個 workspace，而 `${PLUGIN_ROOT}` 與 `${PLUGIN_DATA}` 則指向
+安裝後的 plugin 路徑。在最後一個完整 TUI session 中，hook process 沒有收到
+`CODEX_THREAD_ID`，且三個 event 的 `session_id` 都等於其 transcript 的
+`session_meta.id`。Command 以 `CODEX_THREAD_ID` 識別同一份 transcript，因此 TUI 中的
+job creation 與 hook cleanup 共用同一個 session identity，而 probe record 不會揭露該
+identifier。
+
+同一個 probe 在 `codex exec` 下也會觸發。那些 hook process 會收到 `CODEX_THREAD_ID`，
+但它不等於 hook payload 的 `session_id`，而 transcript 在這些 event 發生時也沒有提供
+`session_meta.id`。Plugin slash command 在互動式 TUI 中執行，因此 bridge 已驗證的契約是
+TUI 送達與 identity。兩種宿主都透過 `${PLUGIN_ROOT}` 絕對選取 script，不依賴相對 `./`
+command resolution。釘選的 Codex CLI 契約改變時，必須重跑宿主 probe。
+
+[回到頂端](#快速導覽)

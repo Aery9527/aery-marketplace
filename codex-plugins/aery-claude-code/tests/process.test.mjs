@@ -1,9 +1,29 @@
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import process from "node:process";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { terminateProcessTree } from "../scripts/lib/process.mjs";
+import { terminateProcessTree, waitForProcessExit } from "../scripts/lib/process.mjs";
+
+test("waitForProcessExit distinguishes signal delivery from observed exit", async () => {
+  let probes = 0;
+  const exited = await waitForProcessExit(1234, {
+    timeoutMs: 50,
+    pollIntervalMs: 1,
+    killImpl(_pid, signal) {
+      assert.equal(signal, 0);
+      probes += 1;
+      if (probes >= 2) {
+        throw Object.assign(new Error("gone"), { code: "ESRCH" });
+      }
+    }
+  });
+
+  assert.equal(exited, true);
+  assert.equal(probes, 2);
+  assert.equal(await waitForProcessExit(1234, { timeoutMs: 0, killImpl() {} }), false);
+});
 
 test("terminateProcessTree uses taskkill on Windows", () => {
   let captured = null;
@@ -80,13 +100,14 @@ test("terminateProcessTree treats missing Windows processes as already stopped",
 // itself lands: a shell in the middle would rewrite `/PID` into a path and the process
 // would survive.
 test("terminateProcessTree stops a process it was given for real", async () => {
-  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
-    stdio: "ignore",
+  const child = spawn(process.execPath, ["-e", "console.log('ready'); setInterval(() => {}, 1000)"], {
+    stdio: ["ignore", "pipe", "ignore"],
     windowsHide: true
   });
   const exited = new Promise((resolve) => child.on("exit", resolve));
 
   try {
+    await once(child.stdout, "data");
     const outcome = terminateProcessTree(child.pid);
 
     assert.equal(outcome.attempted, true);

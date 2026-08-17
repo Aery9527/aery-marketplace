@@ -216,6 +216,13 @@ export class ClaudeCliSession {
     this.child.stderr?.on("data", (chunk) => {
       this.stderr += String(chunk);
     });
+    this.child.stdin?.on("error", (error) => {
+      // A child that has already exited closes its pipe before the process close event.
+      // That close event carries the stable session-exit contract; EPIPE is only its race.
+      if (error?.code !== "EPIPE") {
+        this.#poison(new ClaudeCliError(`Claude stdin failed: ${error.message}`, { cause: error }));
+      }
+    });
 
     const reader = createStreamLineReader((event) => this.#handleEvent(event));
     this.child.stdout.on("data", (chunk) => {
@@ -334,7 +341,7 @@ export class ClaudeCliSession {
 
       this.pendingTurn = { resolve, reject, timer };
       this.child.stdin.write(`${JSON.stringify(buildUserMessage(text))}\n`, (error) => {
-        if (error) {
+        if (error && error.code !== "EPIPE") {
           this.#poison(new ClaudeCliError(`Failed to send a turn to Claude: ${error.message}`));
         }
       });
@@ -426,10 +433,16 @@ export class ClaudeCliSession {
 // there is one code path for building arguments, validating frames and reading results.
 export async function runClaudeOnce(cwd, prompt, options = {}) {
   const session = ClaudeCliSession.start(cwd, options);
+  let lifecycleControl = null;
   try {
+    lifecycleControl = await options.sessionLifecycle?.start?.(session);
     const result = await session.sendTurn(prompt, options);
     return { ...result, capabilities: session.capabilities, stderr: session.stderr.slice(-2000) };
   } finally {
-    await session.close().catch(() => {});
+    try {
+      await options.sessionLifecycle?.stop?.(lifecycleControl);
+    } finally {
+      await session.close().catch(() => {});
+    }
   }
 }

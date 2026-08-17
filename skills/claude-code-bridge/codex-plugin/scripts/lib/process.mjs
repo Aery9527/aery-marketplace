@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import process from "node:process";
+import { setTimeout as delay } from "node:timers/promises";
 
 export function runCommand(command, args = [], options = {}) {
   const result = spawnSync(command, args, {
@@ -53,6 +54,28 @@ function processIsGone(target, killImpl) {
   } catch (error) {
     return error?.code === "ESRCH";
   }
+}
+
+// Delivering a signal is not the same as observing process exit. Callers that
+// delete the only job evidence wait for that stronger fact with a bounded poll.
+export async function waitForProcessExit(pid, options = {}) {
+  const target = Number(pid);
+  if (!Number.isInteger(target) || target <= 0) {
+    return false;
+  }
+
+  const killImpl = options.killImpl ?? process.kill.bind(process);
+  const timeoutMs = Math.max(0, Number(options.timeoutMs ?? 500));
+  const pollIntervalMs = Math.max(1, Number(options.pollIntervalMs ?? 25));
+  const deadline = Date.now() + timeoutMs;
+  while (!processIsGone(target, killImpl)) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      return false;
+    }
+    await delay(Math.min(pollIntervalMs, remaining));
+  }
+  return true;
 }
 
 // A pid names a process only for as long as that process lives; the operating system hands

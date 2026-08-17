@@ -11,6 +11,21 @@ Read this file before changing anything under `codex-plugin/`, and update it in
 the same change. It records **present state and current contract only** — why a
 row changed belongs in the commit message, not here.
 
+## Quick Navigation
+
+- [Upstream Pin](#upstream-pin)
+- [How To Read This File](#how-to-read-this-file)
+- [Following Upstream](#following-upstream)
+- [Verification Matrix](#verification-matrix)
+- [Layout Mapping](#layout-mapping)
+- [File Map](#file-map)
+- [Host Capability Comparison](#host-capability-comparison)
+- [Adaptations](#adaptations)
+- [Gaps](#gaps)
+- [Host Verification](#host-verification)
+
+---
+
 ## Upstream Pin
 
 | Field | Value |
@@ -21,6 +36,10 @@ row changed belongs in the commit message, not here.
 | Commit subject | Remove shell expansion for git commands (#447) |
 | Upstream plugin version | `1.0.6` (`plugins/codex/.claude-plugin/plugin.json`) |
 | Upstream licence | Apache-2.0 |
+
+[Back to top](#quick-navigation)
+
+---
 
 ## How To Read This File
 
@@ -35,13 +54,14 @@ changes or when a host limitation is discovered.
 | `port` | reproduce the behaviour directly |
 | `adapt` | reproduce the behaviour through a different host mechanism, see [Adaptations](#adaptations) |
 | `partial` | reproduce with a documented loss, see [Gaps](#gaps) |
-| `open` | reproducibility not yet decided; a named probe must settle it, see [Open Verification](#open-verification) |
+| `open` | reproducibility not yet decided; a named probe must settle it, see [Host Verification](#host-verification) |
 | `drop` | deliberately no counterpart, see [Gaps](#gaps) |
 | `new` | this package needs the file; upstream has no counterpart |
 | `n/a` | upstream infrastructure this repository already solves its own way |
 | `removed` | upstream deleted the file; the row is kept so its counterpart stays under review |
 
-**State** — delivery status of the counterpart file.
+**State** — delivery status of this row's upstream contract. One counterpart may
+serve several rows whose contracts reach different states.
 
 | State | Meaning |
 |-------|---------|
@@ -57,6 +77,10 @@ Sections after the File Map — [Adaptations](#adaptations), [Gaps](#gaps) —
 describe the **contract** each counterpart must satisfy. Whether a given
 counterpart satisfies it yet is the File Map's State column, never these
 sections.
+
+[Back to top](#quick-navigation)
+
+---
 
 ## Following Upstream
 
@@ -92,6 +116,10 @@ every path has exactly one File Map row, and fails on an addition, deletion or
 rename. Until that test exists, steps 1–4 depend on the person doing the
 upgrade.
 
+[Back to top](#quick-navigation)
+
+---
+
 ## Verification Matrix
 
 What must pass before a row in that area may be marked `done`.
@@ -104,16 +132,28 @@ What must pass before a row in that area may be marked `done`.
 | job state | `codex-plugin/tests/state.test.mjs`, `codex-plugin/tests/job-control.test.mjs` |
 | rendering | `codex-plugin/tests/render.test.mjs` |
 | the Claude session client | `codex-plugin/tests/claude-cli.test.mjs`, `codex-plugin/tests/stream-protocol.test.mjs` |
+| session transfer resumability | deterministic `codex-plugin/tests/session-transfer.test.mjs` coverage plus a real two-process probe: create through `transfer`, resume the returned Claude session in another process, and recover an exact provenance token |
 | static assets (prompts, schemas, licence, manifest) | `scripts/sync-codex-plugins.ps1` completes and `scripts/verify_codex_plugins.py` passes |
 | commands, agents, skills (prose) | reviewed against the upstream file they map to; no automated gate |
-| hooks | the TUI probe in [Open Verification](#open-verification) |
+| hooks | deterministic hook tests plus the interactive TUI probe in [Host Verification](#host-verification) |
 
 There is no CI in this repository, so these are run locally before a release.
+
+[Back to top](#quick-navigation)
+
+---
 
 ## Layout Mapping
 
 Upstream ships one Claude Code plugin at `plugins/codex/`. This repository is a
 skills marketplace, so the same package is assembled from two source shapes:
+
+```mermaid
+flowchart LR
+    SkillSource["Skill source"] --> Sync["Codex plugin sync"]
+    Overlay["Plugin-root overlay"] --> Sync
+    Sync --> Package["Packaged Codex plugin"]
+```
 
 | Upstream location | Source of truth here | Packaged to |
 |-------------------|----------------------|-------------|
@@ -127,6 +167,10 @@ repository requires every source file to live under `skills/`.
 root and excludes the overlay from the skill copy, the same way it excludes
 `*_zhTW.md`.
 
+[Back to top](#quick-navigation)
+
+---
+
 ## File Map
 
 Paths in the Counterpart column are relative to `skills/claude-code-bridge/`
@@ -138,7 +182,7 @@ unless they start with a repository-root segment.
 |---------------|-------------|------|-------|
 | `LICENSE` | `codex-plugin/LICENSE` (Apache-2.0 full text, unmodified) | port | done |
 | `NOTICE` | `codex-plugin/NOTICE` (attribution, extended with this port) | adapt | done |
-| `README.md` | `skills/claude-code-bridge/SKILL.md` | adapt | wip |
+| `README.md` | `skills/claude-code-bridge/SKILL.md` | adapt | done |
 | `package.json` | none — dependency-free ESM, tests run with `node --test` | n/a | n/a |
 | `package-lock.json` | none — no dependencies to lock | n/a | n/a |
 | `tsconfig.app-server.json` | `codex-plugin/scripts/lib/stream-protocol.mjs` (runtime validation replaces build-time types) | adapt | done |
@@ -156,7 +200,7 @@ contract moved to a runtime validator instead of a build step.
 
 | Upstream path | Counterpart | Plan | State |
 |---------------|-------------|------|-------|
-| `plugins/codex/.claude-plugin/plugin.json` | `codex-plugins/aery-claude-code/.codex-plugin/plugin.json` | adapt | wip |
+| `plugins/codex/.claude-plugin/plugin.json` | `codex-plugins/aery-claude-code/.codex-plugin/plugin.json` | adapt | done |
 | `plugins/codex/CHANGELOG.md` | `release-note/vX.Y.Z.md` (repository-wide) | n/a | n/a |
 | `plugins/codex/LICENSE` | `codex-plugin/LICENSE` | port | done |
 | `plugins/codex/NOTICE` | `codex-plugin/NOTICE` | adapt | done |
@@ -168,7 +212,7 @@ contract moved to a runtime validator instead of a build step.
 | `plugins/codex/commands/review.md` | `codex-plugin/commands/claude-review.md` | partial | done |
 | `plugins/codex/commands/adversarial-review.md` | `codex-plugin/commands/claude-adversarial-review.md` | partial | done |
 | `plugins/codex/commands/rescue.md` | `codex-plugin/commands/claude-rescue.md` | adapt | done |
-| `plugins/codex/commands/transfer.md` | `codex-plugin/commands/claude-transfer.md` | adapt | todo |
+| `plugins/codex/commands/transfer.md` | `codex-plugin/commands/claude-transfer.md` | adapt | done |
 | `plugins/codex/commands/status.md` | `codex-plugin/commands/claude-status.md` | partial | done |
 | `plugins/codex/commands/result.md` | `codex-plugin/commands/claude-result.md` | partial | done |
 | `plugins/codex/commands/cancel.md` | `codex-plugin/commands/claude-cancel.md` | partial | done |
@@ -180,14 +224,14 @@ contract moved to a runtime validator instead of a build step.
 
 | Upstream path | Counterpart | Plan | State |
 |---------------|-------------|------|-------|
-| `plugins/codex/scripts/codex-companion.mjs` | `codex-plugin/scripts/claude-companion.mjs` | adapt | wip |
-| `plugins/codex/scripts/lib/codex.mjs` | `codex-plugin/scripts/lib/claude.mjs` | adapt | wip |
+| `plugins/codex/scripts/codex-companion.mjs` | `codex-plugin/scripts/claude-companion.mjs` | adapt | done |
+| `plugins/codex/scripts/lib/codex.mjs` | `codex-plugin/scripts/lib/claude.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/app-server.mjs` | `codex-plugin/scripts/lib/claude-cli.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/app-server-protocol.d.ts` | `codex-plugin/scripts/lib/stream-protocol.mjs` (runtime validation, not types) | adapt | done |
-| `plugins/codex/scripts/app-server-broker.mjs` | `codex-plugin/scripts/claude-broker.mjs` | adapt | todo |
-| `plugins/codex/scripts/lib/broker-endpoint.mjs` | `codex-plugin/scripts/lib/broker-endpoint.mjs` | adapt | todo |
-| `plugins/codex/scripts/lib/broker-lifecycle.mjs` | `codex-plugin/scripts/lib/broker-lifecycle.mjs` | adapt | todo |
-| `plugins/codex/scripts/lib/claude-session-transfer.mjs` | `codex-plugin/scripts/lib/codex-session-transfer.mjs` | partial | todo |
+| `plugins/codex/scripts/app-server-broker.mjs` | `codex-plugin/scripts/claude-broker.mjs` | adapt | done |
+| `plugins/codex/scripts/lib/broker-endpoint.mjs` | `codex-plugin/scripts/lib/broker-endpoint.mjs` | adapt | done |
+| `plugins/codex/scripts/lib/broker-lifecycle.mjs` | `codex-plugin/scripts/lib/broker-lifecycle.mjs` | adapt | done |
+| `plugins/codex/scripts/lib/claude-session-transfer.mjs` | `codex-plugin/scripts/lib/codex-session-transfer.mjs` | partial | done |
 | `plugins/codex/scripts/lib/args.mjs` | `codex-plugin/scripts/lib/args.mjs` | port | done |
 | `plugins/codex/scripts/lib/fs.mjs` | `codex-plugin/scripts/lib/fs.mjs` | port | done |
 | `plugins/codex/scripts/lib/git.mjs` | `codex-plugin/scripts/lib/git.mjs` | adapt | done |
@@ -195,14 +239,15 @@ contract moved to a runtime validator instead of a build step.
 | `plugins/codex/scripts/lib/prompts.mjs` | `codex-plugin/scripts/lib/prompts.mjs` | port | done |
 | `plugins/codex/scripts/lib/workspace.mjs` | `codex-plugin/scripts/lib/workspace.mjs` | port | done |
 | `plugins/codex/scripts/lib/state.mjs` | `codex-plugin/scripts/lib/state.mjs` | adapt | done |
-| `plugins/codex/scripts/lib/render.mjs` | `codex-plugin/scripts/lib/render.mjs` | adapt | wip |
+| `plugins/codex/scripts/lib/render.mjs` | `codex-plugin/scripts/lib/render.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/job-control.mjs` | `codex-plugin/scripts/lib/job-control.mjs` | adapt | done |
 | `plugins/codex/scripts/lib/tracked-jobs.mjs` | `codex-plugin/scripts/lib/tracked-jobs.mjs` | adapt | done |
 
 The four `adapt` rows at the end carry host semantics rather than pure logic:
 `state.mjs` resolves state under `CLAUDE_PLUGIN_DATA`, `job-control.mjs` and
-`tracked-jobs.mjs` model app-server progress events, and `render.mjs` emits
-`codex resume` follow-up commands. Each needs its host-specific half rewritten.
+`tracked-jobs.mjs` model Claude stream progress as durable jobs, and `render.mjs`
+emits `claude --resume` follow-up commands. Their host-specific halves are the
+reason they are adaptations rather than direct ports.
 
 `process.mjs` runs every executable without a shell. Upstream can afford one
 because it only ever spawns `codex`; here `taskkill` takes `/PID`-style
@@ -213,37 +258,45 @@ receives arguments concatenated rather than escaped.
 
 | Upstream path | Counterpart | Plan | State |
 |---------------|-------------|------|-------|
-| `plugins/codex/hooks/hooks.json` | `codex-plugin/hooks.json` | adapt | todo |
-| `plugins/codex/scripts/session-lifecycle-hook.mjs` | `codex-plugin/scripts/session-lifecycle-hook.mjs` | adapt | todo |
-| `plugins/codex/scripts/stop-review-gate-hook.mjs` | `codex-plugin/scripts/stop-review-gate-hook.mjs` | adapt | todo |
+| `plugins/codex/hooks/hooks.json` | `codex-plugin/hooks.json` | adapt | done |
+| `plugins/codex/scripts/session-lifecycle-hook.mjs` | `codex-plugin/scripts/session-lifecycle-hook.mjs` | adapt | done |
+| `plugins/codex/scripts/stop-review-gate-hook.mjs` | `codex-plugin/scripts/stop-review-gate-hook.mjs` | adapt | done |
 | `plugins/codex/prompts/adversarial-review.md` | `codex-plugin/prompts/adversarial-review.md` | adapt | done |
-| `plugins/codex/prompts/stop-review-gate.md` | `codex-plugin/prompts/stop-review-gate.md` | port | todo |
+| `plugins/codex/prompts/stop-review-gate.md` | `codex-plugin/prompts/stop-review-gate.md` | port | done |
 | `plugins/codex/schemas/review-output.schema.json` | `codex-plugin/schemas/review-output.schema.json` | port | done |
 
 Both hook scripts are `adapt`, not `port`, for different reasons.
-`session-lifecycle-hook.mjs` exports state into `CLAUDE_ENV_FILE` on
-`SessionStart` and tears the broker down on `SessionEnd`; the Codex hook payload
-and environment contract both differ, and what it tears down depends on the
-broker decision. `stop-review-gate-hook.mjs` reads `last_assistant_message` and
-spawns `codex-companion task --json`; it needs the Codex `Stop` payload shape
-and the reverse companion's task contract.
+`session-lifecycle-hook.mjs` accepts Codex `SessionStart` and `SessionEnd`
+payloads and finds the ending session's jobs from both the listing and their
+authoritative files. It asks active brokers to shut down before verified process
+termination is used as fallback, then confirms that the worker exited after
+either path; if exit cannot be observed after acknowledged shutdown or verified fallback, it
+preserves the job evidence instead of deleting it.
+`stop-review-gate-hook.mjs` reads `last_assistant_message`, applies the saved
+workspace preference, checks installation and authentication readiness, and
+runs an isolated Claude review with an explicit `ALLOW` or `BLOCK` protocol.
+The response enters the prompt as an escaped JSON string rather than executable
+prompt markup. Direct-invocation tests cover their behavior, and the interactive
+TUI probe in [Host Verification](#host-verification) confirms host delivery.
 
 ### Skills
 
 | Upstream path | Counterpart | Plan | State |
 |---------------|-------------|------|-------|
-| `plugins/codex/skills/codex-cli-runtime/SKILL.md` | `skills/claude-cli-runtime/SKILL.md` | adapt | todo |
-| `plugins/codex/skills/codex-result-handling/SKILL.md` | `skills/claude-result-handling/SKILL.md` | adapt | todo |
-| `plugins/codex/skills/gpt-5-4-prompting/SKILL.md` | `skills/claude-code-prompting/SKILL.md` | adapt | todo |
-| `plugins/codex/skills/gpt-5-4-prompting/references/prompt-blocks.md` | `skills/claude-code-prompting/references/prompt-blocks.md` | adapt | todo |
-| `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-recipes.md` | `skills/claude-code-prompting/references/claude-prompt-recipes.md` | adapt | todo |
-| `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-antipatterns.md` | `skills/claude-code-prompting/references/claude-prompt-antipatterns.md` | adapt | todo |
-| — | `skills/claude-code-bridge/SKILL.md` | new | wip |
-| — | `skills/claude-code-bridge/UPSTREAM-PARITY.md` | new | wip |
+| `plugins/codex/skills/codex-cli-runtime/SKILL.md` | none — its only consumer is the dropped rescue subagent, see [Gaps](#gaps) | drop | n/a |
+| `plugins/codex/skills/codex-result-handling/SKILL.md` | `skills/claude-code-bridge/SKILL.md` | adapt | done |
+| `plugins/codex/skills/gpt-5-4-prompting/SKILL.md` | none — rescue preserves the user's request, see [Gaps](#gaps) | drop | n/a |
+| `plugins/codex/skills/gpt-5-4-prompting/references/prompt-blocks.md` | none — the owning prompting skill is dropped | drop | n/a |
+| `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-recipes.md` | none — the owning prompting skill is dropped | drop | n/a |
+| `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-antipatterns.md` | none — the owning prompting skill is dropped | drop | n/a |
+| — | `skills/claude-code-bridge/SKILL.md` | new | done |
+| — | `skills/claude-code-bridge/UPSTREAM-PARITY.md` | new | done |
 
-All three upstream skills are `adapt`. Their bodies instruct an agent to call
-`codex-companion`, the Codex CLI and Codex sessions by name; every such
-instruction must be rewritten against the Claude CLI contract.
+The bridge skill owns result presentation because every command returns the
+companion's stdout verbatim. The other two upstream skills only serve the
+dropped rescue subagent or rewrite a request that this port deliberately
+preserves, so duplicating them as standalone skills would create conflicting
+instructions with no consumer.
 
 ### Tests
 
@@ -254,17 +307,24 @@ instruction must be rewritten against the Claude CLI contract.
 | `tests/process.test.mjs` | `codex-plugin/tests/process.test.mjs` | port | done |
 | `tests/state.test.mjs` | `codex-plugin/tests/state.test.mjs` | adapt | done |
 | `tests/render.test.mjs` | `codex-plugin/tests/render.test.mjs` | adapt | done |
-| `tests/commands.test.mjs` | `codex-plugin/tests/commands.test.mjs` | adapt | wip |
-| `tests/runtime.test.mjs` | `codex-plugin/tests/runtime.test.mjs` | adapt | todo |
+| `tests/commands.test.mjs` | `codex-plugin/tests/commands.test.mjs` | adapt | done |
+| `tests/runtime.test.mjs` | `codex-plugin/tests/broker-session-lifecycle.test.mjs` | adapt | done |
 | `tests/fake-codex-fixture.mjs` | `codex-plugin/tests/fake-claude-fixture.mjs` | adapt | done |
-| `tests/broker-endpoint.test.mjs` | `codex-plugin/tests/broker-endpoint.test.mjs` | adapt | todo |
+| `tests/broker-endpoint.test.mjs` | `codex-plugin/tests/broker-session-lifecycle.test.mjs` | adapt | done |
 | `tests/bump-version.test.mjs` | none | n/a | n/a |
 | — | `codex-plugin/tests/stream-protocol.test.mjs` | new | done |
 | — | `codex-plugin/tests/claude-cli.test.mjs` | new | done |
 | — | `codex-plugin/tests/job-control.test.mjs` | new | done |
+| — | `codex-plugin/tests/stop-review-gate.test.mjs` | new | done |
+| — | `codex-plugin/tests/session-transfer.test.mjs` | new | done |
 
-`runtime.test.mjs` is `adapt`: it drives a fake Codex app server and exercises
-native import and broker interrupt, none of which survive unchanged.
+`runtime.test.mjs` is `adapt`: its broker behavior is covered by the dedicated
+broker lifecycle suite. Stop-gate and transfer behavior use separate new suites
+because their host acceptance probes are distinct from runtime protocol tests.
+
+[Back to top](#quick-navigation)
+
+---
 
 ## Host Capability Comparison
 
@@ -307,10 +367,14 @@ Verified against `codex-cli` 0.147.0 and the plugins it ships (`figma`,
 | `agents/*.md` subagents | not from a plugin. Codex's own subagents are TOML under `.codex/agents/`; a plugin's `agents/` holds `openai.yaml` alone — interface metadata | shipped plugins, `plugin.json` spec, binary strings |
 | `hooks/hooks.json` | `hooks` entry in `plugin.json`, or the default `hooks/hooks.json` | docs, binary strings |
 | `${CLAUDE_PLUGIN_ROOT}` | `${PLUGIN_ROOT}`, `${PLUGIN_DATA}`; `${CLAUDE_PLUGIN_ROOT}` still accepted | docs, binary strings |
-| hook `command` accepts any shell string | must be a bare executable name or a `./` path contained in the plugin root | docs, binary strings |
+| hook `command` accepts any shell string | supports an executable with arguments and `${PLUGIN_ROOT}` expansion; the interactive probe ran `node "${PLUGIN_ROOT}/scripts/hook-probe.mjs" <Event>` for each registered event | probe |
 | `SessionStart`, `SessionEnd`, `Stop` hook events | same names, plus `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PreCompact`, `PostCompact`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop` | docs |
 | `Stop` hook blocks with `decision: "block"` | same | docs |
-| plugin hooks actually fire | not observed under `codex exec` | probe — see [Open Verification](#open-verification) |
+| plugin hooks actually fire | `SessionStart`, `Stop`, and `SessionEnd` fire in both the interactive TUI and `codex exec`; their session identity shapes differ | probe — see [Host Verification](#host-verification) |
+
+[Back to top](#quick-navigation)
+
+---
 
 ## Adaptations
 
@@ -440,10 +504,10 @@ is a loss of function.
   `status` reports as such, and `/claude-cancel` is what clears it.
 - **Vanished worker** — an outcome is written by the job's own worker, by
   `cancel` on its behalf, or by the worker's startup path when it fails before
-  the run begins. A worker that dies without any of those leaves the record where
-  it stood. Upstream has a broker and a session-end hook to clean up after one;
-  the counterpart has neither, so `status` and `result` additionally check
-  whether any process still answers to the recorded pid. Only `ESRCH` counts as
+  the run begins. The broker and session-end hook clean up the paths they can
+  attribute to a live job or ending Codex session, but either can be unavailable
+  or undelivered. `status` and `result` therefore still check whether any process
+  answers to the recorded pid. Only `ESRCH` counts as
   gone — `EPERM` means a process exists and is out of reach — and nothing is
   concluded from a pid that still resolves, because the operating system reuses
   them, nor from a job that has no pid recorded yet, because a job that has not
@@ -474,9 +538,10 @@ is a loss of function.
   the session registers. Upstream needs no such block because Codex's sandbox
   refuses a write at execution time, whereas here the restriction is which tools
   exist at all, and a reviewer that plans a command it cannot run wastes the turn.
-- **Prompt skill** — `gpt-5-4-prompting` teaches prompting for GPT-5.4. Its
-  counterpart teaches prompting for Claude Code, so the file maps across but the
-  content is written fresh rather than translated.
+
+[Back to top](#quick-navigation)
+
+---
 
 ## Gaps
 
@@ -489,6 +554,13 @@ on a known limitation.
 - **CI workflow** — `.github/workflows/pull-request-ci.yml`. This is a project
   choice, not a host limitation: this repository has no CI. The equivalent gate
   is [Verification Matrix](#verification-matrix), run locally before a release.
+- **Rescue-only helper skills** — `skills/codex-cli-runtime/SKILL.md` and
+  `skills/gpt-5-4-prompting/`. Upstream loads both only inside its declared
+  rescue subagent. A Codex plugin cannot declare that subagent, so the
+  counterpart command owns the runtime call directly. It also preserves the
+  user's request instead of rewriting it, making a standalone prompting skill a
+  conflicting rule with no consumer. Result presentation remains represented
+  by the bridge skill itself.
 
 ### Degraded
 
@@ -533,18 +605,21 @@ on a known limitation.
   mode, because there is no host prompt for it to suppress.
 - **Cancelling a running turn** — `commands/cancel.md`,
   `interruptAppServerTurn`. Upstream reaches a live turn through its broker and
-  interrupts it, leaving the thread resumable. The interrupt frame here travels
-  over the Claude session's stdin, which only the worker process holds, and the
-  counterpart has no broker, so `cancel` goes after the processes holding the
-  recorded pid instead. What it reaches is platform-shaped and the report says
-  which: `taskkill /T /F` ends the tree under that pid, Claude session included;
+  interrupts it, leaving the thread resumable. The counterpart publishes a
+  per-job control endpoint from the worker that owns Claude's stdin. `cancel`
+  first asks that broker to send Claude's interrupt control frame and reports a
+  graceful interruption only when Claude acknowledges it. An absent,
+  unreachable, rejected, or unanswered endpoint falls back to verified process
+  termination. What that fallback reaches is platform-shaped and the report
+  says which: `taskkill /T /F` ends the tree under that pid, Claude session included;
   SIGTERM to
   a process group reaches the run's own processes, because a detached worker
   leads one; SIGTERM to a bare pid — the fallback when no group answers, which is
   where a foreground run lands — reaches only that process, and what it started
   keeps running, and a Windows install without `taskkill` ends the one process
-  and no more. Only the terminated tree ends a run outright; a signal is a
-  request, and a run that does not take it can finish and replace the
+  and no more. Broker acknowledgement keeps the session resumable but does not
+  prove that the worker has recorded its terminal result yet. A terminated tree
+  ends a run outright; a signal is a request, and a run that does not take it can finish and replace the
   cancellation with its own outcome. Two further cases stop nothing and
   are reported as such rather than as a kill — a job with no pid on record, where
   the pid is waited for first and a worker that was starting up may still finish
@@ -594,24 +669,26 @@ on a known limitation.
   command line can establish. That narrows the window rather than closing it:
   nothing holds a handle on a process it did not start, so a worker that exits
   between the answer and the signal leaves the number free to be taken again.
-  Closing it needs the worker to stop itself on request, which is the broker's
-  job and is why that row is still open. A number the
+  The broker closes this gap on the primary path by asking the worker to stop
+  itself; the verified process route retains the narrower fallback window. A number the
   operating system has handed on is refused, and so is one whose process cannot be
   read at all: refusing costs a manual kill, while acting on an unchecked pid
   costs whatever now holds it, and on Windows its children too. Both refusals
   still record the job as cancelled, so neither leaves a record no command can
   clear.
-  `ClaudeCliSession.interrupt` remains reachable in-process and is what a
-  graceful stop would use once a broker exists.
+  `ClaudeCliSession.interrupt` is the in-process path the broker uses for a
+  graceful stop.
 - **Session-scoped jobs** — `scripts/session-lifecycle-hook.mjs`. Upstream tags
   each job with the host session id its hook exported, and narrows the *default*
   target of `status` and `cancel` to it; a job named explicitly is still reached
-  anywhere in the workspace, in both directions. No `CODEX_*` session-id variable
-  appears in the strings of the shipped `codex` binary, so nothing exports one
-  today; the counterpart reads `CLAUDE_COMPANION_SESSION_ID` and falls back to
-  workspace scope when it is absent, which is the same branch upstream takes when
-  its hook has not run. Two Codex sessions in one repository therefore see each
-  other's jobs.
+  anywhere in the workspace, in both directions. The counterpart records
+  `CLAUDE_COMPANION_SESSION_ID` when explicitly provided and otherwise uses
+  `CODEX_THREAD_ID`. When neither exists it falls back to workspace scope. A
+  delivered `SessionEnd` event asks matching brokers to shut down and removes
+  only that session's job artifacts whose worker exit is observed after
+  acknowledged shutdown or verified termination; uncertain active records
+  remain for manual action. The interactive TUI probe confirms delivery of
+  session-scoped `SessionStart` and `SessionEnd` payloads.
 - **Reasoning effort range** — upstream's `VALID_REASONING_EFFORTS` accepts
   `none|minimal|low|medium|high|xhigh`; the counterpart's lives in
   `scripts/lib/claude.mjs` and every path that takes `--effort` goes through it.
@@ -662,34 +739,43 @@ on a known limitation.
   external-agent session importer to turn a Claude Code transcript into a real
   Codex thread, producing visible, continuable turns. Claude Code exposes no
   session importer — `claude import` imports *configuration* from Codex, not
-  conversations. The counterpart is therefore to create a bridge-owned Claude
-  session from a handoff prompt carrying the converted Codex transcript and its
-  provenance, and to return a `claude --resume <session-id>` command — the
-  contract this row is held to, not something it does yet; its File Map State says
-  where it stands. It promises continuable work, **not** natively visible
-  imported history. Synthesising
+  conversations. The counterpart creates a bridge-owned Claude session from a
+  handoff prompt whose single JSON value carries the converted Codex transcript
+  and provenance without interpolating conversation text as prompt markup, and
+  returns a `claude --resume <session-id>` command. Deterministic
+  tests pass, and a second-process acceptance probe resumed the created session
+  and recovered an exact provenance token. The bridge only reads the Codex
+  transcript and invokes Claude CLI; Claude CLI, not the bridge, owns the private
+  session file it creates. This promises continuable work, **not** natively
+  visible imported history. Synthesising
   session files directly under `~/.claude/projects/` is deliberately rejected:
   that format is undocumented and private, and writing it would risk corrupting
   real user sessions.
 
-## Open Verification
+[Back to top](#quick-navigation)
 
-Claims that could not be settled locally. Each names the probe that settles it
-and the rows that depend on the answer. Nothing may move from `open` to a
-concrete Plan without running its probe.
+---
 
-- **Handoff transfer.** Probe: create a bridge-owned session, resume it in a
-  second process, confirm the provenance text is present in the resumed
-  context, and confirm nothing was written under `~/.claude/projects/` by the
-  bridge itself. Decides the `transfer` contract.
-- **Plugin `Stop` hook execution.** A probe plugin declaring
-  `"hooks": "./hooks.json"` with a `Stop` handler produced no execution under
-  `codex exec`, across five command forms (bare `.mjs`, `node ./path`, a `.cmd`
-  shim, a nested `./skills/...` path, and `${PLUGIN_ROOT}`). A repository-level
-  `.codex/hooks.json` also produced no execution. This is consistent with
-  `codex exec` not running hooks at all, but that was not proven. Probe: repeat
-  in the Codex TUI. Decides whether the review gate is reproducible at all.
-- **Hook working directory.** Documentation states hook commands run from the
-  session working directory while `./` paths resolve inside the plugin root. The
-  counterpart relies on `${PLUGIN_ROOT}` rather than on relative resolution; the
-  TUI probe above should confirm which holds.
+## Host Verification
+
+The probe used a disposable plugin declaring `"hooks": "./hooks.json"` and
+command handlers under `${PLUGIN_ROOT}`. Repeated complete TUI sessions each
+delivered `SessionStart`, `Stop`, and `SessionEnd`. All payloads carried a
+session identifier and the repository workspace; the hook process working
+directory was that same workspace, while `${PLUGIN_ROOT}` and `${PLUGIN_DATA}`
+identified the installed plugin paths. In the final complete TUI session, the
+hook process did not receive `CODEX_THREAD_ID`, and all three events'
+`session_id` values matched their transcript's `session_meta.id`. Commands use
+`CODEX_THREAD_ID` to identify that same transcript, so TUI job creation and
+hook cleanup share one session identity without exposing the identifier in the
+probe record.
+
+The probe also fired under `codex exec`. Those hook processes received
+`CODEX_THREAD_ID`, but it did not equal the hook payload's `session_id`, and the
+transcript did not expose a `session_meta.id` during those events. Plugin slash
+commands run in the interactive TUI, so the verified bridge contract is TUI
+delivery and identity. Both hosts select scripts absolutely through
+`${PLUGIN_ROOT}` and do not depend on relative `./` command resolution. Re-run
+the host probe when the pinned Codex CLI contract changes.
+
+[Back to top](#quick-navigation)

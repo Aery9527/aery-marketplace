@@ -19,5 +19,6 @@
     "shortDescription": "Call Claude Code from Codex",
     "developerName": "Aery Lin",
     "category": "Developer Tools"
-  }
+  },
+  "hooks": "./hooks.json"
 }

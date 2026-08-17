@@ -18,8 +18,8 @@ import {
 } from "./state.mjs";
 
 // Which session a job belongs to, so status and cancel can scope to the caller's own
-// work. Codex does not export a session identifier to a spawned command, so this is set
-// by the bridge's own session hook where one runs; jobs stay workspace-scoped otherwise.
+// work. The bridge-specific value wins when a host hook supplies one; current Codex
+// versions otherwise expose CODEX_THREAD_ID directly to the spawned command.
 export const SESSION_ID_ENV = "CLAUDE_COMPANION_SESSION_ID";
 
 export function nowIso() {
@@ -73,6 +73,41 @@ export function upsertOrIgnore(workspaceRoot, patch) {
   }
 }
 
+// A broker endpoint describes only a live worker. Re-read that worker inside the guarded
+// replacement so an already-observed cancellation or completion refuses the stale update.
+// The guard narrows the cross-process window; it is not a filesystem compare-and-swap.
+export function updateBrokerEndpointIfActive(workspaceRoot, jobId, expectedEndpoint, nextEndpoint) {
+  const stored = readStoredJobOrNull(workspaceRoot, jobId);
+  if (
+    !stored ||
+    !isActiveJobStatus(stored.status) ||
+    stored.brokerEndpoint !== expectedEndpoint
+  ) {
+    return false;
+  }
+
+  const written = writeJobFile(
+    workspaceRoot,
+    jobId,
+    { ...stored, brokerEndpoint: nextEndpoint },
+    {
+      guard: () => {
+        const current = readStoredJobOrNull(workspaceRoot, jobId);
+        return (
+          Boolean(current) &&
+          isActiveJobStatus(current.status) &&
+          current.brokerEndpoint === expectedEndpoint
+        );
+      }
+    }
+  );
+  if (!written) {
+    return false;
+  }
+  upsertOrIgnore(workspaceRoot, { id: jobId, brokerEndpoint: nextEndpoint });
+  return true;
+}
+
 export function appendLogLine(logFile, message) {
   const normalized = String(message ?? "").trim();
   if (!logFile || !normalized) {
@@ -108,7 +143,9 @@ export function createJobLogFile(workspaceRoot, jobId, title) {
 
 export function createJobRecord(base, options = {}) {
   const env = options.env ?? process.env;
-  const sessionId = env[options.sessionIdEnv ?? SESSION_ID_ENV];
+  const sessionId = options.sessionIdEnv
+    ? env[options.sessionIdEnv]
+    : env[SESSION_ID_ENV] ?? env.CODEX_THREAD_ID;
   return {
     ...base,
     createdAt: nowIso(),
@@ -171,6 +208,11 @@ function readStoredJobOrNull(workspaceRoot, jobId) {
   return readJobFile(jobFile);
 }
 
+function jobOutcomeIsOpen(workspaceRoot, jobId) {
+  const status = readStoredJobOrNull(workspaceRoot, jobId)?.status;
+  return !status || isActiveJobStatus(status);
+}
+
 // The pid recorded here is what `cancel` terminates, so it must be the process that owns
 // the Claude child rather than whichever process created the record.
 export async function runTrackedJob(job, runner, options = {}) {
@@ -199,17 +241,28 @@ export async function runTrackedJob(job, runner, options = {}) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const existing = readStoredJobOrNull(job.workspaceRoot, job.id) ?? runningRecord;
+    if (!jobOutcomeIsOpen(job.workspaceRoot, job.id)) {
+      throw error;
+    }
     const completedAt = nowIso();
     appendLogLine(logFile, `Failed: ${errorMessage}`);
-    writeJobFile(job.workspaceRoot, job.id, {
-      ...existing,
-      status: "failed",
-      phase: "failed",
-      errorMessage,
-      pid: null,
-      completedAt,
-      logFile: logFile ?? existing.logFile ?? null
-    });
+    const written = writeJobFile(
+      job.workspaceRoot,
+      job.id,
+      {
+        ...existing,
+        status: "failed",
+        phase: "failed",
+        errorMessage,
+        pid: null,
+        completedAt,
+        logFile: logFile ?? existing.logFile ?? null
+      },
+      { guard: () => jobOutcomeIsOpen(job.workspaceRoot, job.id) }
+    );
+    if (!written) {
+      throw error;
+    }
     upsertOrIgnore(job.workspaceRoot, {
       id: job.id,
       status: "failed",
@@ -237,12 +290,20 @@ export async function runTrackedJob(job, runner, options = {}) {
   // append rather than a replace, so a job file that cannot be written still leaves the
   // findings somewhere the status report points at.
   appendLogBlock(logFile, "Final output", execution.rendered);
-  writeJobFile(job.workspaceRoot, job.id, {
-    ...runningRecord,
-    ...outcome,
-    result: execution.payload,
-    rendered: execution.rendered
-  });
+  const written = writeJobFile(
+    job.workspaceRoot,
+    job.id,
+    {
+      ...runningRecord,
+      ...outcome,
+      result: execution.payload,
+      rendered: execution.rendered
+    },
+    { guard: () => jobOutcomeIsOpen(job.workspaceRoot, job.id) }
+  );
+  if (!written) {
+    return execution;
+  }
   upsertOrIgnore(job.workspaceRoot, { id: job.id, ...outcome, summary: execution.summary });
   return execution;
 }

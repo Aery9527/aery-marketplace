@@ -212,6 +212,14 @@ try {
             }
         }
 
+        # hooks.json is owned by an overlay, so its manifest declaration is derived from
+        # the same source instead of being maintained separately in generated output.
+        if ($seenOverlayEntries.ContainsKey('hooks.json')) {
+            $codexPluginManifest['hooks'] = './hooks.json'
+        } else {
+            $null = $codexPluginManifest.Remove('hooks')
+        }
+
         $existingAgentsPlugin = $null
         if ($existingAgentsPlugins.ContainsKey($pluginName)) {
             $existingAgentsPlugin = $existingAgentsPlugins[$pluginName]

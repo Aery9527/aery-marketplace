@@ -184,6 +184,23 @@ def verify_repo(repo_root: pathlib.Path) -> list[str]:
             if path.name not in overlay_owned_names:
                 errors.append(f"Unexpected plugin root entry: {path.relative_to(repo_root)}")
 
+        manifest_path = plugin_root / ".codex-plugin" / "plugin.json"
+        if not manifest_path.is_file():
+            errors.append(f"Missing plugin manifest: {manifest_path.relative_to(repo_root)}")
+            continue
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        expected_hooks = "./hooks.json" if "hooks.json" in overlay_owned_names else None
+        if expected_hooks is not None and manifest.get("hooks") != expected_hooks:
+            errors.append(
+                f"Plugin manifest {manifest_path.relative_to(repo_root)} must declare "
+                f"hooks as {expected_hooks!r}"
+            )
+        elif expected_hooks is None and "hooks" in manifest:
+            errors.append(
+                f"Plugin manifest {manifest_path.relative_to(repo_root)} declares hooks "
+                "without an overlay-owned hooks.json"
+            )
+
     return errors
 
 

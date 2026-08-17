@@ -414,7 +414,14 @@ export function renderCancelReport(job, termination) {
     // it was sent, and what the run does with it is not observed here.
     const mayOutliveIt =
       "What was signalled ends there if it takes the signal, and stores no result. Anything that does not may still finish and replace this cancellation with its own outcome — check `/claude-status` before rerunning.";
-    if (termination.method === "taskkill") {
+    if (termination.method === "broker") {
+      lines.push(
+        "",
+        "Claude acknowledged a graceful interrupt through this job's control endpoint.",
+        "",
+        "The worker may still be recording the interrupted turn — check `/claude-status` before rerunning."
+      );
+    } else if (termination.method === "taskkill") {
       lines.push(
         "",
         `Terminated the process tree under pid ${job.pid} with taskkill.`,
@@ -551,4 +558,18 @@ export function renderSetupReport(report) {
   }
 
   return `${lines.join("\n").trimEnd()}\n`;
+}
+
+export function renderSessionTransferResult(result) {
+  return [
+    "# Claude Session Handoff",
+    "",
+    "Created a bridge handoff. This is not a native history import.",
+    `Source Codex session: ${result.sourceSessionId}`,
+    `Source transcript: ${result.sourcePath}`,
+    `Claude session: ${result.claudeSessionId}`,
+    "",
+    `Resume with: \`${result.resumeCommand}\``,
+    ""
+  ].join("\n");
 }

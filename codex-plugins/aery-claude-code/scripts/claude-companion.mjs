@@ -8,7 +8,9 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { parseArgs, splitRawArgumentString } from "./lib/args.mjs";
+import { closeBrokerControl, interruptBrokeredJob, openBrokerControl } from "./lib/broker-lifecycle.mjs";
 import { runClaudeOnce } from "./lib/claude-cli.mjs";
+import { prepareCodexSessionTransfer } from "./lib/codex-session-transfer.mjs";
 import {
   createStreamProgressListener,
   getClaudeAuthStatus,
@@ -40,6 +42,7 @@ import {
   renderQueuedJobLaunch,
   renderRescueResult,
   renderReviewResult,
+  renderSessionTransferResult,
   renderSetupReport,
   renderStatusReport,
   renderStoredJobResult
@@ -60,8 +63,10 @@ import {
   createProgressReporter,
   nowIso,
   runTrackedJob,
+  updateBrokerEndpointIfActive,
   upsertOrIgnore
 } from "./lib/tracked-jobs.mjs";
+import { readSessionId } from "./lib/stream-protocol.mjs";
 import { resolveWorkspaceRoot } from "./lib/workspace.mjs";
 
 const COMPANION_PATH = fileURLToPath(import.meta.url);
@@ -89,6 +94,14 @@ const NATIVE_REVIEW_SESSION = Object.freeze({
   disallowedTools: ["Edit", "Write", "NotebookEdit"]
 });
 
+// A transfer seeds context but must not act on it. Built-ins and MCP servers are both
+// disabled because either one could otherwise turn a handoff into a workspace mutation.
+const TRANSFER_SESSION = Object.freeze({
+  tools: [],
+  permissionMode: "dontAsk",
+  strictMcpConfig: true
+});
+
 // The runtime is itself a Node process, so its version is known without spawning one.
 const MINIMUM_NODE_MAJOR = 18;
 
@@ -106,6 +119,7 @@ function nodeStatus() {
 const USAGE = [
   "Usage:",
   "  node scripts/claude-companion.mjs setup [--json] [--enable-review-gate|--disable-review-gate] [--cwd <path>]",
+  "  node scripts/claude-companion.mjs transfer [--json] [--source <jsonl>] [--cwd <path>]",
   "  node scripts/claude-companion.mjs review [--json] [--wait|--background] [--base <ref>] [--scope auto|working-tree|branch] [--model <model>] [--cwd <path>]",
   "  node scripts/claude-companion.mjs adversarial-review [--json] [--wait|--background] [--base <ref>] [--scope auto|working-tree|branch] [--model <model>] [--cwd <path>] [focus text]",
   "  node scripts/claude-companion.mjs rescue [--json] [--wait|--background] [--resume|--resume-session <id>|--fresh] [--read-only] [--model <model>] [--effort <level>] [--cwd <path>] [what Claude should do]",
@@ -297,13 +311,14 @@ function firstMeaningfulLine(text, fallback) {
   return line ?? fallback;
 }
 
-async function runNativeReview(request, onProgress) {
+async function runNativeReview(request, onProgress, sessionLifecycle) {
   // Read before the run, not after: the scope describes the tree the reviewer was pointed
   // at, and a review takes long enough for that tree to have moved on by the time it ends.
   const scopeNote = describeReviewScope(request.cwd, request.target, { authoritative: false });
   const result = await runClaudeOnce(request.cwd, buildNativeReviewPrompt(request.target), {
     ...NATIVE_REVIEW_SESSION,
     model: request.model,
+    sessionLifecycle,
     onEvent: createStreamProgressListener(onProgress)
   });
 
@@ -356,7 +371,7 @@ function describeReviewEvidence(context) {
   return parts.join(". ");
 }
 
-async function runAdversarialReview(request, onProgress) {
+async function runAdversarialReview(request, onProgress, sessionLifecycle) {
   // The scope line is built from the same reading the collection started with, so the two
   // lines agree about where the review began. Collection is a sequence of git reads, though,
   // and a tree edited while they run cannot be described as one moment by either line.
@@ -366,6 +381,7 @@ async function runAdversarialReview(request, onProgress) {
     ...READ_ONLY_SESSION,
     model: request.model,
     jsonSchema: readJsonFile(REVIEW_SCHEMA_PATH),
+    sessionLifecycle,
     onEvent: createStreamProgressListener(onProgress)
   });
   const parsed = parseReviewOutput(result);
@@ -423,19 +439,20 @@ const RESCUE_READ_ONLY_SESSION = Object.freeze({
 
 // A rescue has no structured output to parse: what Claude was asked to do is what it
 // reports, so the turn's own text is the answer and the render only frames it.
-async function runRescue(request, onProgress) {
+async function runRescue(request, onProgress, sessionLifecycle) {
   const result = await runClaudeOnce(request.cwd, request.prompt, {
     ...(request.readOnly ? RESCUE_READ_ONLY_SESSION : RESCUE_SESSION),
     model: request.model,
     effort: request.effort,
     resume: request.resume,
+    sessionLifecycle,
     onEvent: createStreamProgressListener(onProgress)
   });
 
   return {
     failed: result.isError,
     sessionId: result.sessionId,
-    summary: result.isError ? "The Claude turn ended in an error." : "Rescue finished.",
+    summary: summariseJob("Rescue", request),
     payload: {
       kind: "rescue",
       failed: result.isError,
@@ -456,13 +473,65 @@ const JOB_TITLES = Object.freeze({
   rescue: "Rescue"
 });
 
-function executeJob(request, onProgress) {
+function executeJob(request, onProgress, options = {}) {
   if (request.kind === "rescue") {
-    return runRescue(request, onProgress);
+    return runRescue(request, onProgress, options.sessionLifecycle);
   }
   return request.kind === "adversarial-review"
-    ? runAdversarialReview(request, onProgress)
-    : runNativeReview(request, onProgress);
+    ? runAdversarialReview(request, onProgress, options.sessionLifecycle)
+    : runNativeReview(request, onProgress, options.sessionLifecycle);
+}
+
+async function handleTransfer(argv) {
+  const { options, positionals } = parseCommandInput(argv, {
+    valueOptions: ["cwd", "source"],
+    booleanOptions: ["json"]
+  });
+  if (positionals.length > 0) {
+    throw new Error("Transfer accepts only --source, --cwd, and --json.");
+  }
+
+  const cwd = resolveCommandCwd(options);
+  const transfer = prepareCodexSessionTransfer({ source: options.source, cwd, env: process.env });
+  ensureClaudeAvailable(cwd);
+  ensureClaudeAuthenticated(cwd);
+
+  let exposedSessionId = null;
+  let result;
+  try {
+    result = await runClaudeOnce(cwd, transfer.prompt, {
+      ...TRANSFER_SESSION,
+      onEvent(event) {
+        exposedSessionId = readSessionId(event) ?? exposedSessionId;
+      }
+    });
+  } catch (error) {
+    if (exposedSessionId) {
+      throw new Error(
+        `Claude session ${exposedSessionId} is possibly incomplete because its handoff seed failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    throw error;
+  }
+
+  const claudeSessionId = result.sessionId ?? exposedSessionId;
+  if (!claudeSessionId) {
+    throw new Error("Claude completed the handoff seed without reporting a persisted session identifier.");
+  }
+  if (result.isError) {
+    throw new Error(
+      `Claude session ${claudeSessionId} is possibly incomplete because its handoff seed ended in an error.`
+    );
+  }
+
+  const payload = {
+    transferKind: "handoff",
+    sourcePath: transfer.sourcePath,
+    sourceSessionId: transfer.sourceSessionId,
+    claudeSessionId,
+    resumeCommand: `claude --resume ${claudeSessionId}`
+  };
+  outputResult(options.json ? payload : renderSessionTransferResult(payload), Boolean(options.json));
 }
 
 // Progress is written where another process can read it: the job's log, and the phase on
@@ -475,6 +544,43 @@ function createTrackedProgress(job, options = {}) {
       logFile,
       onEvent: createJobProgressUpdater(job.workspaceRoot, job.id)
     })
+  };
+}
+
+function createJobSessionLifecycle(job, progress) {
+  return {
+    async start(session) {
+      const control = await openBrokerControl({
+        jobId: job.id,
+        session,
+        onReady: async ({ endpoint }) => {
+          if (!updateBrokerEndpointIfActive(job.workspaceRoot, job.id, undefined, endpoint)) {
+            throw new Error(`Job ${job.id} finished before its broker endpoint became ready.`);
+          }
+          progress?.({ message: "Claude control endpoint ready.", phase: "starting" });
+        }
+      });
+      if (!control.available) {
+        progress?.({ message: `Claude control endpoint unavailable: ${control.reason}`, phase: "starting" });
+      }
+      return control;
+    },
+
+    async stop(control) {
+      try {
+        await closeBrokerControl(control);
+      } catch (error) {
+        progress?.({
+          message: `Claude control endpoint cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+          phase: "finishing"
+        });
+      }
+
+      if (!control?.endpoint) {
+        return;
+      }
+      updateBrokerEndpointIfActive(job.workspaceRoot, job.id, control.endpoint, null);
+    }
   };
 }
 
@@ -647,7 +753,7 @@ function findActiveJobForSession(cwd, sessionId) {
 }
 
 function findResumableSession(cwd) {
-  const job = buildStatusSnapshot(cwd, { all: true })
+  const job = buildStatusSnapshot(cwd, { all: true, env: process.env })
     .finished.filter((candidate) => candidate.kind === "rescue" && candidate.claudeSessionId)
     .sort((left, right) =>
       String(right.completedAt ?? right.updatedAt ?? "").localeCompare(String(left.completedAt ?? left.updatedAt ?? ""))
@@ -696,7 +802,11 @@ async function handleRescue(argv) {
   }
 
   const { logFile, progress } = createTrackedProgress(job);
-  const execution = await runTrackedJob({ ...job, logFile }, () => executeJob(request, progress), { logFile });
+  const execution = await runTrackedJob(
+    { ...job, logFile },
+    () => executeJob(request, progress, { sessionLifecycle: createJobSessionLifecycle({ ...job, logFile }, progress) }),
+    { logFile }
+  );
   outputResult(options.json ? execution.payload : execution.rendered, Boolean(options.json));
   if (execution.failed) {
     process.exitCode = 1;
@@ -723,7 +833,11 @@ async function handleReviewCommand(kind, argv) {
   }
 
   const { logFile, progress } = createTrackedProgress(job);
-  const execution = await runTrackedJob({ ...job, logFile }, () => executeJob(request, progress), { logFile });
+  const execution = await runTrackedJob(
+    { ...job, logFile },
+    () => executeJob(request, progress, { sessionLifecycle: createJobSessionLifecycle({ ...job, logFile }, progress) }),
+    { logFile }
+  );
   outputResult(options.json ? execution.payload : execution.rendered, Boolean(options.json));
   if (execution.failed) {
     process.exitCode = 1;
@@ -784,7 +898,11 @@ async function handleRunJob(argv) {
     throw error;
   }
 
-  await runTrackedJob({ ...job, logFile }, () => executeJob(job.request, progress), { logFile });
+  await runTrackedJob(
+    { ...job, logFile },
+    () => executeJob(job.request, progress, { sessionLifecycle: createJobSessionLifecycle({ ...job, logFile }, progress) }),
+    { logFile }
+  );
 }
 
 function sleep(ms) {
@@ -829,7 +947,7 @@ async function handleStatus(argv) {
     if (options.wait) {
       throw new Error("`status --wait` needs a job id to wait for.");
     }
-    const report = buildStatusSnapshot(cwd, { all: Boolean(options.all) });
+    const report = buildStatusSnapshot(cwd, { all: Boolean(options.all), env: process.env });
     outputResult(options.json ? report : renderStatusReport(report), Boolean(options.json));
     return;
   }
@@ -857,7 +975,7 @@ function handleResult(argv) {
   // the report below it describe the same moment. Reading again could head a cancelled
   // record with a finished review's findings.
   const cwd = resolveCommandCwd(options);
-  const { job, storedJob } = resolveResultJob(cwd, positionals[0] ?? "");
+  const { job, storedJob } = resolveResultJob(cwd, positionals[0] ?? "", { env: process.env });
   outputResult(options.json ? { job, storedJob } : renderStoredJobResult(job, storedJob), Boolean(options.json));
 }
 
@@ -921,13 +1039,16 @@ async function handleCancel(argv) {
   // The job id is what the worker was started with, so a process running the companion's
   // `run-job` for this id is what the pid has to be answering as before anything is sent to
   // it. That is a reading of its command line, not proof of which process it is.
-  const termination = terminateProcessTree(job.pid ?? Number.NaN, {
-    identity: job.id,
-    companionPath: COMPANION_PATH,
-    runtimePath: process.execPath,
-    // A job id is unique within a workspace, not across them, so the workspace the worker
-    // was started for is part of what identifies it.
-    sameWorkspace: (cwd) => resolveWorkspaceRoot(cwd) === workspaceRoot
+  const termination = await interruptBrokeredJob(job, {
+    terminateFallback: (pid) =>
+      terminateProcessTree(pid ?? Number.NaN, {
+        identity: job.id,
+        companionPath: COMPANION_PATH,
+        runtimePath: process.execPath,
+        // A job id is unique within a workspace, not across them, so the workspace the worker
+        // was started for is part of what identifies it.
+        sameWorkspace: (candidateCwd) => resolveWorkspaceRoot(candidateCwd) === workspaceRoot
+      })
   });
 
   // The worker may have finished between being chosen and being terminated. Its record is
@@ -988,6 +1109,9 @@ async function main() {
   switch (subcommand) {
     case "setup":
       handleSetup(argv);
+      break;
+    case "transfer":
+      await handleTransfer(argv);
       break;
     case "review":
       await handleReviewCommand("review", argv);
