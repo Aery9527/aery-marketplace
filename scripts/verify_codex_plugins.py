@@ -117,19 +117,51 @@ def verify_overlay(
     return errors, owned_names
 
 
-def read_bundle_declarations(repo_root: pathlib.Path) -> list[dict]:
-    """Every bundle Codex packages, whichever host catalog declares it."""
-    marketplace_path = repo_root / ".claude-plugin" / "marketplace.json"
-    codex_only_path = repo_root / ".agents" / "plugins" / "codex-only-bundles.json"
-    marketplace = json.loads(marketplace_path.read_text(encoding="utf-8"))
-    codex_only = json.loads(codex_only_path.read_text(encoding="utf-8"))
-    return list(marketplace.get("plugins", [])) + list(codex_only.get("plugins", []))
+# A bundle is declared in the catalog of the hosts that can install it: every host
+# reads the first, only Codex reads the second.
+CATALOG_PATHS = (
+    pathlib.Path(".claude-plugin") / "marketplace.json",
+    pathlib.Path(".agents") / "plugins" / "codex-only-bundles.json",
+)
+
+
+def read_bundle_declarations(repo_root: pathlib.Path) -> tuple[list[dict], list[str]]:
+    """Every bundle Codex packages, whichever host catalog declares it.
+
+    A bundle belongs to exactly one catalog, so a name in both is refused rather
+    than packaged twice from two declarations that are free to disagree.
+    """
+    declarations: list[dict] = []
+    errors: list[str] = []
+    declared_in: dict[str, str] = {}
+
+    for relative_path in CATALOG_PATHS:
+        location = relative_path.as_posix()
+        catalog = json.loads((repo_root / relative_path).read_text(encoding="utf-8"))
+        if "plugins" not in catalog:
+            errors.append(f'{location} must declare a "plugins" array; use [] when it has none')
+            continue
+
+        for plugin in catalog["plugins"]:
+            plugin_name = str(plugin["name"])
+            if plugin_name in declared_in:
+                errors.append(
+                    f"Plugin {plugin_name} is declared in both {declared_in[plugin_name]} "
+                    f"and {location}; a bundle belongs to exactly one catalog"
+                )
+                continue
+            declared_in[plugin_name] = location
+            declarations.append(plugin)
+
+    return declarations, errors
 
 
 def verify_repo(repo_root: pathlib.Path) -> list[str]:
-    errors: list[str] = []
+    declarations, errors = read_bundle_declarations(repo_root)
+    if errors:
+        return errors
 
-    for plugin in read_bundle_declarations(repo_root):
+    for plugin in declarations:
         plugin_name = str(plugin["name"])
         plugin_source_root = repo_root / normalize_relative_path(str(plugin["source"]))
         plugin_root = repo_root / "codex-plugins" / plugin_name

@@ -274,6 +274,41 @@ class VerifyCodexPluginsTests(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIn("Content mismatch", errors[0])
 
+    def test_fails_when_a_catalog_omits_its_plugins_array(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = pathlib.Path(tmp_dir)
+            self._write_marketplace(repo, plugins=[])
+            self._write_text(
+                repo / ".agents" / "plugins" / "codex-only-bundles.json",
+                json.dumps({}, indent=2) + "\n",
+            )
+
+            errors = verify_repo(repo)
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("codex-only-bundles.json", errors[0])
+        self.assertIn('"plugins"', errors[0])
+
+    def test_fails_when_one_bundle_is_declared_in_both_catalogs(self) -> None:
+        declaration = {"name": "demo", "source": "./skills", "skills": ["./alpha"]}
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = pathlib.Path(tmp_dir)
+            self._write_marketplace(
+                repo,
+                plugins=[declaration],
+                codex_only_plugins=[declaration],
+            )
+            self._write_text(repo / "skills" / "alpha" / "SKILL.md", "# alpha\n")
+            self._write_text(
+                repo / "codex-plugins" / "demo" / "skills" / "alpha" / "SKILL.md",
+                "# alpha\n",
+            )
+
+            errors = verify_repo(repo)
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("declared in both", errors[0])
+
     def _write_overlay_fixture(self, repo: pathlib.Path) -> None:
         self._write_marketplace(
             repo,

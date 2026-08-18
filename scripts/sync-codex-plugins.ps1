@@ -126,6 +126,10 @@ try {
     $agentsMarketplace = Read-JsonFile -Path $agentsMarketplacePath
     $codexOnlyBundles = Read-JsonFile -Path $codexOnlyBundlesPath
 
+    if (-not $claudeMarketplace.Contains('plugins')) {
+        throw '.claude-plugin\marketplace.json must declare a "plugins" array; use [] when it has none.'
+    }
+
     if (-not $codexOnlyBundles.Contains('plugins')) {
         throw '.agents\plugins\codex-only-bundles.json must declare a "plugins" array; use [] when no bundle is Codex-only.'
     }
