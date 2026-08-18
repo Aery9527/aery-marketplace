@@ -8,6 +8,9 @@
 修改 `codex-plugin/` 底下任何內容前必須先讀本檔案，並在同一次變更中更新它。本檔案只
 記錄**當前狀態與當前契約** — 某一列為何改變屬於 commit message，不屬於這裡。
 
+指向本套件自身檔案的路徑相對於 `skills/claude-code-bridge/`，除非它以 repository 根層級
+的路徑段開頭，例如 `docs/` 或 `scripts/`。上游路徑則相對於上游 repository。
+
 ## 快速導覽
 
 - [上游釘選](#上游釘選)
@@ -157,9 +160,6 @@ plugin root，並把 overlay 從 skill 複本中排除，方式與排除 `*_zhTW
 
 ## File Map
 
-Counterpart 欄的路徑相對於 `skills/claude-code-bridge/`，除非它以 repository 根層級的
-路徑段開頭。
-
 ### Repository root
 
 | 上游路徑 | 對應物 | Plan | State |
@@ -268,7 +268,7 @@ prompt markup。直接呼叫測試涵蓋其行為，而[宿主驗證](#宿主驗
 | `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-recipes.md` | 無 — 所屬 prompting skill 已捨棄 | drop | n/a |
 | `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-antipatterns.md` | 無 — 所屬 prompting skill 已捨棄 | drop | n/a |
 | — | `skills/claude-code-bridge/SKILL.md` | new | done |
-| — | `skills/claude-code-bridge/UPSTREAM-PARITY.md` | new | done |
+| — | `docs/claude-code-bridge/UPSTREAM-PARITY.md` | new | done |
 
 bridge skill 負責結果呈現，因為每個 command 都原樣回傳 companion 的 stdout。另兩個上游
 skill 只服務已捨棄的 rescue subagent，或改寫本移植刻意保留的請求；把它們複製成獨立 skill

@@ -1,0 +1,11 @@
+{
+  "plugins": [
+    {
+      "name": "aery-claude-code",
+      "source": "./skills",
+      "skills": [
+        "./claude-code-bridge"
+      ]
+    }
+  ]
+}

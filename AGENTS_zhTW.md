@@ -8,9 +8,10 @@ frontmatter 定義 `name` 與 `description`，並在內文描述觸發條件、�
 規則與 references。`SKILL.md` 是英文主入口；若存在繁體中文版本，請讀取同目
 錄對應的 `*_zhTW.md`。
 
-`.claude-plugin/marketplace.json` 定義 Plugin Bundle，且是 bundle 與 skill
-分組的 source of truth。`.agents/plugins/marketplace.json` 與 `codex-plugins/`
-是給 Codex 使用的同步產物。其中 `codex-plugins/*/skills/` 內的封裝副本只保
+`.claude-plugin/marketplace.json` 定義 Plugin Bundle，與宣告 Codex 專用 bundle 的
+`.agents/plugins/codex-only-bundles.json` 一同構成 bundle 與 skill 分組的
+source of truth。`.agents/plugins/marketplace.json` 與 `codex-plugins/`
+是給 Codex 使用的同步產物，由這兩份宣告一起產生。其中 `codex-plugins/*/skills/` 內的封裝副本只保
 留英文主檔，不得包含任何 `*_zhTW.md`。`README.md` 是給人類讀者看的專案層級
 導覽文件，不是 skills 清單的 source of truth。
 
@@ -27,16 +28,26 @@ frontmatter 定義 `name` 與 `description`，並在內文描述觸發條件、�
 
 - 新增、刪除或修改 `skills/` 底下任何 skill 內容時，必須同步檢查並更新
   `README.md`，前提是專案層級用途或探索指引確實需要調整。
+- 一個 bundle 只在一份目錄中宣告，放在哪份由「哪些 host 能安裝它」決定。
+  `.claude-plugin/marketplace.json` 是 Claude Code 與 Copilot CLI 讀取的目錄，
+  這些 host 用得到的 bundle 就宣告在那裡，Codex 也從同一筆條目封裝。只有 Codex
+  能用的 bundle——例如其 skill 是用來驅動另一個 agent CLI——則改宣告在
+  `.agents/plugins/codex-only-bundles.json`，避免它出現在無法執行它的 host。
+  同一個 bundle 同時出現在兩份檔案是錯誤，同步腳本會直接拒絕。
 - 新增、刪除或修改 `skills/` 底下任何 skill 內容時，也必須同步檢查
-  `.claude-plugin/marketplace.json` 是否仍正確反映 bundle 與 skill 分組；若
-  skill 的歸屬、命名或包裝清單有變動，先更新 `.claude-plugin/marketplace.json`。
-- `.agents/plugins/marketplace.json` 必須與 `.claude-plugin/marketplace.json`
-  保持同步；不要手動雙寫，應執行 `scripts/sync-codex-plugins.ps1` 或
+  宣告其所屬 bundle 的那份目錄是否仍正確反映 bundle 與 skill 分組；若 skill 的
+  歸屬、命名或包裝清單有變動，先更新那份目錄。
+- `.agents/plugins/marketplace.json` 必須與兩份 bundle 宣告保持同步；
+  不要手動維護它，應執行 `scripts/sync-codex-plugins.ps1` 或
   `scripts/sync-codex-plugins.sh` 由腳本重寫 `.agents/plugins/marketplace.json`
   並重新同步 `codex-plugins/*/skills`。
 - 不要手動修改 `codex-plugins/*/skills` 內的 skill 副本；正確流程是修改
   `skills/` source 後重新執行同步腳本。同步後的 Codex 封裝只保留英文主檔，
   整棵目錄中的 `*_zhTW.md` 都不應存在。
+- skill 目錄底下的所有內容都會隨該 skill 一起封裝發佈，因此只寫給維護者看的文件
+  不屬於那裡，應改放在 `docs/<skill-name>/`。修改
+  `skills/claude-code-bridge/codex-plugin/` 底下任何內容前，先讀
+  `docs/claude-code-bridge/UPSTREAM-PARITY.md`，並在同一次變更中更新它。
 - Codex plugin 可能需要 skill 以外的 plugin-root 內容，例如 `commands/`、
   `agents/`、`scripts/` 與 `hooks.json`。這類內容的 source of truth 同樣放在
   `skills/` 底下：置於所屬 skill 內的 `codex-plugin/` overlay 目錄。同步腳本會

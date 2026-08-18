@@ -11,6 +11,11 @@ Read this file before changing anything under `codex-plugin/`, and update it in
 the same change. It records **present state and current contract only** — why a
 row changed belongs in the commit message, not here.
 
+A path naming this package's own files is relative to
+`skills/claude-code-bridge/`, unless it starts with a repository-root segment
+such as `docs/` or `scripts/`. An upstream path is relative to the upstream
+repository.
+
 ## Quick Navigation
 
 - [Upstream Pin](#upstream-pin)
@@ -173,9 +178,6 @@ root and excludes the overlay from the skill copy, the same way it excludes
 
 ## File Map
 
-Paths in the Counterpart column are relative to `skills/claude-code-bridge/`
-unless they start with a repository-root segment.
-
 ### Repository root
 
 | Upstream path | Counterpart | Plan | State |
@@ -290,7 +292,7 @@ TUI probe in [Host Verification](#host-verification) confirms host delivery.
 | `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-recipes.md` | none — the owning prompting skill is dropped | drop | n/a |
 | `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-antipatterns.md` | none — the owning prompting skill is dropped | drop | n/a |
 | — | `skills/claude-code-bridge/SKILL.md` | new | done |
-| — | `skills/claude-code-bridge/UPSTREAM-PARITY.md` | new | done |
+| — | `docs/claude-code-bridge/UPSTREAM-PARITY.md` | new | done |
 
 The bridge skill owns result presentation because every command returns the
 companion's stdout verbatim. The other two upstream skills only serve the

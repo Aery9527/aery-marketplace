@@ -13,9 +13,8 @@
 The bridge runtime lets a Codex session delegate work to a long-lived Claude
 Code CLI session, observe and stop delegated work safely, require an optional
 stop-time review, and hand the resulting context to a resumable Claude session.
-It preserves the host-specific limits recorded in the upstream parity contract
-of the packaged `claude-code-bridge` skill instead of claiming native
-Claude Code mechanisms that Codex cannot reproduce.
+It reports the host-specific limit each mechanism actually carries instead of
+claiming native Claude Code behaviour the CLI cannot provide.
 
 [Back to top](#quick-navigation)
 

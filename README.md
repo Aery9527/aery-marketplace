@@ -1,6 +1,6 @@
 # aery-marketplace
 
-Current version: [`v0.10.0`](release-note/v0.10.0.md)
+Current version: [`v0.11.0`](release-note/v0.11.0.md)
 
 將 Aery Lin 多年開發經驗與工程慣例收斂成可重複使用的 AI Agent Skills，並透過 Plugin Bundle 機制按情境組裝載入。
 
@@ -16,7 +16,7 @@ Current version: [`v0.10.0`](release-note/v0.10.0.md)
 
 ## 專案結構
 
-本 repo 以 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 定義 Plugin Bundle，且它是 bundle 與 skill 分組的 source of truth；Skills 本體放在 [`skills/`](skills/) 目錄下。給 Codex 使用的 [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) 與 [`codex-plugins/`](codex-plugins/) 則由 [`scripts/sync-codex-plugins.ps1`](scripts/sync-codex-plugins.ps1) 或 [`scripts/sync-codex-plugins.sh`](scripts/sync-codex-plugins.sh) 同步產生，其中 [`codex-plugins/*/skills`](codex-plugins/) 只保留英文主檔、不包含任何 [`*_zhTW.md`](skills/)；同步流程也會回寫 [`codex-plugins/*/.codex-plugin/plugin.json`](codex-plugins/) 的 `version`，並以 [`scripts/verify_codex_plugins.py`](scripts/verify_codex_plugins.py) 驗證 package 內容與 source [`skills/`](skills/) 完全一致。README 只描述探索方式，不手動列舉每個 skill，避免文件與 [`SKILL.md`](skills/) frontmatter 不同步。[`SKILL.md`](skills/) 是英文主入口；若 skill 另外提供繁體中文版本，會放在同目錄的 [`*_zhTW.md`](skills/)。
+本 repo 以 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 定義 Plugin Bundle，它是所有 host 都能安裝的 bundle 與 skill 分組的 source of truth；只有 Codex 能用的 bundle 則宣告在 [`.agents/plugins/codex-only-bundles.json`](.agents/plugins/codex-only-bundles.json)，同一個 bundle 不會同時出現在兩份檔案。Skills 本體放在 [`skills/`](skills/) 目錄下。給 Codex 使用的 [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) 與 [`codex-plugins/`](codex-plugins/) 則由 [`scripts/sync-codex-plugins.ps1`](scripts/sync-codex-plugins.ps1) 或 [`scripts/sync-codex-plugins.sh`](scripts/sync-codex-plugins.sh) 同步產生，其中 [`codex-plugins/*/skills`](codex-plugins/) 只保留英文主檔、不包含任何 [`*_zhTW.md`](skills/)；同步流程也會回寫 [`codex-plugins/*/.codex-plugin/plugin.json`](codex-plugins/) 的 `version`，並以 [`scripts/verify_codex_plugins.py`](scripts/verify_codex_plugins.py) 驗證 package 內容與 source [`skills/`](skills/) 完全一致。README 只描述探索方式，不手動列舉每個 skill，避免文件與 [`SKILL.md`](skills/) frontmatter 不同步。[`SKILL.md`](skills/) 是英文主入口；若 skill 另外提供繁體中文版本，會放在同目錄的 [`*_zhTW.md`](skills/)。
 
 ```mermaid
 flowchart TD
@@ -26,6 +26,7 @@ flowchart TD
 
     subgraph Truth["Source of truth"]
         Marketplace[".claude-plugin/marketplace.json"]
+        CodexOnly[".agents/plugins/codex-only-bundles.json"]
         Frontmatter["skills/*/SKILL.md YAML frontmatter"]
     end
 
@@ -39,6 +40,9 @@ flowchart TD
     Marketplace -->|宣告 bundle 與 skill 組合| Bundle
     Marketplace -->|同步 scripts| CodexMarketplace
     Marketplace -->|同步 scripts| CodexPackages
+    CodexOnly -->|宣告 Codex 專用 bundle| Bundle
+    CodexOnly -->|同步 scripts| CodexMarketplace
+    CodexOnly -->|同步 scripts| CodexPackages
     Frontmatter -->|提供 name / description| Discovery
     Bundle -->|提供可載入的 skill 組合| Discovery
     CodexMarketplace -->|提供 Codex 端 bundle 定義| Discovery
@@ -48,7 +52,7 @@ flowchart TD
     classDef synced stroke:#a37000,stroke-width:2px,stroke-dasharray:4 2
     classDef output stroke:#2ea043,stroke-width:2px
 
-    class Marketplace,Frontmatter source
+    class Marketplace,CodexOnly,Frontmatter source
     class CodexMarketplace,CodexPackages synced
     class Discovery output
 ```
@@ -61,12 +65,13 @@ flowchart TD
 
 ## Plugin Bundle
 
-Plugin Bundle 是情境化的 skill 組合，實際 bundle 定義與包含關係以 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 為準；[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) 與 [`codex-plugins/`](codex-plugins/) 僅是由同步腳本產生的 Codex 封裝層。README 只保留機制說明，不複製 bundle 內的 skills 清單。
+Plugin Bundle 是情境化的 skill 組合。一個 bundle 只在一份目錄中宣告，放在哪份由「哪些 host 能安裝它」決定：所有 host 都能用的以 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 為準，只有 Codex 能用的以 [`.agents/plugins/codex-only-bundles.json`](.agents/plugins/codex-only-bundles.json) 為準；[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) 與 [`codex-plugins/`](codex-plugins/) 僅是由同步腳本從這兩份宣告產生的 Codex 封裝層。README 只保留機制說明，不複製 bundle 內的 skills 清單。
 
 | 資訊 | 來源 |
 |------|------|
-| Bundle 名稱與描述 | [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) |
-| Bundle 包含哪些 skills | [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) |
+| Bundle 名稱與描述 | [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)、[`.agents/plugins/codex-only-bundles.json`](.agents/plugins/codex-only-bundles.json) |
+| Bundle 包含哪些 skills | [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)、[`.agents/plugins/codex-only-bundles.json`](.agents/plugins/codex-only-bundles.json) |
+| Bundle 能被哪些 host 安裝 | 它被宣告在哪一份目錄 |
 | Skill 名稱、描述與觸發語意 | [`skills/*/SKILL.md`](skills/) 的 YAML frontmatter |
 | Skill 詳細規則與 references | 各 skill 目錄中的 [`SKILL.md`](skills/) 與 [`references/`](skills/) |
 
@@ -106,9 +111,9 @@ AI agent 需要掌握可用 skills 時，應掃描 [`skills/`](skills/) 底下�
 
 ## 維護原則
 
-新增、刪除或修改 [`skills/`](skills/) 內容時，必須同步檢查 [README.md](README.md) 是否仍能正確描述專案層級用途與探索方式，也要確認 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 是否仍正確反映 bundle 與 skill 分組。README 不應複製每個 skill 的完整描述；只需保留簡短說明，詳細資訊以各 [`SKILL.md`](skills/) frontmatter 與內容為準。新建 skill 時，[`SKILL.md`](skills/) 與 [`references/`](skills/) 內的原始 Markdown 檔必須以英文作為主檔，繁體中文版本使用同 basename 加上 [`*_zhTW.md`](skills/)；後續修改時，英文與 [`*_zhTW.md`](skills/) 兩邊都必須同步更新。
+新增、刪除或修改 [`skills/`](skills/) 內容時，必須同步檢查 [README.md](README.md) 是否仍能正確描述專案層級用途與探索方式，也要確認宣告其所屬 bundle 的那份目錄——[`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 或 [`.agents/plugins/codex-only-bundles.json`](.agents/plugins/codex-only-bundles.json)——是否仍正確反映 bundle 與 skill 分組。README 不應複製每個 skill 的完整描述；只需保留簡短說明，詳細資訊以各 [`SKILL.md`](skills/) frontmatter 與內容為準。新建 skill 時，[`SKILL.md`](skills/) 與 [`references/`](skills/) 內的原始 Markdown 檔必須以英文作為主檔，繁體中文版本使用同 basename 加上 [`*_zhTW.md`](skills/)；後續修改時，英文與 [`*_zhTW.md`](skills/) 兩邊都必須同步更新。
 
-每次調整 skill 內容或 bundle 分組後，都必須重新執行同步腳本，讓 [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) 與 [`codex-plugins/*/skills`](codex-plugins/) 對齊 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)：
+每次調整 skill 內容或 bundle 分組後，都必須重新執行同步腳本，讓 [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) 與 [`codex-plugins/*/skills`](codex-plugins/) 對齊 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 與 [`.agents/plugins/codex-only-bundles.json`](.agents/plugins/codex-only-bundles.json) 兩份宣告：
 
 ```powershell
 .\scripts\sync-codex-plugins.ps1
@@ -118,7 +123,7 @@ AI agent 需要掌握可用 skills 時，應掃描 [`skills/`](skills/) 底下�
 ./scripts/sync-codex-plugins.sh
 ```
 
-[`codex-plugins/*/skills`](codex-plugins/) 是封裝副本，不是 source of truth；不要直接編輯它們。同步腳本會先複製整個 skill tree，再移除整棵目錄中的 [`*_zhTW.md`](skills/)，並用 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 的 `metadata.version` 回寫 [`codex-plugins/*/.codex-plugin/plugin.json`](codex-plugins/) 的 `version`。同步完成後，驗證腳本會檢查 [`codex-plugins/*/skills`](codex-plugins/) 與 source [`skills/`](skills/) 是否完全一致，唯一允許的差異是移除 [`*_zhTW.md`](skills/)。若新增新的 Codex plugin package，先補齊 [`codex-plugins/<plugin>/.codex-plugin/plugin.json`](codex-plugins/)，再執行同步腳本。
+[`codex-plugins/*/skills`](codex-plugins/) 是封裝副本，不是 source of truth；不要直接編輯它們。同步腳本會先複製整個 skill tree，再移除整棵目錄中的 [`*_zhTW.md`](skills/)，並用 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 的 `metadata.version` 回寫 [`codex-plugins/*/.codex-plugin/plugin.json`](codex-plugins/) 的 `version`——版本是整個 repo 共用的，Codex 專用 package 也由這裡取得。同步完成後，驗證腳本會檢查 [`codex-plugins/*/skills`](codex-plugins/) 與 source [`skills/`](skills/) 是否完全一致，唯一允許的差異是移除 [`*_zhTW.md`](skills/)。若新增新的 Codex plugin package，先補齊 [`codex-plugins/<plugin>/.codex-plugin/plugin.json`](codex-plugins/)，再執行同步腳本。
 
 有些 Codex plugin 需要 skills 以外的 plugin-root 內容，例如 `commands/`、`agents/`、`scripts/` 與 `hooks.json`。這類檔案的 source of truth 一樣放在 [`skills/`](skills/) 底下：在該 skill 目錄內建立 `codex-plugin/` overlay 目錄，同步腳本會把它的內容提升到 [`codex-plugins/<plugin>/`](codex-plugins/) 的 plugin root，同時把 overlay 本身排除在 skill 副本之外。overlay 只擁有它自己宣告的那幾個 plugin-root 項目，因此 `.codex-plugin/` 與 `skills/` 不會被覆蓋；overlay 內也嚴禁出現這兩個名稱。驗證腳本會一併比對 overlay 與 plugin root 的內容。
 當 overlay 提供 `hooks.json` 時，同步腳本也會在該 package 的 [`plugin.json`](codex-plugins/) 自動產生 `"hooks": "./hooks.json"`；移除 overlay hook 時，該宣告也會一併移除，避免 generated manifest 成為第二份設定來源。

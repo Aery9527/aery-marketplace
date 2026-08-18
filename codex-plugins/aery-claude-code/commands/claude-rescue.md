@@ -10,12 +10,6 @@ removes the direct edit tools and the workspace's MCP servers — every write ro
 that can be closed from here. The CLI offers no sandbox, so a session that can
 still run commands can still write through them.
 
-Upstream routes the same request through a subagent it declares in
-`agents/codex-rescue.md`. A Codex plugin cannot declare a subagent — Codex's own
-subagents are TOML files under `.codex/agents/`, and a plugin's `agents/`
-directory holds interface metadata — so this command forwards to the runtime
-itself and carries the forwarding rules here.
-
 Codex command files carry no frontmatter, so the argument list and the tool
 constraints live here as instructions rather than as declared metadata.
 

@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "將自己開發經驗與習慣收斂成 skill or agent.",
-    "version": "0.10.0"
+    "version": "0.11.0"
   },
   "plugins": [
     {
@@ -27,14 +27,6 @@
         "./arch-rules",
         "./go-mongo-rules",
         "./code-mereology"
-      ]
-    },
-    {
-      "name": "aery-claude-code",
-      "source": "./skills",
-      "strict": false,
-      "skills": [
-        "./claude-code-bridge"
       ]
     }
   ]

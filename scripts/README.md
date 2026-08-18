@@ -19,8 +19,11 @@
 
 這個目錄裡的腳本主要分成兩類：
 
-- [`sync-codex-plugins.*`](./)：把 Claude marketplace 定義同步成 Codex 會讀的
-  marketplace 與 plugin package 產物。
+- [`sync-codex-plugins.*`](./)：把兩份 bundle 宣告同步成 Codex 會讀的 marketplace
+  與 plugin package 產物。所有 host 都能安裝的 bundle 宣告在
+  [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json)，只有
+  Codex 能安裝的宣告在
+  [`.agents/plugins/codex-only-bundles.json`](../.agents/plugins/codex-only-bundles.json)。
 - [`link-agent-skills.*`](./)：在本機開發環境建立 [`.claude/skills`](../.claude/)
   與 [`.agents/skills`](../.agents/) 之間的 link，讓不同 agent 入口共用同一份
   skills。
@@ -37,7 +40,7 @@ automation 的一部分。
 
 ```mermaid
 flowchart TD
-    Source["skills/ + .claude-plugin/marketplace.json"] -->|sync| Sync["sync-codex-plugins.*"]
+    Source["skills/ + .claude-plugin/marketplace.json<br/>+ .agents/plugins/codex-only-bundles.json"] -->|sync| Sync["sync-codex-plugins.*"]
     Sync --> Agents[".agents/plugins/marketplace.json"]
     Sync --> Packages["codex-plugins/*/skills"]
     Dev["Local developer workflow"] -->|link| Link["link-agent-skills.*"]
@@ -60,7 +63,7 @@ flowchart TD
 
 | Script | 用途 | 何時使用 |
 | ------ | ---- | -------- |
-| [`sync-codex-plugins.ps1`](sync-codex-plugins.ps1) | 同步 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 到 [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json) 與 [`codex-plugins/*/skills`](../codex-plugins/) | 任何 skill、plugin 分組或 Codex plugin package 結構有變動時 |
+| [`sync-codex-plugins.ps1`](sync-codex-plugins.ps1) | 同步 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 與 [`.agents/plugins/codex-only-bundles.json`](../.agents/plugins/codex-only-bundles.json) 到 [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json) 與 [`codex-plugins/*/skills`](../codex-plugins/) | 任何 skill、plugin 分組或 Codex plugin package 結構有變動時 |
 | [`sync-codex-plugins.sh`](sync-codex-plugins.sh) | [`sync-codex-plugins.ps1`](sync-codex-plugins.ps1) 的 shell wrapper | 在 macOS、Linux 或 Git Bash 上觸發同步時 |
 | [`verify_codex_plugins.py`](verify_codex_plugins.py) | 驗證 [`codex-plugins/*/skills`](../codex-plugins/) 是否與 source [`skills/`](../skills/) 完全一致 | release 前，或懷疑同步產物殘留/漏同步時 |
 | [`link-agent-skills.ps1`](link-agent-skills.ps1) | 互動式管理 [`.agents/skills`](../.agents/) 的 Windows junction | 本機 Windows 開發環境需要讓 [`.agents/skills`](../.agents/) 指向 [`.claude/skills`](../.claude/) 時 |
@@ -83,14 +86,16 @@ flowchart TD
 ### 會讀取什麼
 
 - [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json)
+- [`.agents/plugins/codex-only-bundles.json`](../.agents/plugins/codex-only-bundles.json)
 - 既有的 [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json)
 - 每個 plugin 宣告所指向的 skill source 目錄
 - [`codex-plugins/*/.codex-plugin/plugin.json`](../codex-plugins/)
 
 ### 會做什麼
 
-1. 以 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 作為 plugin bundle 的 source of
-   truth。
+1. 取 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 與
+   [`.agents/plugins/codex-only-bundles.json`](../.agents/plugins/codex-only-bundles.json)
+   兩份宣告的聯集，作為要封裝哪些 plugin bundle 的 source of truth。
 2. 驗證 plugin 名稱、skill 路徑、source 目錄，以及 Codex plugin package
    目錄是否存在。
 3. 把宣告的 skill 目錄複製到各自的 [`codex-plugins/<plugin>/skills`](../codex-plugins/)。
@@ -105,7 +110,8 @@ flowchart TD
 
 ### 前置條件
 
-- [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 內的 plugin 名稱必須唯一。
+- 兩份宣告都必須有 `plugins` 陣列；沒有任何 bundle 時寫 `[]`。
+- plugin 名稱跨兩份宣告必須唯一：同一個 bundle 只能屬於其中一份。
 - 每個宣告的 plugin `source` 目錄都必須存在。
 - 每個宣告的 skill 目錄都必須存在。
 - 每個目標 [`codex-plugins/<plugin>`](../codex-plugins/) 目錄都必須事先建立。
@@ -138,7 +144,8 @@ flowchart TD
 
 ### 會驗證什麼
 
-- 每個 plugin 只包含 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) 宣告的 skill
+- 兩份 bundle 宣告都有 `plugins` 陣列，且沒有任何 bundle 同時出現在兩份裡
+- 每個 plugin 只包含那兩份宣告中屬於它的 skill
 - 每個 [`codex-plugins/<plugin>/skills/<skill>`](../codex-plugins/) 都存在
 - 相對於 source [`skills/`](../skills/)，target 不可多檔、不可少檔、不可多目錄、不可少目錄
 - 所有對應檔案內容必須 byte-for-byte 完全一致
@@ -152,6 +159,7 @@ python .\scripts\verify_codex_plugins.py
 
 ### 失敗行為
 
+- 任一份宣告缺少 `plugins` 陣列，或同一個 bundle 出現在兩份宣告中即失敗
 - 任一 plugin 有額外 skill 目錄即失敗
 - 任一 skill 有缺漏或殘留檔案/目錄即失敗
 - 任一對應檔案內容不同即失敗
