@@ -117,12 +117,19 @@ def verify_overlay(
     return errors, owned_names
 
 
-def verify_repo(repo_root: pathlib.Path) -> list[str]:
+def read_bundle_declarations(repo_root: pathlib.Path) -> list[dict]:
+    """Every bundle Codex packages, whichever host catalog declares it."""
     marketplace_path = repo_root / ".claude-plugin" / "marketplace.json"
+    codex_only_path = repo_root / ".agents" / "plugins" / "codex-only-bundles.json"
     marketplace = json.loads(marketplace_path.read_text(encoding="utf-8"))
+    codex_only = json.loads(codex_only_path.read_text(encoding="utf-8"))
+    return list(marketplace.get("plugins", [])) + list(codex_only.get("plugins", []))
+
+
+def verify_repo(repo_root: pathlib.Path) -> list[str]:
     errors: list[str] = []
 
-    for plugin in marketplace.get("plugins", []):
+    for plugin in read_bundle_declarations(repo_root):
         plugin_name = str(plugin["name"])
         plugin_source_root = repo_root / normalize_relative_path(str(plugin["source"]))
         plugin_root = repo_root / "codex-plugins" / plugin_name

@@ -28,14 +28,6 @@
         "./go-mongo-rules",
         "./code-mereology"
       ]
-    },
-    {
-      "name": "aery-claude-code",
-      "source": "./skills",
-      "strict": false,
-      "skills": [
-        "./claude-code-bridge"
-      ]
     }
   ]
 }

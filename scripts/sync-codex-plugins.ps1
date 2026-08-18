@@ -116,6 +116,7 @@ try {
     $repoRoot = (Get-Location).Path
     $claudeMarketplacePath = Join-Path $repoRoot '.claude-plugin\marketplace.json'
     $agentsMarketplacePath = Join-Path $repoRoot '.agents\plugins\marketplace.json'
+    $codexOnlyBundlesPath = Join-Path $repoRoot '.agents\plugins\codex-only-bundles.json'
     $codexPluginsRoot = Join-Path $repoRoot 'codex-plugins'
     $verifyScriptPath = Join-Path $repoRoot 'scripts\verify_codex_plugins.py'
 
@@ -123,6 +124,7 @@ try {
 
     $claudeMarketplace = Read-JsonFile -Path $claudeMarketplacePath
     $agentsMarketplace = Read-JsonFile -Path $agentsMarketplacePath
+    $codexOnlyBundles = Read-JsonFile -Path $codexOnlyBundlesPath
 
     if (-not $claudeMarketplace.Contains('metadata') -or -not $claudeMarketplace['metadata'].Contains('version')) {
         throw '.claude-plugin\marketplace.json metadata.version is required.'
@@ -143,14 +145,20 @@ try {
     $totalSkills = 0
     $seenPluginNames = @{}
 
-    foreach ($plugin in @($claudeMarketplace['plugins'])) {
+    # A bundle every host can install is declared in the Claude marketplace; one only
+    # Codex can install is declared beside the Codex marketplace. Codex packages both.
+    $bundleDeclarations = @()
+    $bundleDeclarations += @($claudeMarketplace['plugins'])
+    $bundleDeclarations += @($codexOnlyBundles['plugins'])
+
+    foreach ($plugin in $bundleDeclarations) {
         $pluginName = [string]$plugin['name']
         if ([string]::IsNullOrWhiteSpace($pluginName)) {
-            throw 'Plugin name in .claude-plugin\marketplace.json cannot be empty.'
+            throw 'Plugin name in a bundle declaration cannot be empty.'
         }
 
         if ($seenPluginNames.ContainsKey($pluginName)) {
-            throw "Duplicate plugin name found in .claude-plugin\marketplace.json: $pluginName"
+            throw "Plugin '$pluginName' is declared more than once. A bundle belongs to .claude-plugin\marketplace.json or .agents\plugins\codex-only-bundles.json, never both."
         }
         $seenPluginNames[$pluginName] = $true
 

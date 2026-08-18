@@ -36,6 +36,14 @@ not the source of truth for the skill list.
   re-check `.claude-plugin/marketplace.json` so bundle and skill grouping remain
   correct. If a skill's ownership, naming, or packaging list changes, update
   `.claude-plugin/marketplace.json` first.
+- A bundle is declared in exactly one catalog, and where it goes is decided by
+  which hosts can install it. `.claude-plugin/marketplace.json` is the catalog
+  Claude Code and Copilot CLI read, so a bundle those hosts can use belongs
+  there; Codex packages it from the same entry. A bundle only Codex can use —
+  one whose skills drive another agent CLI, for instance — belongs in
+  `.agents/plugins/codex-only-bundles.json` instead, so it never reaches a host
+  that cannot run it. Declaring the same bundle in both files is an error the
+  sync script rejects.
 - `.agents/plugins/marketplace.json` must stay synchronized with
   `.claude-plugin/marketplace.json`. Do not maintain both manually. Run
   `scripts/sync-codex-plugins.ps1` or `scripts/sync-codex-plugins.sh` to rewrite

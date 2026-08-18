@@ -27,6 +27,12 @@ frontmatter 定義 `name` 與 `description`，並在內文描述觸發條件、�
 
 - 新增、刪除或修改 `skills/` 底下任何 skill 內容時，必須同步檢查並更新
   `README.md`，前提是專案層級用途或探索指引確實需要調整。
+- 一個 bundle 只在一份目錄中宣告，放在哪份由「哪些 host 能安裝它」決定。
+  `.claude-plugin/marketplace.json` 是 Claude Code 與 Copilot CLI 讀取的目錄，
+  這些 host 用得到的 bundle 就宣告在那裡，Codex 也從同一筆條目封裝。只有 Codex
+  能用的 bundle——例如其 skill 是用來驅動另一個 agent CLI——則改宣告在
+  `.agents/plugins/codex-only-bundles.json`，避免它出現在無法執行它的 host。
+  同一個 bundle 同時出現在兩份檔案是錯誤，同步腳本會直接拒絕。
 - 新增、刪除或修改 `skills/` 底下任何 skill 內容時，也必須同步檢查
   `.claude-plugin/marketplace.json` 是否仍正確反映 bundle 與 skill 分組；若
   skill 的歸屬、命名或包裝清單有變動，先更新 `.claude-plugin/marketplace.json`。
