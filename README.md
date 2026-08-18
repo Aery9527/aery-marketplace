@@ -40,8 +40,9 @@ flowchart TD
     Marketplace -->|宣告 bundle 與 skill 組合| Bundle
     Marketplace -->|同步 scripts| CodexMarketplace
     Marketplace -->|同步 scripts| CodexPackages
-    CodexOnly -->|宣告 Codex 專用 bundle| CodexMarketplace
-    CodexOnly -->|宣告 Codex 專用 bundle| CodexPackages
+    CodexOnly -->|宣告 Codex 專用 bundle| Bundle
+    CodexOnly -->|同步 scripts| CodexMarketplace
+    CodexOnly -->|同步 scripts| CodexPackages
     Frontmatter -->|提供 name / description| Discovery
     Bundle -->|提供可載入的 skill 組合| Discovery
     CodexMarketplace -->|提供 Codex 端 bundle 定義| Discovery
@@ -110,7 +111,7 @@ AI agent 需要掌握可用 skills 時，應掃描 [`skills/`](skills/) 底下�
 
 ## 維護原則
 
-新增、刪除或修改 [`skills/`](skills/) 內容時，必須同步檢查 [README.md](README.md) 是否仍能正確描述專案層級用途與探索方式，也要確認 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 是否仍正確反映 bundle 與 skill 分組。README 不應複製每個 skill 的完整描述；只需保留簡短說明，詳細資訊以各 [`SKILL.md`](skills/) frontmatter 與內容為準。新建 skill 時，[`SKILL.md`](skills/) 與 [`references/`](skills/) 內的原始 Markdown 檔必須以英文作為主檔，繁體中文版本使用同 basename 加上 [`*_zhTW.md`](skills/)；後續修改時，英文與 [`*_zhTW.md`](skills/) 兩邊都必須同步更新。
+新增、刪除或修改 [`skills/`](skills/) 內容時，必須同步檢查 [README.md](README.md) 是否仍能正確描述專案層級用途與探索方式，也要確認宣告其所屬 bundle 的那份目錄——[`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 或 [`.agents/plugins/codex-only-bundles.json`](.agents/plugins/codex-only-bundles.json)——是否仍正確反映 bundle 與 skill 分組。README 不應複製每個 skill 的完整描述；只需保留簡短說明，詳細資訊以各 [`SKILL.md`](skills/) frontmatter 與內容為準。新建 skill 時，[`SKILL.md`](skills/) 與 [`references/`](skills/) 內的原始 Markdown 檔必須以英文作為主檔，繁體中文版本使用同 basename 加上 [`*_zhTW.md`](skills/)；後續修改時，英文與 [`*_zhTW.md`](skills/) 兩邊都必須同步更新。
 
 每次調整 skill 內容或 bundle 分組後，都必須重新執行同步腳本，讓 [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) 與 [`codex-plugins/*/skills`](codex-plugins/) 對齊 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) 與 [`.agents/plugins/codex-only-bundles.json`](.agents/plugins/codex-only-bundles.json) 兩份宣告：
 
