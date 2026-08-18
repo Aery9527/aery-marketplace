@@ -249,6 +249,31 @@ class VerifyCodexPluginsTests(unittest.TestCase):
             any("declared by more than one skill" in error for error in errors)
         )
 
+    def test_verifies_a_bundle_declared_only_for_codex(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = pathlib.Path(tmp_dir)
+            self._write_marketplace(
+                repo,
+                plugins=[],
+                codex_only_plugins=[
+                    {
+                        "name": "codex-only",
+                        "source": "./skills",
+                        "skills": ["./alpha"],
+                    }
+                ],
+            )
+            self._write_text(repo / "skills" / "alpha" / "SKILL.md", "# alpha\n")
+            self._write_text(
+                repo / "codex-plugins" / "codex-only" / "skills" / "alpha" / "SKILL.md",
+                "# drifted\n",
+            )
+
+            errors = verify_repo(repo)
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Content mismatch", errors[0])
+
     def _write_overlay_fixture(self, repo: pathlib.Path) -> None:
         self._write_marketplace(
             repo,
@@ -260,6 +285,7 @@ class VerifyCodexPluginsTests(unittest.TestCase):
                 }
             ],
         )
+        self._write_plugin_manifest(repo, "demo", hooks=True)
         self._write_text(repo / "skills" / "alpha" / "SKILL.md", "# alpha\n")
         self._write_text(repo / "skills" / "alpha" / "codex-plugin" / "hooks.json", "{}\n")
         self._write_text(
@@ -269,7 +295,13 @@ class VerifyCodexPluginsTests(unittest.TestCase):
             repo / "codex-plugins" / "demo" / "skills" / "alpha" / "SKILL.md", "# alpha\n"
         )
 
-    def _write_marketplace(self, repo: pathlib.Path, plugins: list[dict[str, object]]) -> None:
+    def _write_marketplace(
+        self,
+        repo: pathlib.Path,
+        plugins: list[dict[str, object]],
+        codex_only_plugins: list[dict[str, object]] | None = None,
+    ) -> None:
+        codex_only_plugins = codex_only_plugins or []
         content = {
             "metadata": {"version": "0.2.0"},
             "plugins": plugins,
@@ -277,6 +309,23 @@ class VerifyCodexPluginsTests(unittest.TestCase):
         self._write_text(
             repo / ".claude-plugin" / "marketplace.json",
             json.dumps(content, indent=2) + "\n",
+        )
+        self._write_text(
+            repo / ".agents" / "plugins" / "codex-only-bundles.json",
+            json.dumps({"plugins": codex_only_plugins}, indent=2) + "\n",
+        )
+        for plugin in [*plugins, *codex_only_plugins]:
+            self._write_plugin_manifest(repo, str(plugin["name"]))
+
+    def _write_plugin_manifest(
+        self, repo: pathlib.Path, plugin_name: str, hooks: bool = False
+    ) -> None:
+        manifest: dict[str, object] = {"name": plugin_name, "version": "0.2.0"}
+        if hooks:
+            manifest["hooks"] = "./hooks.json"
+        self._write_text(
+            repo / "codex-plugins" / plugin_name / ".codex-plugin" / "plugin.json",
+            json.dumps(manifest, indent=2) + "\n",
         )
 
     def _write_text(self, path: pathlib.Path, content: str) -> None:

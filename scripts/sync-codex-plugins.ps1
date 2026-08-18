@@ -126,6 +126,10 @@ try {
     $agentsMarketplace = Read-JsonFile -Path $agentsMarketplacePath
     $codexOnlyBundles = Read-JsonFile -Path $codexOnlyBundlesPath
 
+    if (-not $codexOnlyBundles.Contains('plugins')) {
+        throw '.agents\plugins\codex-only-bundles.json must declare a "plugins" array; use [] when no bundle is Codex-only.'
+    }
+
     if (-not $claudeMarketplace.Contains('metadata') -or -not $claudeMarketplace['metadata'].Contains('version')) {
         throw '.claude-plugin\marketplace.json metadata.version is required.'
     }
