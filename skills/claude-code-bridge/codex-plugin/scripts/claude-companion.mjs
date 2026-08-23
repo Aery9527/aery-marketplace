@@ -541,6 +541,7 @@ function createTrackedProgress(job, options = {}) {
   return {
     logFile,
     progress: createProgressReporter({
+      stderr: Boolean(options.stderr),
       logFile,
       onEvent: createJobProgressUpdater(job.workspaceRoot, job.id)
     })
@@ -801,7 +802,7 @@ async function handleRescue(argv) {
     return;
   }
 
-  const { logFile, progress } = createTrackedProgress(job);
+  const { logFile, progress } = createTrackedProgress(job, { stderr: !options.json });
   const execution = await runTrackedJob(
     { ...job, logFile },
     () => executeJob(request, progress, { sessionLifecycle: createJobSessionLifecycle({ ...job, logFile }, progress) }),
@@ -832,7 +833,7 @@ async function handleReviewCommand(kind, argv) {
     return;
   }
 
-  const { logFile, progress } = createTrackedProgress(job);
+  const { logFile, progress } = createTrackedProgress(job, { stderr: !options.json });
   const execution = await runTrackedJob(
     { ...job, logFile },
     () => executeJob(request, progress, { sessionLifecycle: createJobSessionLifecycle({ ...job, logFile }, progress) }),

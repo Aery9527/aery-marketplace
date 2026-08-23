@@ -80,6 +80,7 @@ Endpoint 必須 ready 後，job 才能宣告具備 brokered control。Cancellati
 - Cleanup safety — acknowledged broker shutdown 或 verified fallback termination 後，除非已觀察到 worker exit，否則 active job files 必須保留。殘留 record 只增加人工 cleanup；終止無關 process 或刪除唯一 evidence 都不是可接受的 fallback。
 - Host delivery — 直接呼叫 hook 驗證 parsing 與 cleanup；互動式 Codex TUI probe 已確認 `SessionStart` 與 `SessionEnd` 會連同 workspace 與已安裝 plugin environment 一起送達。Hook process 不會收到 `CODEX_THREAD_ID`；其 payload identifier 會等於 transcript 的 `session_meta.id`，而 command 端的 `CODEX_THREAD_ID` 識別的正是該值。
 - Limits — acknowledged interrupt 只證明 Claude 接受 control request，不代表所有 child process 已退出，也不代表 job 已進入 terminal state。
+- Turn lifetime — runtime 不設定預設的總執行時間上限。呼叫端負責 idle 與 absolute monitoring，並可在任務需要時明確傳入 turn timeout；process 存活本身不代表 model 有進度。
 - Guard limit — endpoint guard 只縮小 final read 與 atomic rename 之間的區間，無法關閉它。Terminal write 若落在該區間仍可能被覆寫；要關閉它需要此 runtime 並未提供的真正 cross-process lock 或 compare-and-swap primitive。
 
 [返回頂端](#快速導覽)

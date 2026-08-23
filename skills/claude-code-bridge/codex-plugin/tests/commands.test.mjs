@@ -34,6 +34,23 @@ function isolatedEnv(binDir) {
   return buildEnv(binDir, { PLUGIN_DATA: makeTempDir(), CLAUDE_PLUGIN_DATA: "" });
 }
 
+async function waitForListedJob(jobFile, jobId, predicate, timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastJob = null;
+  const stateFile = path.join(path.dirname(path.dirname(jobFile)), "state.json");
+
+  while (Date.now() < deadline) {
+    const state = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+    lastJob = state.jobs.find((job) => job.id === jobId) ?? null;
+    if (predicate(lastJob)) {
+      return lastJob;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  assert.fail(`job did not reach the expected state within ${timeoutMs}ms: ${JSON.stringify(lastJob)}`);
+}
+
 test("setup reports ready when Claude Code is installed and signed in", () => {
   const binDir = makeTempDir();
   installFakeClaude(binDir, "ready");
@@ -510,6 +527,9 @@ test("a foreground review stores the same output the command printed", () => {
 
   const review = runCompanion(["adversarial-review"], { cwd, env });
   assert.equal(review.status, 0, review.stderr);
+  assert.match(review.stderr, /\[claude\] Claude session ready/);
+  assert.match(review.stderr, /\[claude\] Writing:/);
+  assert.match(review.stderr, /\[claude\] Turn ended \(success\)\./);
 
   const stored = JSON.parse(runCompanion(["result", "--json"], { cwd, env }).stdout);
   assert.equal(stored.job.status, "completed");
@@ -660,7 +680,11 @@ test("cancel stops a running background review and records it as cancelled", asy
   const env = isolatedEnv(binDir);
 
   const queued = JSON.parse(runCompanion(["adversarial-review", "--background", "--json", "SLOW"], { cwd, env }).stdout);
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await waitForListedJob(
+    queued.jobFile,
+    queued.jobId,
+    (job) => job?.status === "running" && Number.isInteger(job.pid) && Boolean(job.claudeSessionId)
+  );
 
   const cancelled = JSON.parse(runCompanion(["cancel", queued.jobId, "--json"], { cwd, env }).stdout);
   assert.equal(cancelled.status, "cancelled");
@@ -948,7 +972,7 @@ test("a named session whose run is still going is refused", async () => {
   const env = isolatedEnv(binDir);
 
   const queued = JSON.parse(runCompanion(["rescue", "--background", "--json", "SLOW rewrite"], { cwd, env }).stdout);
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await waitForListedJob(queued.jobFile, queued.jobId, (job) => Boolean(job?.claudeSessionId));
   const running = JSON.parse(runCompanion(["status", queued.jobId, "--json"], { cwd, env }).stdout).job;
   assert.equal(running.status, "running");
   assert.ok(running.claudeSessionId, "the running job should have announced a session");
@@ -1009,7 +1033,7 @@ test("a session claimed by another Codex session is still refused", async () => 
       env: { ...shared, CLAUDE_COMPANION_SESSION_ID: "codex-session-a" }
     }).stdout
   );
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await waitForListedJob(queued.jobFile, queued.jobId, (job) => Boolean(job?.claudeSessionId));
   const running = JSON.parse(
     runCompanion(["status", queued.jobId, "--json"], { cwd, env: { ...shared, CLAUDE_COMPANION_SESSION_ID: "codex-session-a" } })
       .stdout

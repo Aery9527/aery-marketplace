@@ -30,6 +30,8 @@ description: >-
 ## 規則
 
 - 必須把 runtime 的 stdout 原樣回傳給使用者。嚴禁改寫、摘要，或在前後加上評論。
+- Foreground progress 會從 stderr 傳出；它只能視為即時遙測，嚴禁合併進最終 stdout，
+  也嚴禁把它呈現成 Claude 的審查結論。
 - 嚴禁對審查回報的問題採取行動。修復必須由使用者另外提出。
 - 嚴禁把 `/claude-review` 描述為 sandbox 或唯讀。內建 reviewer 會自行檢視 repository，
   因此帶有 shell 存取權。只有 `/claude-adversarial-review` 執行在無法寫入的 session 中。
@@ -92,8 +94,10 @@ description: >-
   各個 Codex turn 會成為原生 Claude history。
 - 除非帶上 `--background`，兩個審查進入點都在前景執行。嚴禁把前景審查說成正在背景執行，
   也嚴禁把已排入佇列的 job 呈現為已完成的審查。
-- 若使用者不想等待審查結果，帶上 `--background` 並回傳排入佇列的報告。該次執行記錄了
-  什麼之後由 `/claude-result` 取得——只有在它確實產出結論時，那才是結論。
+- 若使用者不想等待，或該次執行可能超過目前可觀察的 foreground 時段，帶上
+  `--background` 並回傳排入佇列的報告。依目前 agent instructions 要求的間隔用
+  `/claude-status` 監控，再用 `/claude-result` 取得記錄內容；只有該次執行確實產出
+  結論時，那才是審查結論。
 - 若使用者詢問已啟動的工作，進度用 `/claude-status`，記錄到的內容用 `/claude-result`。
 
 ## 需求

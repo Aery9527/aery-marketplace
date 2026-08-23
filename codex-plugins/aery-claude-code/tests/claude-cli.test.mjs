@@ -11,6 +11,7 @@ import {
   quoteForWindowsCommandLine,
   runClaudeOnce
 } from "../scripts/lib/claude-cli.mjs";
+import { createStreamProgressListener } from "../scripts/lib/claude.mjs";
 import { StreamProtocolError } from "../scripts/lib/stream-protocol.mjs";
 import { buildEnv, installFakeClaude } from "./fake-claude-fixture.mjs";
 import { makeTempDir } from "./helpers.mjs";
@@ -20,6 +21,49 @@ function startSession(behavior = "ready", options = {}) {
   installFakeClaude(binDir, behavior);
   return ClaudeCliSession.start(makeTempDir(), { env: buildEnv(binDir), ...options });
 }
+
+test("the Claude session requests partial stream messages", () => {
+  const args = buildBaseArgs({});
+
+  assert.ok(args.includes("--include-partial-messages"));
+});
+
+test("partial stream activity is generic and throttled without hiding tool progress", () => {
+  const progress = [];
+  let currentTime = 0;
+  const listener = createStreamProgressListener((event) => progress.push(event), {
+    now: () => currentTime,
+    partialProgressIntervalMs: 30_000
+  });
+
+  listener({
+    type: "stream_event",
+    event: { delta: { type: "thinking_delta", thinking: "private reasoning" } }
+  });
+  currentTime += 1_000;
+  listener({
+    type: "stream_event",
+    event: { delta: { type: "text_delta", text: "private answer draft" } }
+  });
+  listener({
+    type: "assistant",
+    message: {
+      role: "assistant",
+      content: [{ type: "tool_use", name: "Read", input: { file_path: "SKILL.md" } }]
+    }
+  });
+  currentTime += 30_000;
+  listener({
+    type: "stream_event",
+    event: { delta: { type: "text_delta", text: "another private draft" } }
+  });
+
+  assert.deepEqual(
+    progress.map((event) => event.message),
+    ["Claude is still working.", "Using Read: SKILL.md", "Claude is writing the response."]
+  );
+  assert.doesNotMatch(JSON.stringify(progress), /private/);
+});
 
 test("a session serves successive turns from one process", async () => {
   const session = startSession();

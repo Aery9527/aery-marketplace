@@ -344,7 +344,7 @@ process. The reverse port drives the `claude` CLI. Verified against `claude`
 | Upstream app-server capability | Claude Code CLI counterpart | Evidence |
 |--------------------------------|-----------------------------|----------|
 | structured output (`schemas/review-output.schema.json`) | `--json-schema`; the final stream-json `result` carries both `structured_output` and the same JSON as `result` text | probe |
-| turn streaming and progress events | `--output-format stream-json --verbose`; the turn ends on a `result` event. Token-level deltas additionally need `--include-partial-messages`, which the runtime does not pass yet | docs, probe |
+| turn streaming and progress events | `--output-format stream-json --verbose --include-partial-messages`; the turn ends on a `result` event. Partial deltas become throttled generic activity and never expose their content | docs, probe |
 | model selection | `--model <alias\|full-name>` | help |
 | thread persistence and resume | `--session-id <uuid>`, `--resume <id>`, `--continue`, `--fork-session`; `--resume` finds a session in any project from v2.1.223 | docs, help |
 | thread naming (`buildPersistentTaskThreadName`) | `--name <name>` | help |
@@ -441,6 +441,13 @@ is a loss of function.
   through its job record and log. `-p` rejects `--bg` and `claude agents` manages
   Claude Code's own background sessions, so neither is a substitute for owning
   the child.
+- **Foreground progress** — upstream writes non-JSON foreground app-server
+  progress to stderr and reserves stdout for the final result. The counterpart
+  does the same with descriptions derived from Claude stream frames and the
+  `[claude]` prefix. Partial deltas emit only a generic activity line at most
+  once every thirty seconds, so neither token output nor private reasoning is
+  copied into telemetry. Background workers have no stderr and continue to
+  expose progress only through the job log and phase.
 - **Job phase** — upstream's app server names the phase of a turn, and its
   `inferLegacyJobPhase` reconstructs one from log text for records written before
   it did. The CLI names no phase, so a phase here comes from one of two places

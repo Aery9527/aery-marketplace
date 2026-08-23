@@ -22,7 +22,6 @@ import {
 export const CLAUDE_BINARY = "claude";
 export const INTERRUPT_CAPABILITY = "interrupt_receipt_v1";
 
-const DEFAULT_TURN_TIMEOUT_MS = 15 * 60 * 1000;
 const DEFAULT_CONTROL_TIMEOUT_MS = 30 * 1000;
 
 export class ClaudeCliError extends Error {
@@ -127,6 +126,7 @@ export function buildBaseArgs(options) {
     "-p",
     "--input-format", "stream-json",
     "--output-format", "stream-json",
+    "--include-partial-messages",
     "--verbose"
   ];
 
@@ -270,7 +270,9 @@ export class ClaudeCliSession {
     }
     const turn = this.pendingTurn;
     this.pendingTurn = null;
-    clearTimeout(turn.timer);
+    if (turn.timer) {
+      clearTimeout(turn.timer);
+    }
     turn.reject(error);
   }
 
@@ -314,7 +316,9 @@ export class ClaudeCliSession {
     if (isTurnResult(event) && this.pendingTurn) {
       const turn = this.pendingTurn;
       this.pendingTurn = null;
-      clearTimeout(turn.timer);
+      if (turn.timer) {
+        clearTimeout(turn.timer);
+      }
       turn.resolve(describeResult(event));
     }
   }
@@ -332,12 +336,14 @@ export class ClaudeCliSession {
       throw new ClaudeCliError("Claude session is busy with another turn.");
     }
 
-    const timeoutMs = options.timeoutMs ?? DEFAULT_TURN_TIMEOUT_MS;
+    const timeoutMs = options.timeoutMs ?? null;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.#poison(new ClaudeCliError(`Claude turn timed out after ${timeoutMs}ms.`, { timeoutMs }));
-      }, timeoutMs);
-      timer.unref?.();
+      const timer = timeoutMs == null
+        ? null
+        : setTimeout(() => {
+            this.#poison(new ClaudeCliError(`Claude turn timed out after ${timeoutMs}ms.`, { timeoutMs }));
+          }, timeoutMs);
+      timer?.unref?.();
 
       this.pendingTurn = { resolve, reject, timer };
       this.child.stdin.write(`${JSON.stringify(buildUserMessage(text))}\n`, (error) => {

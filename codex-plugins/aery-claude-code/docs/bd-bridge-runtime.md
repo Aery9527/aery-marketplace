@@ -37,7 +37,9 @@ The companion remains the single boundary for user-invoked bridge commands.
 Codex hooks are separate host entry points: the stop hook invokes its restricted
 Claude turn directly, while the session hook coordinates teardown. The broker
 owns live-session coordination, and transfer creates a separate bridge-owned
-Claude session that can be resumed.
+Claude session that can be resumed. Foreground commands reserve stdout for the
+final result and expose live Claude protocol progress on stderr; background
+workers write the same progress only to their job log and phase.
 
 [Back to top](#quick-navigation)
 

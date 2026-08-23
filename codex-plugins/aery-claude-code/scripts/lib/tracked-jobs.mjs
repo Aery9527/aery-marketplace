@@ -187,13 +187,16 @@ export function createJobProgressUpdater(workspaceRoot, jobId) {
   };
 }
 
-export function createProgressReporter({ logFile = null, onEvent = null } = {}) {
-  if (!logFile && !onEvent) {
+export function createProgressReporter({ stderr = false, logFile = null, onEvent = null } = {}) {
+  if (!stderr && !logFile && !onEvent) {
     return null;
   }
 
   return (eventOrMessage) => {
     const event = normalizeProgressEvent(eventOrMessage);
+    if (stderr && event.message) {
+      process.stderr.write(`[claude] ${event.message}\n`);
+    }
     appendLogLine(logFile, event.message);
     appendLogBlock(logFile, event.logTitle, event.logBody);
     onEvent?.(event);
