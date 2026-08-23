@@ -82,6 +82,7 @@ termination remains the fallback and its narrower guarantee is reported.
 - Cleanup safety — an active job's files MUST remain unless its worker exit is observed after acknowledged broker shutdown or verified fallback termination. A stale record costs manual cleanup; terminating an unrelated process or deleting the only evidence is not an acceptable fallback.
 - Host delivery — direct hook invocation verifies parsing and cleanup. An interactive Codex TUI probe verified `SessionStart` and `SessionEnd` delivery with the workspace and installed plugin environment. The hook process does not receive `CODEX_THREAD_ID`; its payload identifier matches the transcript's `session_meta.id`, which command-side `CODEX_THREAD_ID` identifies.
 - Limits — an acknowledged interrupt proves that Claude accepted the control request, not that every child process has exited or that the job has already reached a terminal state.
+- Turn lifetime — the runtime imposes no default total-duration deadline. The caller owns idle and absolute monitoring and may pass an explicit turn timeout when the task needs one; process liveness alone is not model progress.
 - Guard limit — the endpoint guard narrows but does not close the interval between its final read and atomic rename. A terminal write landing in that interval can still be overwritten; closing it requires a real cross-process lock or compare-and-swap primitive that this runtime does not provide.
 
 [Back to top](#quick-navigation)

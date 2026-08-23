@@ -35,6 +35,8 @@ flowchart LR
 Companion 維持所有使用者呼叫 bridge commands 的單一邊界。Codex hooks 是獨立的 host
 entry points：stop hook 直接呼叫自己的受限 Claude turn，session hook 則協調 teardown。
 Broker 負責 live session 協調，而 transfer 建立另一個可續接的 bridge-owned Claude session。
+Foreground command 保留 stdout 給最終結果，並從 stderr 顯示即時 Claude protocol
+progress；background worker 則只把相同進度寫入 job log 與 phase。
 
 [返回頂端](#快速導覽)
 

@@ -202,6 +202,7 @@ export function buildClaudeEnv(overrides = {}) {
 // shows: the session announcing itself, a tool call in flight, an answer being written.
 const PROGRESS_TOOL_TARGET_FIELDS = ["file_path", "pattern", "command", "description"];
 const MAX_PROGRESS_DETAIL = 80;
+const DEFAULT_PARTIAL_PROGRESS_INTERVAL_MS = 30_000;
 
 // A log line is one line by contract, so anything quoted out of the stream is flattened
 // before it can break the progress reader that parses those lines back.
@@ -243,6 +244,13 @@ export function describeStreamEvent(event) {
     return null;
   }
 
+  if (event.type === "stream_event") {
+    const deltaType = event.event?.delta?.type;
+    return deltaType === "text_delta"
+      ? { message: "Claude is writing the response.", phase: "responding" }
+      : { message: "Claude is still working.", phase: "working" };
+  }
+
   if (event.type === "result") {
     const subtype = typeof event.subtype === "string" ? shortenForProgress(event.subtype) : "unknown";
     return { message: `Turn ended (${subtype}).`, sessionId: readSessionId(event) };
@@ -251,11 +259,26 @@ export function describeStreamEvent(event) {
   return null;
 }
 
-export function createStreamProgressListener(onProgress) {
+export function createStreamProgressListener(onProgress, options = {}) {
   if (!onProgress) {
     return undefined;
   }
+  const now = options.now ?? Date.now;
+  const partialProgressIntervalMs = options.partialProgressIntervalMs ?? DEFAULT_PARTIAL_PROGRESS_INTERVAL_MS;
+  let lastPartialProgressAt = null;
+
   return (event) => {
+    if (event.type === "stream_event") {
+      const currentTime = now();
+      if (
+        lastPartialProgressAt !== null &&
+        currentTime - lastPartialProgressAt < partialProgressIntervalMs
+      ) {
+        return;
+      }
+      lastPartialProgressAt = currentTime;
+    }
+
     const progress = describeStreamEvent(event);
     if (progress) {
       onProgress(progress);

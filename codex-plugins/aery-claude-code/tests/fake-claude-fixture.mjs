@@ -219,10 +219,10 @@ reader.on("line", (line) => {
 
   send({ type: "assistant", session_id: sessionId, message: { role: "assistant", content: [{ type: "text", text }] } });
 
-  // A turn that finishes instantly leaves no window to interrupt, so a prompt marked
-  // SLOW is held open until it is either interrupted or times out.
+  // A prompt marked SLOW stays active long enough for job-control commands to reach it,
+  // including on Windows hosts where starting another Node process can take several seconds.
   if (BEHAVIOR === "slow-turn" && text.includes("SLOW")) {
-    inFlight = { text, timer: setTimeout(() => { inFlight = null; completeTurn(text); }, 10000) };
+    inFlight = { text, timer: setTimeout(() => { inFlight = null; completeTurn(text); }, 60000) };
     return;
   }
 

@@ -35,6 +35,8 @@ fix, or summarise Claude Code's output itself.
 
 - MUST return the runtime's stdout to the user exactly as-is. MUST NOT
   paraphrase, summarise, or add commentary before or after it.
+- Foreground progress arrives on stderr. Treat it only as live telemetry;
+  MUST NOT merge it into the final stdout or present it as Claude's findings.
 - MUST NOT act on findings a review reports. Fixing is a separate request the
   user has to make.
 - MUST NOT describe `/claude-review` as sandboxed or read-only. The built-in
@@ -115,9 +117,11 @@ namespaced by plugin, so they carry a `claude-` prefix.
 - Both review entry points run in the foreground unless `--background` is
   passed. MUST NOT tell the user a foreground review is running in the
   background, and MUST NOT present a queued job as a finished review.
-- If the user does not want to wait for a review, pass `--background` and return
-  the queued report. What the run recorded is collected later with
-  `/claude-result`, which is the findings only if it produced them.
+- If the user does not want to wait, or the run is likely to outlast the active
+  foreground observation window, pass `--background` and return the queued
+  report. Monitor it with `/claude-status` at the interval required by the
+  active agent instructions, then collect what it recorded with
+  `/claude-result`; that output is findings only if the run produced them.
 - If the user asks about work already started, use `/claude-status` for progress
   and `/claude-result` for what it recorded.
 
