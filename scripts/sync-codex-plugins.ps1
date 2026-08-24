@@ -61,7 +61,8 @@ function Write-Utf8File {
     )
 
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText($Path, $Content + [Environment]::NewLine, $utf8NoBom)
+    $lfContent = $Content.Replace("`r`n", "`n").Replace("`r", "`n")
+    [System.IO.File]::WriteAllText($Path, $lfContent + "`n", $utf8NoBom)
 }
 
 function ConvertTo-StableJson {
@@ -81,7 +82,7 @@ function ConvertTo-StableJson {
             throw "Failed to format JSON with python: exit $LASTEXITCODE"
         }
 
-        return ($formattedLines -join [Environment]::NewLine)
+        return ($formattedLines -join "`n")
     } finally {
         if (Test-Path $tempPath) {
             Remove-Item $tempPath -Force
