@@ -1,4 +1,4 @@
-// code-mereology-leaf: skills/claude-code-bridge/codex-plugin/sd-session-transfer.md
+// code-mereology-leaf: skills/claude-code/codex-plugin/sd-session-transfer.md
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";

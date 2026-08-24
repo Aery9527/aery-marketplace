@@ -1,5 +1,5 @@
 ---
-name: claude-code-bridge
+name: claude-code
 description: >-
   用於 Codex session 需要把工作交給 Claude Code 時 — 讓 Claude 審查當前 diff 或
   branch、挑戰某個設計決策、委派 bug 調查或修復，或查詢、取得與取消背景 Claude job。
