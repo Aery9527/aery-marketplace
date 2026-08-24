@@ -79,7 +79,7 @@ send({
   subtype: "init",
   session_id: sessionId,
   model: "fake",
-  capabilities: BEHAVIOR === "no-interrupt"
+  capabilities: ["no-interrupt", "slow-turn-no-interrupt"].includes(BEHAVIOR)
     ? ["msg_lifecycle_v1"]
     : ["interrupt_receipt_v1", "interrupt_cancel_queued_v1", "msg_lifecycle_v1"]
 });
@@ -221,7 +221,7 @@ reader.on("line", (line) => {
 
   // A prompt marked SLOW stays active long enough for job-control commands to reach it,
   // including on Windows hosts where starting another Node process can take several seconds.
-  if (BEHAVIOR === "slow-turn" && text.includes("SLOW")) {
+  if (["slow-turn", "slow-turn-no-interrupt"].includes(BEHAVIOR) && text.includes("SLOW")) {
     inFlight = { text, timer: setTimeout(() => { inFlight = null; completeTurn(text); }, 60000) };
     return;
   }

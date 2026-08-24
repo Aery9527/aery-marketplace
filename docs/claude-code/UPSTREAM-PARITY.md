@@ -325,6 +325,9 @@ standalone skills would create conflicting instructions with no consumer.
 `runtime.test.mjs` is `adapt`: its broker behavior is covered by the dedicated
 broker lifecycle suite. Stop-gate and transfer behavior use separate new suites
 because their host acceptance probes are distinct from runtime protocol tests.
+Command cancellation coverage uses a long-running fake session without interrupt
+support so worker-pid waiting and verified process termination remain distinct
+from the broker-interruption coverage.
 
 [Back to top](#quick-navigation)
 

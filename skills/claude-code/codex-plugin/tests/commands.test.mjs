@@ -694,7 +694,7 @@ test("a review cannot be asked to run in the background and in the foreground at
 // the renderer tests pin.
 test("cancel stops a running background review and records it as cancelled", async () => {
   const binDir = makeTempDir();
-  installFakeClaude(binDir, "slow-turn");
+  installFakeClaude(binDir, "slow-turn-no-interrupt");
   const cwd = makeDirtyWorkspace();
   const env = isolatedEnv(binDir);
 
@@ -768,7 +768,7 @@ test("a worker refuses to run a job that is no longer queued", () => {
 // that says cancelled.
 test("cancel waits for a worker that has not recorded its pid yet", () => {
   const binDir = makeTempDir();
-  installFakeClaude(binDir, "slow-turn");
+  installFakeClaude(binDir, "slow-turn-no-interrupt");
   const cwd = makeDirtyWorkspace();
   const env = isolatedEnv(binDir);
 
