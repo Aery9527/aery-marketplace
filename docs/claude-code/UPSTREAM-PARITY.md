@@ -12,7 +12,7 @@ the same change. It records **present state and current contract only** — why 
 row changed belongs in the commit message, not here.
 
 A path naming this package's own files is relative to
-`skills/claude-code-bridge/`, unless it starts with a repository-root segment
+`skills/claude-code/`, unless it starts with a repository-root segment
 such as `docs/` or `scripts/`. An upstream path is relative to the upstream
 repository.
 
@@ -163,7 +163,7 @@ flowchart LR
 | Upstream location | Source of truth here | Packaged to |
 |-------------------|----------------------|-------------|
 | `plugins/codex/skills/*` | `skills/claude-*/` (ordinary skill directories) | `codex-plugins/aery-claude-code/skills/*` |
-| everything else under `plugins/codex/` | `skills/claude-code-bridge/codex-plugin/` (overlay) | `codex-plugins/aery-claude-code/` (plugin root) |
+| everything else under `plugins/codex/` | `skills/claude-code/codex-plugin/` (overlay) | `codex-plugins/aery-claude-code/` (plugin root) |
 
 The overlay exists because a Codex plugin keeps `scripts/`, `commands/`,
 `agents/` and `hooks.json` at the *plugin root*, not inside a skill, while this
@@ -184,7 +184,7 @@ root and excludes the overlay from the skill copy, the same way it excludes
 |---------------|-------------|------|-------|
 | `LICENSE` | `codex-plugin/LICENSE` (Apache-2.0 full text, unmodified) | port | done |
 | `NOTICE` | `codex-plugin/NOTICE` (attribution, extended with this port) | adapt | done |
-| `README.md` | `skills/claude-code-bridge/SKILL.md` | adapt | done |
+| `README.md` | `skills/claude-code/SKILL.md` | adapt | done |
 | `package.json` | none — dependency-free ESM, tests run with `node --test` | n/a | n/a |
 | `package-lock.json` | none — no dependencies to lock | n/a | n/a |
 | `tsconfig.app-server.json` | `codex-plugin/scripts/lib/stream-protocol.mjs` (runtime validation replaces build-time types) | adapt | done |
@@ -286,13 +286,13 @@ TUI probe in [Host Verification](#host-verification) confirms host delivery.
 | Upstream path | Counterpart | Plan | State |
 |---------------|-------------|------|-------|
 | `plugins/codex/skills/codex-cli-runtime/SKILL.md` | none — its only consumer is the dropped rescue subagent, see [Gaps](#gaps) | drop | n/a |
-| `plugins/codex/skills/codex-result-handling/SKILL.md` | `skills/claude-code-bridge/SKILL.md` | adapt | done |
+| `plugins/codex/skills/codex-result-handling/SKILL.md` | `skills/claude-code/SKILL.md` | adapt | done |
 | `plugins/codex/skills/gpt-5-4-prompting/SKILL.md` | none — rescue preserves the user's request, see [Gaps](#gaps) | drop | n/a |
 | `plugins/codex/skills/gpt-5-4-prompting/references/prompt-blocks.md` | none — the owning prompting skill is dropped | drop | n/a |
 | `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-recipes.md` | none — the owning prompting skill is dropped | drop | n/a |
 | `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-antipatterns.md` | none — the owning prompting skill is dropped | drop | n/a |
-| — | `skills/claude-code-bridge/SKILL.md` | new | done |
-| — | `docs/claude-code-bridge/UPSTREAM-PARITY.md` | new | done |
+| — | `skills/claude-code/SKILL.md` | new | done |
+| — | `docs/claude-code/UPSTREAM-PARITY.md` | new | done |
 
 The bridge skill owns result presentation because every command returns the
 companion's stdout verbatim. The other two upstream skills only serve the

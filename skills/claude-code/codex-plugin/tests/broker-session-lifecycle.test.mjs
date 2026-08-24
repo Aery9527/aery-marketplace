@@ -1,4 +1,4 @@
-// code-mereology-leaf: skills/claude-code-bridge/codex-plugin/sd-broker-session-lifecycle.md
+// code-mereology-leaf: skills/claude-code/codex-plugin/sd-broker-session-lifecycle.md
 
 import assert from "node:assert/strict";
 import fs from "node:fs";

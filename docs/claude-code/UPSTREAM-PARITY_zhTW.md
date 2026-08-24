@@ -8,7 +8,7 @@
 修改 `codex-plugin/` 底下任何內容前必須先讀本檔案，並在同一次變更中更新它。本檔案只
 記錄**當前狀態與當前契約** — 某一列為何改變屬於 commit message，不屬於這裡。
 
-指向本套件自身檔案的路徑相對於 `skills/claude-code-bridge/`，除非它以 repository 根層級
+指向本套件自身檔案的路徑相對於 `skills/claude-code/`，除非它以 repository 根層級
 的路徑段開頭，例如 `docs/` 或 `scripts/`。上游路徑則相對於上游 repository。
 
 ## 快速導覽
@@ -147,7 +147,7 @@ flowchart LR
 | 上游位置 | 此處的 source of truth | 封裝到 |
 |----------|------------------------|--------|
 | `plugins/codex/skills/*` | `skills/claude-*/`（一般 skill 目錄） | `codex-plugins/aery-claude-code/skills/*` |
-| `plugins/codex/` 底下其餘全部 | `skills/claude-code-bridge/codex-plugin/`（overlay） | `codex-plugins/aery-claude-code/`（plugin root） |
+| `plugins/codex/` 底下其餘全部 | `skills/claude-code/codex-plugin/`（overlay） | `codex-plugins/aery-claude-code/`（plugin root） |
 
 overlay 之所以存在，是因為 Codex plugin 把 `scripts/`、`commands/`、`agents/` 與
 `hooks.json` 放在 *plugin root*，而不是放在某個 skill 內；但本 repository 要求所有原始
@@ -166,7 +166,7 @@ plugin root，並把 overlay 從 skill 複本中排除，方式與排除 `*_zhTW
 |----------|--------|------|-------|
 | `LICENSE` | `codex-plugin/LICENSE`（Apache-2.0 全文，未修改） | port | done |
 | `NOTICE` | `codex-plugin/NOTICE`（attribution，已加入本移植） | adapt | done |
-| `README.md` | `skills/claude-code-bridge/SKILL.md` | adapt | done |
+| `README.md` | `skills/claude-code/SKILL.md` | adapt | done |
 | `package.json` | 無 — 零相依 ESM，測試以 `node --test` 執行 | n/a | n/a |
 | `package-lock.json` | 無 — 沒有相依可鎖定 | n/a | n/a |
 | `tsconfig.app-server.json` | `codex-plugin/scripts/lib/stream-protocol.mjs`（runtime 驗證取代 build 期型別） | adapt | done |
@@ -262,13 +262,13 @@ prompt markup。直接呼叫測試涵蓋其行為，而[宿主驗證](#宿主驗
 | 上游路徑 | 對應物 | Plan | State |
 |----------|--------|------|-------|
 | `plugins/codex/skills/codex-cli-runtime/SKILL.md` | 無 — 唯一 consumer 是已捨棄的 rescue subagent，見[缺口](#缺口) | drop | n/a |
-| `plugins/codex/skills/codex-result-handling/SKILL.md` | `skills/claude-code-bridge/SKILL.md` | adapt | done |
+| `plugins/codex/skills/codex-result-handling/SKILL.md` | `skills/claude-code/SKILL.md` | adapt | done |
 | `plugins/codex/skills/gpt-5-4-prompting/SKILL.md` | 無 — rescue 保留使用者請求，見[缺口](#缺口) | drop | n/a |
 | `plugins/codex/skills/gpt-5-4-prompting/references/prompt-blocks.md` | 無 — 所屬 prompting skill 已捨棄 | drop | n/a |
 | `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-recipes.md` | 無 — 所屬 prompting skill 已捨棄 | drop | n/a |
 | `plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-antipatterns.md` | 無 — 所屬 prompting skill 已捨棄 | drop | n/a |
-| — | `skills/claude-code-bridge/SKILL.md` | new | done |
-| — | `docs/claude-code-bridge/UPSTREAM-PARITY.md` | new | done |
+| — | `skills/claude-code/SKILL.md` | new | done |
+| — | `docs/claude-code/UPSTREAM-PARITY.md` | new | done |
 
 bridge skill 負責結果呈現，因為每個 command 都原樣回傳 companion 的 stdout。另兩個上游
 skill 只服務已捨棄的 rescue subagent，或改寫本移植刻意保留的請求；把它們複製成獨立 skill

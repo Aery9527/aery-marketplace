@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { spawnSync } from "node:child_process";
 
-export function makeTempDir(prefix = "claude-code-bridge-test-") {
+export function makeTempDir(prefix = "claude-code-test-") {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 

@@ -46,8 +46,8 @@ source of truth。`.agents/plugins/marketplace.json` 與 `codex-plugins/`
   整棵目錄中的 `*_zhTW.md` 都不應存在。
 - skill 目錄底下的所有內容都會隨該 skill 一起封裝發佈，因此只寫給維護者看的文件
   不屬於那裡，應改放在 `docs/<skill-name>/`。修改
-  `skills/claude-code-bridge/codex-plugin/` 底下任何內容前，先讀
-  `docs/claude-code-bridge/UPSTREAM-PARITY.md`，並在同一次變更中更新它。
+  `skills/claude-code/codex-plugin/` 底下任何內容前，先讀
+  `docs/claude-code/UPSTREAM-PARITY.md`，並在同一次變更中更新它。
 - Codex plugin 可能需要 skill 以外的 plugin-root 內容，例如 `commands/`、
   `agents/`、`scripts/` 與 `hooks.json`。這類內容的 source of truth 同樣放在
   `skills/` 底下：置於所屬 skill 內的 `codex-plugin/` overlay 目錄。同步腳本會

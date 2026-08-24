@@ -1,5 +1,5 @@
 ---
-name: claude-code-bridge
+name: claude-code
 description: >-
   Use when a Codex session should hand work to Claude Code — reviewing the
   current diff or branch with Claude, challenging a design decision, delegating
