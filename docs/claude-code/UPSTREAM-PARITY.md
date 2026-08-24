@@ -294,11 +294,13 @@ TUI probe in [Host Verification](#host-verification) confirms host delivery.
 | — | `skills/claude-code/SKILL.md` | new | done |
 | — | `docs/claude-code/UPSTREAM-PARITY.md` | new | done |
 
-The bridge skill owns result presentation because every command returns the
-companion's stdout verbatim. The other two upstream skills only serve the
-dropped rescue subagent or rewrite a request that this port deliberately
-preserves, so duplicating them as standalone skills would create conflicting
-instructions with no consumer.
+The bridge skill owns result presentation. A standalone command returns the
+companion's stdout verbatim; the collaborative review workflow instead consumes
+structured review output, checks findings against the repository, resumes the
+same Claude session to reach consensus, and presents the completed workflow.
+The other two upstream skills only serve the dropped rescue subagent or rewrite
+a request that this port deliberately preserves, so duplicating them as
+standalone skills would create conflicting instructions with no consumer.
 
 ### Tests
 
@@ -393,7 +395,10 @@ is a loss of function.
   are absorbed by the runtime rather than by the schema file: the flag parses its
   value as JSON and rejects a file path, so the schema travels inline; and the
   validator resolves `$schema` as a remote reference and fails on the draft URL,
-  so that key is stripped before the schema is passed.
+  so that key is stripped before the schema is passed. The companion's JSON
+  response also carries the exact `scopeNote` and `evidenceNote` strings used by
+  the rendered report, so a structured consumer retains the same review
+  boundary and omitted-evidence disclosures.
 - **Argument escaping on Windows** — a `claude` installed by npm is reached
   through a `.cmd` wrapper, so the command line is built by this package rather
   than by Node, and it has to satisfy two parsers at once. For the Claude binary

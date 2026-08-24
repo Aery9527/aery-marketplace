@@ -385,12 +385,13 @@ async function runAdversarialReview(request, onProgress, sessionLifecycle) {
     onEvent: createStreamProgressListener(onProgress)
   });
   const parsed = parseReviewOutput(result);
+  const evidenceNote = describeReviewEvidence(context);
 
   const meta = {
     reviewLabel: "Adversarial Review",
     targetLabel: request.target.label,
     scopeNote,
-    evidenceNote: describeReviewEvidence(context)
+    evidenceNote
   };
 
   return {
@@ -401,6 +402,7 @@ async function runAdversarialReview(request, onProgress, sessionLifecycle) {
       review: "Adversarial Review",
       target: request.target,
       scopeNote,
+      evidenceNote,
       sessionId: result.sessionId,
       context: {
         repoRoot: context.repoRoot,

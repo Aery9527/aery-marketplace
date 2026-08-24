@@ -295,6 +295,25 @@ test("adversarial review renders the structured findings Claude returned", () =>
   assert.match(result.stdout, /Evidence: the tracked diff was supplied in full/);
 });
 
+// Structured consumers need the same evidence boundary as the rendered report, or they
+// cannot tell which repository content the reviewer never received.
+test("adversarial review JSON preserves the complete evidence note", () => {
+  const binDir = makeTempDir();
+  installFakeClaude(binDir, "ready");
+  const cwd = makeWorkspace();
+  fs.writeFileSync(path.join(cwd, "big.txt"), "x".repeat(30 * 1024), "utf8");
+
+  const result = runCompanion(["adversarial-review", "--json"], {
+    cwd,
+    env: isolatedEnv(binDir)
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.match(payload.evidenceNote, /the tracked diff was supplied in full \(0 file\(s\), 0 bytes\)/);
+  assert.match(payload.evidenceNote, /1 untracked entry was left out: big\.txt \(30720 bytes exceeds/);
+});
+
 // The review session must not be able to touch the repository it is reviewing, and
 // `--tools` alone does not achieve that because it filters built-ins only.
 test("the adversarial review session is started read-only and without MCP servers", () => {
