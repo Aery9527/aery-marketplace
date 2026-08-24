@@ -367,6 +367,9 @@ test("the hook manifest registers bounded SessionStart, SessionEnd, and Stop han
     const handler = groups[0].hooks[0];
     assert.equal(handler.type, "command");
     assert.ok(Number.isFinite(handler.timeout) && handler.timeout > 0);
+    if (eventName === "SessionEnd") {
+      assert.equal(handler.timeout, 3);
+    }
     assert.match(handler.command, /\$\{PLUGIN_ROOT\}/);
     for (const fragment of fragments) {
       assert.match(handler.command, new RegExp(fragment));
