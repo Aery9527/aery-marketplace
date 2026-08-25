@@ -1,12 +1,12 @@
 ---
 name: claude-code
 description: >-
-  用於 Codex session 需要把工作交給 Claude Code 時 — 讓 Claude 審查當前 diff 或
-  branch、挑戰某個設計決策、委派 bug 調查或修復，或查詢、取得與取消背景 Claude job。
-  當使用者提到「問 Claude」「讓 Claude 審」
-  「委派給 Claude Code」「claude-review」「claude-rescue」「claude-transfer」，
-  或詢問如何安裝、設定、排查此 bridge 時觸發。此 skill 只負責路由到正確的進入點，
-  嚴禁自行執行審查或修復。
+  用於 Codex session 需要把工作交給 Claude Code，或與 Claude reviewer 協作時 — 審查
+  當前 diff 或 branch、挑戰設計決策、委派 bug 調查或修復，或管理背景 Claude job。
+  當使用者提到「問 Claude」「讓 Claude 審」「call reviewer」「委派給 Claude Code」
+  「claude-review」「claude-rescue」「claude-transfer」，或要求安裝、設定、排查此
+  bridge 時觸發。明確指定 slash command 代表一次獨立執行；「call reviewer」或要求
+  reviewer 參與直到任務完成，則觸發協作審查流程。
 ---
 
 # Claude Code Bridge
@@ -14,25 +14,29 @@ description: >-
 ## 用途
 
 在 Codex 內執行 Claude Code。此 bridge 包裝本機的 `claude` CLI，因此直接沿用機器上
-既有的 Claude Code 安裝、認證與設定。成功的定義是：把 Claude Code 自己的輸出原樣
-回傳給使用者，長時間工作則以 job 形式追蹤。
-
-此 skill 只把請求路由到某個進入點。嚴禁自行審查程式碼、撰寫修復，或摘要 Claude Code
-的輸出。
+既有的 Claude Code 安裝、認證與設定。獨立執行會原樣回傳 Claude Code 的輸出。協作
+審查則由 Claude 擔任 adversarial reviewer，Codex 查證 findings、解決分歧、完成已授權
+工作，再取得最終審查。長時間工作以 job 形式追蹤。
 
 ## 觸發條件
 
 - 使用者要求 Claude 或 Claude Code 審查、挑戰、調查、修復或延續工作。
+- 使用者說「call reviewer」，或要求 Codex 與 reviewer 協作直到受審任務完成。
 - 使用者提到[進入點](#進入點)中列出的任一指令。
 - 使用者詢問執行中或已完成的 Claude job。
 - 使用者詢問如何安裝、認證或設定此 bridge。
 
 ## 規則
 
-- 必須把 runtime 的 stdout 原樣回傳給使用者。嚴禁改寫、摘要，或在前後加上評論。
+- 對獨立進入點執行，必須把 runtime 的 stdout 原樣回傳給使用者。嚴禁改寫、摘要，或在
+  前後加上評論。
+- 在協作審查流程中，Claude 的中間輸出是審查證據，不是最終回應。Codex 必須檢視內容、
+  挑戰無證據支持的宣稱、只實作已達成共識且獲授權的變更，並自行回報完整流程結果。
 - Foreground progress 會從 stderr 傳出；它只能視為即時遙測，嚴禁合併進最終 stdout，
   也嚴禁把它呈現成 Claude 的審查結論。
-- 嚴禁對審查回報的問題採取行動。修復必須由使用者另外提出。
+- 在獨立審查中，嚴禁對 findings 採取行動。在協作審查中，Codex 必須先對照程式碼查證
+  finding 的事實宣稱，且該 finding 已被接受或修訂為共識修正後，才能實作。是否授權
+  變更，仍由使用者原始請求決定。
 - 嚴禁把 `/claude-review` 描述為 sandbox 或唯讀。內建 reviewer 會自行檢視 repository，
   因此帶有 shell 存取權。只有 `/claude-adversarial-review` 執行在無法寫入的 session 中。
 - 必須重述審查印出的 `Scope` 與 `Evidence` 行，嚴禁把結果改述成涵蓋整個 repository。
@@ -40,8 +44,8 @@ description: >-
   git 指令依序讀出的，不是單一時點的快照。
   在 `/claude-review`，Scope 只代表「所請求的範圍」：內建 reviewer 會自行決定最終範圍，
   因此嚴禁告訴使用者有任何東西被排除在外。
-- 當使用者要的是「把事情做完」而非「評估」時，必須路由到 `claude-rescue`，而非審查
-  進入點。
+- 在協作審查流程之外，當使用者要 Claude「把事情做完」而非「評估」時，必須路由到
+  `claude-rescue`，而非審查進入點。
 - 當 runtime 回報 Claude Code 未安裝或未認證時，必須告知使用者執行 `/claude-setup`。
   嚴禁繞過失敗的 setup 檢查。
 - 必須只提供在 `codex-plugin/commands/` 底下確實存在對應 command 檔案的
@@ -53,6 +57,56 @@ description: >-
   狀態與輸出渲染。
 - 嚴禁修改 `codex-plugins/` 底下任何內容。該目錄由 `scripts/sync-codex-plugins.ps1`
   從此 skill 目錄產生。
+
+## 執行模式
+
+- 若使用者明確指定 slash command，依該 command file 的契約執行一次。明確指定
+  `/claude-adversarial-review` 仍是獨立審查，不授權後續討論或修復。
+- 若使用者說「call reviewer」，或要求 Codex 引入 reviewer 並持續到任務完成，執行協作
+  審查流程。Claude 的第一份報告是流程起點，不是完成點。
+- 若使用者只要求 Claude 評估，沒有要求 reviewer 協作或完成任務，使用適當的獨立審查。
+
+## 協作審查流程
+
+1. 執行已安裝 companion runtime 的 `adversarial-review --json` subcommand。保存其
+   target、`scopeNote`、`evidenceNote`、structured findings 與 Claude session
+   identifier。協作 turn 必須在 foreground 執行，讓每次結果能成為下一步的輸入。使用
+   result 前，必須確認 Claude turn 成功、session identifier 非空，且 structured result
+   通過 schema；否則停止並把 reviewer failure 回報為 blocker。只有 valid result 的
+   findings array 為空時，才能判定沒有 material finding。
+2. 必須逐行對照程式碼與可用 repository 證據，查核每個 material finding 的每項事實
+   宣稱。嚴禁只因 Claude 回報就接受 finding。
+3. Review 有 material findings 時，透過 companion runtime 的
+   `rescue --resume-session <session-id> --read-only` subcommand 延續同一個 Claude
+   session。送出一份逐行涵蓋每個 finding 的回應：
+   - 若 finding 正確，提供確認證據與 Codex 提議的具體修正。
+   - 若 finding 不完整、缺乏支持或與 repository 證據衝突，提供相反證據並說明異議。
+   要求 Claude 確認、修訂或撤回每個 finding。Continuation 失敗或沒有可用回答時，必須
+   視為 reviewer blocker，嚴禁視為共識。
+4. 必須把 resumed `--read-only` session 視為討論限制，不是 sandbox：它會移除直接編輯
+   工具與 workspace MCP servers，但 shell command 仍可寫入。必須要求 Claude 不得修改
+   repository，且嚴禁宣稱該 continuation 無法寫入。
+5. 只要任一方仍有新證據支持的 material objection，就必須繼續討論。共識代表 Claude
+   已回應最新證據，且每個 material finding 都已確認並有共同同意的修正、修訂成共同同意
+   的修正，或由 reviewer 明確撤回。嚴禁從沉默推定接受，也嚴禁在 reviewer 尚未回應時
+   宣稱已達成共識。
+6. 若討論在沒有新證據的情況下重複，且雙方無法得出共同結論，停止交換並回報確切的未解
+   分歧。嚴禁製造共識或默默選擇其中一方。
+7. 達成共識後，若修正位於使用者已授權的任務內，Codex 必須實作共同同意的修正。若原始
+   請求只授權審查，則只回報共同同意的修正，不得編輯。
+8. 執行適合已變更程式碼或文件的驗證，再對結果執行全新的
+   `adversarial-review --json`，並套用步驟 1 的相同成功與 schema 檢查。若產生新的
+   material finding，從事實查核開始重複此流程。
+9. 只有在已授權修正完成、相關驗證通過，且最終審查沒有未解 material finding 時才能完成；
+   否則必須回報阻止完成的授權、證據或外部狀態 blocker。
+
+## 協作審查輸出
+
+- 必須說明 Codex 修改了什麼，以及如何驗證。
+- 必須說明哪些 material findings 被接受、修訂或撤回。
+- 必須把最終審查的 `scopeNote` 與 `evidenceNote` 原樣重述為 `Scope` 與 `Evidence`，
+  嚴禁擴大任一宣稱。
+- 必須回報任何未解分歧或 blocker。嚴禁把 queued、failed 或尚未回答的 review 當成共識。
 
 ## 進入點
 
@@ -84,6 +138,8 @@ description: >-
 
 ## 決策邏輯
 
+- 若使用者明確指定 slash command，使用其獨立執行契約。
+- 若使用者要求「call reviewer」，或要求 reviewer 參與直到任務完成，使用協作審查流程。
 - 若使用者想要對既有工作取得評估，且未指名特定疑慮，使用 `/claude-review`。
 - 若使用者想質疑方案、設計或取捨，或指名要聚焦的風險區域，使用
   `/claude-adversarial-review`。
