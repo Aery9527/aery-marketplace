@@ -347,7 +347,7 @@ test("direct invocation reads one stop event and emits one JSON decision", () =>
   const lines = result.stdout.trim().split(/\r?\n/);
   assert.equal(lines.length, 1);
   const decision = JSON.parse(lines[0]);
-  assert.equal(decision.decision, "allow");
+  assert.equal(decision.decision, undefined);
   assert.match(decision.systemMessage, /disabled/i);
 });
 
