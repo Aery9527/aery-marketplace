@@ -72,6 +72,15 @@ function buildPrompt(lastAssistantMessage) {
   return template.replace("{{LAST_ASSISTANT_MESSAGE_JSON}}", () => encoded);
 }
 
+// Codex Stop output only uses `decision` to request a continuation; allow is the absence of a decision.
+function serializeHostDecision(decision) {
+  if (decision.decision !== "allow") {
+    return decision;
+  }
+
+  return decision.systemMessage ? { systemMessage: decision.systemMessage } : {};
+}
+
 export async function handleStopReviewEvent(input = {}, options = {}) {
   const cwd = resolveWorkspaceRoot(input.cwd || options.cwd || process.cwd());
   const sessionId = readSessionId(input);
@@ -121,7 +130,7 @@ async function main() {
   const raw = fs.readFileSync(0, "utf8").trim();
   const input = raw ? JSON.parse(raw) : {};
   const decision = await handleStopReviewEvent(input);
-  process.stdout.write(`${JSON.stringify(decision)}\n`);
+  process.stdout.write(`${JSON.stringify(serializeHostDecision(decision))}\n`);
 }
 
 const scriptPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
