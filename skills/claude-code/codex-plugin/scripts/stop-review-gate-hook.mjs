@@ -83,14 +83,14 @@ function serializeHostDecision(decision) {
 
 export async function handleStopReviewEvent(input = {}, options = {}) {
   const cwd = resolveWorkspaceRoot(input.cwd || options.cwd || process.cwd());
-  const sessionId = readSessionId(input);
-  const jobNote = runningJobNote(cwd, sessionId);
   const config = getConfig(cwd);
 
   if (!config.stopReviewGate) {
-    return allow("Claude stop-time review is disabled for this workspace.", jobNote);
+    return allow();
   }
 
+  const sessionId = readSessionId(input);
+  const jobNote = runningJobNote(cwd, sessionId);
   const lastAssistantMessage = typeof input.last_assistant_message === "string"
     ? input.last_assistant_message
     : "";

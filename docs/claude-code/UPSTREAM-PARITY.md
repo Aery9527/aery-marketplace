@@ -277,9 +277,11 @@ preserves the job evidence instead of deleting it.
 `stop-review-gate-hook.mjs` reads `last_assistant_message`, applies the saved
 workspace preference, checks installation and authentication readiness, and
 runs an isolated Claude review with an explicit `ALLOW` or `BLOCK` protocol.
-The response enters the prompt as an escaped JSON string rather than executable
-prompt markup. Direct-invocation tests cover their behavior, and the interactive
-TUI probe in [Host Verification](#host-verification) confirms host delivery.
+A disabled preference returns an empty allow result before job context is
+collected, so the host receives no status message. The response for an enabled
+review enters the prompt as an escaped JSON string rather than executable prompt
+markup. Direct-invocation tests cover their behavior, and the interactive TUI
+probe in [Host Verification](#host-verification) confirms host delivery.
 
 ### Skills
 

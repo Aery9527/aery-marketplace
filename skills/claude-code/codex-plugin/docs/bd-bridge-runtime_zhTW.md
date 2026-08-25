@@ -45,7 +45,7 @@ progress；background worker 則只把相同進度寫入 job log 與 phase。
 ## Runtime 模組
 
 - [Broker 與 session lifecycle](../sd-broker-session-lifecycle_zhTW.md) — 協調 live bridge session、graceful interruption 與 session cleanup，且不讓 broker state 取代 job record 的權威地位。
-- [Stop review gate](../sd-stop-review-gate_zhTW.md) — 將已儲存的 review-gate 偏好套用到 Codex stop event；審查無法得出 allow 決定時採取安全失敗。
+- [Stop review hook](../scripts/stop-review-gate-hook.mjs) — 將已儲存的 review-gate 偏好套用到 Codex stop event；未啟用時保持靜默，啟用後無法得出 allow 決定時採取安全失敗。
 - [Session transfer](../sd-session-transfer_zhTW.md) — 將 Codex context 轉換成 bridge-owned Claude session，並回傳可續接命令，而不直接寫入 Claude 的私有 project-session 格式。
 
 [返回頂端](#快速導覽)
