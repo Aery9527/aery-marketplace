@@ -1,4 +1,3 @@
-// code-mereology-leaf: skills/claude-code/codex-plugin/sd-stop-review-gate.md
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -40,6 +39,15 @@ function availableOptions(output = "ALLOW") {
 
 test("a disabled review gate allows stopping without starting Claude", async () => {
   const workspace = makeTempDir("claude-stop-gate-test-");
+  saveState(workspace, {
+    jobs: [{
+      id: "review-a",
+      status: "running",
+      sessionId: "codex-session-a",
+      summary: "Review of working tree",
+      updatedAt: "2026-08-16T00:00:00.000Z"
+    }]
+  });
   let reviewCalls = 0;
 
   const result = await handleStopReviewEvent(stopEvent(workspace), {
@@ -52,8 +60,7 @@ test("a disabled review gate allows stopping without starting Claude", async () 
     }
   });
 
-  assert.equal(result.decision, "allow");
-  assert.match(result.systemMessage, /disabled/i);
+  assert.deepEqual(result, { decision: "allow" });
   assert.equal(reviewCalls, 0);
 });
 
@@ -347,8 +354,7 @@ test("direct invocation reads one stop event and emits one JSON decision", () =>
   const lines = result.stdout.trim().split(/\r?\n/);
   assert.equal(lines.length, 1);
   const decision = JSON.parse(lines[0]);
-  assert.equal(decision.decision, undefined);
-  assert.match(decision.systemMessage, /disabled/i);
+  assert.deepEqual(decision, {});
 });
 
 test("the hook manifest registers bounded SessionStart, SessionEnd, and Stop handlers", () => {

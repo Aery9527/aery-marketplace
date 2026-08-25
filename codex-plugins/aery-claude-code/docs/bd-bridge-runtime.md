@@ -48,7 +48,7 @@ workers write the same progress only to their job log and phase.
 ## Runtime Modules
 
 - [Broker and session lifecycle](../sd-broker-session-lifecycle.md) — coordinates live bridge sessions, graceful interruption, and session cleanup without making job records secondary to broker state.
-- [Stop review gate](../sd-stop-review-gate.md) — applies the saved review-gate preference to Codex stop events and fails safely when a review cannot establish an allow decision.
+- [Stop review hook](../scripts/stop-review-gate-hook.mjs) — applies the saved review-gate preference to Codex stop events, stays silent when disabled, and fails safely when an enabled review cannot establish an allow decision.
 - [Session transfer](../sd-session-transfer.md) — converts Codex context into a bridge-owned Claude session and returns a resumable command without writing Claude's private project-session format directly.
 
 [Back to top](#quick-navigation)

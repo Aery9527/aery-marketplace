@@ -253,9 +253,10 @@ jobs，`render.mjs` 則輸出 `claude --resume` 後續指令。它們的 host-sp
 acknowledged shutdown 或 verified fallback 後仍無法觀察到 exit 時會保留 job evidence，
 不會逕自刪除。`stop-review-gate-hook.mjs` 讀取 `last_assistant_message`、套用已儲存的 workspace
 偏好、檢查 installation 與 authentication readiness，並執行有明確 `ALLOW` 或 `BLOCK`
-協定的隔離 Claude review。Response 會以 escaped JSON string 進入 prompt，而不是可執行的
-prompt markup。直接呼叫測試涵蓋其行為，而[宿主驗證](#宿主驗證)中的互動式 TUI probe
-確認了宿主送達。
+協定的隔離 Claude review。偏好未啟用時，會在收集 job context 前回傳空的 allow result，
+因此 host 不會收到 status message。Review 啟用時，response 會以 escaped JSON string 進入
+prompt，而不是可執行的 prompt markup。直接呼叫測試涵蓋其行為，而[宿主驗證](#宿主驗證)
+中的互動式 TUI probe 確認了宿主送達。
 
 ### Skills
 
