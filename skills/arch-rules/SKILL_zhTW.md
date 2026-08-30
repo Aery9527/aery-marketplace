@@ -1,237 +1,151 @@
 ---
 name: arch-rules
 description: >-
-  軟體設計與架構執行原則 —— SOLID、CUPID、GRASP、容錯模式、Observability 與工程哲學。
-  在撰寫、修改、重構或 review 任何程式碼之前都必須先載入，因為每一次程式碼改動都是設計決策。
-  做 system design、API 設計、技術選型、技術債評估，或任何關於怎麼命名、怎麼切分、怎麼演進軟體的判斷時
-  也必須載入。這個 skill 的用途是在實作與規劃過程中先準備好並持續遵守原則，
-  不是事後查表，也不是守則速查。
+  軟體設計與開發的關鍵字提示。在閱讀、撰寫、除錯、重構、審查、設計或演進軟體時載入。
+  看到具名原則、模式與實務時，喚起其通行概念與取捨；只套用與當下情境相關者。
 ---
 
 # Arch Rules
 
-在開始實作或系統規劃之前先載入這組原則。把它們用在寫程式、定義邊界與做取捨的當下，
-而不是寫完之後才回頭把它當成速查表。
+把每個關鍵字當成思考提示：喚起其既有概念、前提與取捨。套用相關觀念，不要強行套用完整清單。
+關鍵字衝突時，依作用範圍、風險與證據取捨；互斥方案是選項，不是累加規則。
 
----
+## 工程心態
 
-## 0. 核心心態（先於一切）
+- **First Principles** — 從事實推導。
+- **KISS** — 移除非本質複雜度。
+- **YAGNI** — 只做已證實需求。
+- **DRY** — 一份知識只有一個來源。
+- **Principle of Least Astonishment** — 行為不使人意外。
+- **Reversibility** — 保留低成本退路。
+- **Measure, Don't Guess** — 先量測，再最佳化。
+- **Technical Debt** — 讓未來成本可見。
+- **Boy Scout Rule** — 讓碰過的程式碼更乾淨。
 
-- 原則是工具不是教條。先看 context（規模、團隊、生命週期、風險），再決定套用強度。
-- 過早抽象比重複更糟。複雜度由需求驅動，不由「未來可能會用到」驅動。
-- 任何違反原則的決定必須是「明確選擇」而非「沒想過」。
-- 讀的次數遠多於寫的次數。一切設計以可讀性與可變更性為終極指標。
+## 需求與決策
 
----
+- **Specification by Example（SBE）** — 用範例定義行為。
+- **Acceptance Criteria / Definition of Done** — 讓完成可觀察。
+- **Design by Contract / Invariants** — 說明必須成立的條件。
+- **Ubiquitous Language** — 一致使用領域語言。
+- **ADR / RFC** — 記錄重大決策。
+- **Traceability** — 連結需求、變更與證據。
+- **Risk-Based Engineering** — 把嚴謹度用在高失敗成本處。
 
-## 1. Agent 套用規則
+## 程式碼與物件設計
 
-- 預設選擇最簡單、可讀、可驗證的方案；不要為了展示設計能力而增加結構。
-- 先沿用專案既有 pattern、命名、錯誤處理與測試風格；只有既有做法明顯阻礙需求時才局部改善。
-- 不為未證實的未來需求預先引入 abstraction、interface、framework、background job、cache 或 event system；但在明確架構邊界、外部副作用邊界、測試替身需求或已知多實作場景，應使用小而穩定的 interface。
-- 行為變更必須可測試或可驗證；不可只改實作而不確認對外行為。
-- 錯誤處理不得 silent fallback、broad catch、吞錯或偽裝成功；錯誤要依專案慣例向上傳遞、記錄或回報。
-- 外部輸入、I/O、network、database、time、randomness 都是邊界；邊界要驗證、timeout、可觀測。
-- 當 correctness、simplicity、maintainability、performance、extensibility 衝突時，優先序為：correctness → simplicity → maintainability → performance → extensibility。
-- 只重構與當前任務強相關的區域；不要把「順手改善」擴張成無邊界重寫。
-- 開始任何程式碼修改前，先明確說出：(1) 哪些可觀察行為會改變；(2) 哪些不得改變；(3) 如何驗證兩者。先想清楚，再寫第一行程式碼。
-- 公開介面、匯出型別與共用資料結構一旦發布就非常難改動。預設採最小可行表面積。
-- 盡可能將新增（additive）、修正（corrective）、重構（structural）分開提交——混在同一個變更裡，review 與回滾都更難。
+- **SOLID** — 為變更設計，不教條套用。
+- **SRP** — 一個一致的改變理由。
+- **OCP** — 擴充時不擾動已驗證行為。
+- **LSP** — 維持可替換性。
+- **ISP** — 為 consumer 保持窄契約。
+- **DIP** — 讓依賴指向 policy。
+- **CUPID** — 偏好可組合、慣用、可預測的程式碼。
+- **GRASP** — 有意識地分配責任。
+- **Separation of Concerns** — 分離獨立的改變理由。
+- **High Cohesion / Low Coupling** — 聚合相關行為，限制依賴。
+- **Composition over Inheritance** — 明確組合行為。
+- **Law of Demeter** — 限制對協作者的認知。
+- **Tell, Don't Ask** — 讓行為靠近資料。
+- **Encapsulate What Varies** — 隔離變動。
+- **Pure Functions / Immutability** — 減少隱藏狀態。
+- **Make Invalid States Unrepresentable** — 用結構表達 invariant。
+- **Fail Fast** — 在根因附近暴露錯誤。
+- **Explicit Dependencies** — 讓需求可見。
+- **Resource Ownership / RAII** — 讓資源清理具確定性。
 
----
+## 架構與 API
 
-## 2. Code-Level 原則
+- **DDD / Bounded Context / Aggregate** — 讓邊界符合 domain。
+- **Hexagonal / Clean / Onion / Ports and Adapters** — 隔離 policy 與 infrastructure。
+- **Modular Monolith** — 先證明分散的必要性。
+- **Microservices** — 只為明確自治而分散。
+- **API-First / Contract-First / Schema-First** — 實作前先同意邊界。
+- **Backward Compatibility / Deprecation / Semantic Versioning** — 無意外地演進。
+- **Hyrum's Law** — 所有可觀察行為都可能成為依賴。
+- **Conway's Law** — 系統結構映照溝通結構。
+- **Evolutionary Architecture / Fitness Functions** — 讓架構可驗證。
+- **Strangler Fig Pattern** — 漸進取代系統。
+- **12-Factor App / Stateless Services** — 外移部署關注點與狀態。
 
-### SOLID
-- **SRP** — 一個 class 只能有一個改變的理由。
-- **OCP** — 對擴展開放、對修改封閉。
-- **LSP** — 子類必須能無痛替換父類；違反就代表繼承關係錯了。
-- **ISP** — 介面要小而專，不強迫 client 依賴用不到的方法。
-- **DIP** — 高低層皆依賴抽象，靠 DI 注入實作。
+## 資料與分散式系統
 
-### 通用準則
-- **DRY** — 重複的是「知識」而非「形狀」。
-- **KISS / YAGNI** — 簡單優先；不寫推測性需求。
-- **SoC** — 不同關注點分離。
-- **High Cohesion, Low Coupling** — 一切設計的根本指標。
-- **Law of Demeter** — 只跟直接朋友說話。
-- **Composition over Inheritance**。
-- **Tell, Don't Ask** — 命令物件做事，不查狀態後在外面下決定。
-- **Fail Fast** — 錯誤越早暴露越好，不靜默吞錯。
-- **Principle of Least Astonishment** — 行為不違反讀者直覺。
-- **Encapsulate What Varies** — 隔離易變部分。
-- **Pure Function 優先** — 副作用集中、邊界明確。
+- **ACID / BASE** — 明確選擇交易語義。
+- **CAP / PACELC** — 說清楚一致性、可用性與延遲取捨。
+- **Idempotency** — 讓 retry 安全。
+- **At-Most-Once / At-Least-Once / Exactly-Once Semantics** — 定義遺失與重複行為。
+- **Event-Driven / CQRS / Event Sourcing** — 必要時分離時間、意圖與狀態。
+- **Saga / Outbox** — 有意識地協調分散狀態。
+- **Schema Evolution / Expand-Contract** — 以相容方式遷移。
+- **Data Ownership / Source of Truth** — 明確資料權威。
+- **Cache Invalidation / TTL** — 定義陳舊程度。
+- **Backpressure / Load Shedding / Rate Limiting** — 限制過載。
+- **Clock Skew / Ordering / Logical Clocks** — 不假設共享時間。
 
-### 替代視角
-- **CUPID**（Dan North）— Composable / Unix philosophy / Predictable / Idiomatic / Domain-based。從規則導向轉為特質導向。
-- **GRASP**（Larman）— Information Expert、Creator、Controller、Low Coupling、High Cohesion、Polymorphism、Pure Fabrication、Indirection、Protected Variations。
+## 可靠性與維運
 
----
+- **Timeout / Deadline / Cancellation** — 限制等待與工作。
+- **Retry / Backoff / Jitter** — 選擇性重試，避免同步重試風暴。
+- **Circuit Breaker / Bulkhead** — 隔離級聯失敗。
+- **Graceful Degradation / Fail-Safe** — 讓失敗傷害有界。
+- **Liveness / Readiness / Health Checks** — 探測正確問題。
+- **Observability / Logs / Metrics / Traces / Profiles** — 讓行為可解釋。
+- **Structured Logging / Correlation IDs** — 跨邊界連結事件。
+- **SLI / SLO / Error Budget** — 量化可靠性。
+- **Backup / Restore / RPO / RTO** — 證明可復原。
+- **Runbook / Chaos Engineering** — 為故障準備並演練。
 
-## 3. 架構層級
+## 資安、隱私與安全
 
-### 結構性原則
-- **12-Factor App** — 雲原生服務的部署 / 設定 / 狀態紀律。
-- **Stateless Services** — 狀態外移，利於水平擴展與容錯。
-- **DDD** — Bounded Context、Aggregate、Ubiquitous Language。
-- **Hexagonal / Clean / Onion Architecture** — domain 與 infrastructure 解耦。
-- **Event-Driven / CQRS / Event Sourcing** — 適用於高吞吐、審計、複雜狀態演進場景。
-- **API 紀律** — 版本化、向後相容、明確錯誤語義、契約測試。
-- **Schema-First** — 介面契約先於實作。
+- **Threat Modeling** — 針對合理濫用設計。
+- **Least Privilege / Zero Trust** — 最小化假定權限。
+- **Defense in Depth / Secure by Default** — 讓安全成為預設路徑。
+- **Input Validation / Output Encoding** — 防守每個 trust boundary。
+- **Secrets Management** — 不讓憑證進入程式碼與 log。
+- **Supply Chain Security / SBOM** — 知道並驗證依賴。
+- **Privacy by Design / Data Minimization** — 少收集、少保留。
+- **Audit Trail / Non-Repudiation** — 讓敏感操作可歸責且難以否認。
+- **Safety Engineering / Hazard Analysis** — 限制 bug 以外的傷害。
 
-### 分散式系統認知
-- **CAP** — 分區發生時 C 與 A 必擇其一，必須有意識。
-- **PACELC** — 無分區時仍要在 Latency 與 Consistency 間取捨。
-- **Idempotency** — 任何可重試操作的前提。
-- **Exactly-once 是幻覺** — 設計為 at-least-once + idempotent。
-- **Backpressure** — 上游必須能感知下游壅塞。
-- **Clock Skew / Ordering** — 不假設多節點時間一致；必要時用 logical clock。
+## 測試與品質
 
-### 容錯模式（Release It!）
-- **Timeout** — 任何遠端呼叫都要有，且必須短於上游 timeout。
-- **Retry with Exponential Backoff + Jitter**。
-- **Circuit Breaker** — 阻止級聯失敗。
-- **Bulkhead** — 資源隔離，避免單點拖垮整體。
-- **Graceful Degradation** — 局部失效時提供降級體驗。
-- **Liveness vs Readiness Probe** — 語義不同，不混用。
+- **Tests as Specification** — 測試意圖，不測實作細節。
+- **TDD / BDD** — 用回饋與範例驅動設計。
+- **Test Pyramid / Testing Trophy** — 平衡速度與信心。
+- **Unit / Integration / Contract / E2E** — 在正確邊界測試。
+- **Property-Based / Fuzz / Mutation Testing** — 搜尋範例之外的缺陷。
+- **Regression / Golden Master / Snapshot Testing** — 謹慎鎖定預期行為。
+- **Deterministic / Hermetic Tests** — 移除無關變異。
+- **Test Doubles / Mocks / Fakes** — 只在真實接縫替換。
+- **Shift Left / Shift Right** — 發布前後都驗證。
 
-### 資料與一致性
-- **Single Source of Truth**。
-- **Schema Evolution** — Backward 與 Forward 相容皆需考量。
-- **Saga / Outbox Pattern** — 跨服務交易的標準解。
-- **Cache Strategy** — 明確 TTL、失效時機與一致性語義。
-- **Read / Write Path 分離** — 高負載系統的基本動作。
+## 效能與並行
 
----
+- **Big O / Data Structures** — 讓複雜度符合存取模式。
+- **Profiling / Benchmarking** — 最佳化已量測瓶頸。
+- **Load / Stress / Soak Testing** — 測試真實極限。
+- **Amdahl's Law / Little's Law** — 尊重擴展與 queue 數學。
+- **Bounded Resources** — 限制 queue、task、memory 與 fan-out。
+- **Structured Concurrency / Cancellation** — 讓生命週期明確。
+- **Race Freedom / Atomicity / Isolation** — 讓共享狀態安全。
+- **N+1 / Batching / Streaming** — 控制 I/O 放大。
 
-## 4. 可維運性（Operability）
+## 交付與協作
 
-- **Observability 三本柱** — Metrics、Logs、Traces；缺一不可。
-- **Structured Logging** — 機器可解析優於人類可讀。
-- **Correlation / Trace ID** — 跨服務請求必備。
-- **SLI / SLO / Error Budget** — 量化可靠性目標而非感覺。
-- **Infrastructure as Code** — 環境必須可重建。
-- **Immutable Deployment** — 不在 production 手動改設定。
-- **Blue/Green、Canary、Feature Flag** — 降低部署風險的標配。
-- **Runbook / Postmortem 文化** — 失敗是組織知識來源。
+- **CI / CD** — 持續整合與交付。
+- **Trunk-Based Development / Short-Lived Branches** — 降低 merge 延遲。
+- **Small Batches / Incremental Delivery** — 限制變更風險。
+- **Code Review / Pairing / Mob Programming** — 提早共享 context。
+- **Conventional Commits / Semantic Release** — 讓變更意圖可被機器讀取。
+- **IaC / Reproducible Builds / Immutable Deployment** — 讓環境可重現。
+- **Blue-Green / Canary / Feature Flags** — 降低 blast radius。
+- **Documentation as Code** — 讓文件與系統一起演進。
+- **Blameless Postmortem / Continuous Improvement** — 把失敗轉成學習。
 
----
+## 互動
 
-## 5. 安全與韌性
-
-- **Principle of Least Privilege**。
-- **Defense in Depth** — 多層防禦，不依賴單一邊界。
-- **Secure by Default** — 預設值即安全選項。
-- **Zero Trust** — 不信任內網流量。
-- **Secret Management** — 永不寫死、永不入 repo。
-- **Input Validation at Boundary** — 所有外部輸入皆敵意輸入。
-- **Audit Trail** — 重要操作可追溯。
-
----
-
-## 6. 開發流程紀律
-
-- **Boy Scout Rule** — 離開時讓 code 比進來時乾淨。
-- **Code Review as Knowledge Transfer** — 不只是抓 bug。
-- **Tests as Specification** — 測試描述意圖而非實作。
-- **Test Pyramid** — 多單元、適中整合、少 E2E。
-- **Reversibility-Aware Decision Making** — 不可逆決策需更謹慎；可逆決策可快試錯。
-- **Trunk-Based / Short-Lived Branches** — 減少 merge 地獄。
-- **Conventional Commits / 明確變更語義**。
-
----
-
-## 7. 套用判準（Decision Framework）
-
-每次套用任何原則前自問：
-
-1. **生命週期** — 一次性 script vs. 長期服務？
-2. **變動頻率** — 穩定 vs. 高速演進？
-3. **團隊規模** — 一人 vs. 多人協作？
-4. **風險等級** — 內部工具 vs. 對外金流 / 醫療 / 安全關鍵？
-5. **可逆性** — 決策出錯能否輕易回頭？
-
-**判準對照：**
-- 低生命週期 / 低變動 / 單人 / 低風險 → 寬鬆套用，避免過度設計。
-- 高生命週期 / 高變動 / 多人 / 高風險 → 嚴格套用，接受抽象成本。
-- 不可逆決策 → 永遠採取最保守路線。
-
----
-
-## 8. Review Checklist
-
-Review、重構或實作完成前，快速掃過：
-
-- **Correctness** — happy path、edge case、錯誤路徑、concurrency / retry / idempotency 是否合理。
-- **Boundary** — input validation、permission、timeout、resource cleanup、I/O failure 是否有處理。
-- **Design Fit** — 是否符合既有架構邊界；是否新增了不必要 abstraction 或耦合。
-- **Change Safety** — 行為變更是否有測試、回滾方式、相容性與 migration 考量。
-- **Operability** — 重要失敗是否可觀測；log / metric / trace 是否足以定位問題。
-- **Performance** — 是否引入 N+1、無界迴圈 / 查詢 / goroutine / queue、過度 allocation 或不受控 cache。
-
----
-
-## 9. Anti-Patterns 警示
-
-當以下訊號出現，停下來重新思考：
-
-- 為了滿足某條原則而引入的抽象，沒有第二個使用者。
-- Interface 只有一個 implementation 且沒有測試替身需求。
-- Class 名稱含 `Manager`、`Helper`、`Utils`、`Processor` 等模糊詞。
-- 單一檔案 / function / class 過長，但拆分後反而難讀。
-- 「以後會用到」「未來可能擴展」作為設計理由。
-- 為了 DRY 而把不相關但長得像的邏輯合併。
-- 強行套用設計模式而非解決實際問題。
-- 為了避免破壞既有流程而加入 silent fallback，讓錯誤延後到更難追的位置。
-- 為了「保持彈性」而延後 schema、API 或錯誤語義的明確決策。
-- 函數接受 3 個以上參數（不含 2）；把相關的組成 value object 或 request struct。
-- boolean 參數決定了走完全不同的程式碼路徑 —— 應拆成兩個獨立函數。
-- 單元測試需要 mock 5 個以上協作者才能測到一個小行為 —— 被測單元耦合過多。
-- 兩段程式碼以「用途不同」分開維護，但解決的子問題幾乎相同 —— 這是隱藏的 DRY 違反。
-
----
-
-## 10. 程式碼修改協定
-
-觸碰既有程式碼時，依序執行：
-
-1. **定向** — 先讀既有測試與行為，理解當前契約，再動手改任何東西。
-2. **契約** — 明確說出：哪些行為將改變？哪些既有保證必須維持？
-3. **影響範圍** — 列出所有受影響的呼叫者、依賴方與整合點。
-4. **最小變更** — 做滿足需求的最小變更；抵制順手清理無關程式碼的衝動。
-5. **驗證** — 確認舊契約仍然成立，新行為可觀測、可測試，必要處已記錄。
-
-**改動類型決定方式：**
-- **新增（Additive）**：在自然接縫處延伸，盡量不修改既有程式碼路徑。
-- **修正（Corrective / Bug Fix）**：外科精準 —— 只改缺陷來源，先寫能重現 bug 的失敗測試。
-- **重構（Structural）**：純行為保持轉換；絕不與功能變更混合在同一次提交。
-
----
-
-## 11. 介面與型別設計
-
-介面描述角色，型別描述領域現實。兩者一旦發布都極難更動。
-
-**命名**
-- 介面：以能力命名（`Reader`、`Validator`、`EventBus`），不用名詞加前綴（`IUserService`、`AbstractHandler`）。
-- 型別：以領域概念命名，不以儲存機制或實作細節命名（`Invoice`，而非無必要的 `InvoiceRecord`）。
-
-**介面大小**
-- 從消費方視角出發：每個呼叫者真正需要的最小契約是什麼？
-- 單方法介面是最可組合的基礎單元；角色單一時優先使用。
-- 只有當所有呼叫者都用到所有方法時，才把方法合入同一介面。
-- 若部分呼叫者只需子集，拆成小介面，讓較寬的介面去嵌入（embed）它們。
-
-**型別契約**
-- 零值 / null / 預設值必須可安全使用，否則強制使用明確建構子並在型別系統層強制執行。
-- 盡可能讓無效狀態在型別層就無法表示 —— 減少執行期檢查，減少 bug。
-- 優先接受介面、回傳具體型別：呼叫者得到窄依賴，其呼叫者得到具體 API 的完整存取。
-
-**演進**
-- 在已發布的介面新增方法是 breaking change：定義新介面嵌入舊介面並加入新方法。
-- 標記棄用（Deprecated），不要直接刪除；提供遷移指引，待所有呼叫者遷移後再移除。
-- 新增可選能力：用能力檢查模式（type assertion 或 optional interface），而非展寬基底介面。
-
----
-
-最終守則：**設計品質 = 在當下 context 下做出最合理的取捨**。原則提供詞彙與框架，但最終判斷仍是工程師自己的責任。
+- **Human-Centered Design / Developer Experience** — 為真實使用者最佳化。
+- **Accessibility / WCAG / Inclusive Design** — 為多元能力設計。
+- **i18n / l10n** — 分離語言與 locale。
+- **Progressive Enhancement / Responsive Design** — 保留核心體驗。
+- **Error UX / Graceful Recovery** — 讓失敗可理解、可復原。

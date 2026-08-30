@@ -1,249 +1,155 @@
 ---
 name: arch-rules
 description: >-
-  Software design and architecture operating principles — SOLID, CUPID, GRASP,
-  fault-tolerance, Observability, and engineering philosophy. Load before
-  writing, modifying, refactoring, or reviewing any code, because every code
-  change is a design decision. Also load during system design, API design,
-  technology selection, technical-debt evaluation, and any discussion about how
-  to structure, split, name, or evolve software. Use this skill as preparation
-  to follow the principles while executing implementation and planning work, not
-  as a post-hoc checklist or quick reference.
+  Software design and development keyword cues. Load when reading, writing,
+  debugging, refactoring, reviewing, designing, or evolving software. Use the
+  named principles, patterns, and practices to recall their conventional meaning
+  and trade-offs; apply only those relevant to the context.
 ---
 
 # Arch Rules
 
-Load these principles before implementation or system planning work starts. Use
-them to shape decisions while writing code, defining boundaries, and choosing
-trade-offs, rather than consulting them afterward as a quick reference.
+Treat each keyword as a thinking cue: recall its established meaning,
+assumptions, and trade-offs. Apply relevant ideas; do not force the full list.
+When cues conflict, choose by scope, risk, and evidence; treat alternatives as
+choices, not cumulative rules.
 
----
+## Engineering Mindset
 
-## 0. Core Mindset (above all else)
+- **First Principles** — Reason from facts.
+- **KISS** — Remove accidental complexity.
+- **YAGNI** — Build for proven needs.
+- **DRY** — Keep one source per piece of knowledge.
+- **Principle of Least Astonishment** — Make behavior unsurprising.
+- **Reversibility** — Preserve cheap ways back.
+- **Measure, Don't Guess** — Use evidence before optimization.
+- **Technical Debt** — Make future cost visible.
+- **Boy Scout Rule** — Leave touched code cleaner.
 
-- Principles are tools, not dogma. Assess context first (scale, team, lifecycle, risk), then decide how strictly to apply.
-- Premature abstraction is worse than duplication. Complexity is driven by requirements, not by "might be needed later".
-- Any decision that violates a principle must be an **explicit choice**, not an oversight.
-- Code is read far more often than it is written. All design optimizes for readability and changeability.
+## Requirements and Decisions
 
----
+- **Specification by Example (SBE)** — Define behavior with examples.
+- **Acceptance Criteria / Definition of Done** — Make done observable.
+- **Design by Contract / Invariants** — State what must remain true.
+- **Ubiquitous Language** — Use domain terms consistently.
+- **ADR / RFC** — Record consequential decisions.
+- **Traceability** — Link needs, changes, and evidence.
+- **Risk-Based Engineering** — Spend rigor where failure costs.
 
-## 1. Agent Application Rules
+## Code and Object Design
 
-- Default to the simplest, most readable, and most verifiable solution; do not add structure to demonstrate design skill.
-- Follow the project's existing patterns, naming, error handling, and test style; improve locally only when the existing approach clearly blocks the requirement.
-- Do not introduce speculative abstraction, interfaces, frameworks, background jobs, caches, or event systems for unproven future needs. However, use small, stable interfaces at clear architectural boundaries, external side-effect boundaries, test-double needs, or known multiple-implementation scenarios.
-- Behavioral changes must be testable or verifiable; never change an implementation without confirming the observable behavior.
-- Error handling must not use silent fallback, broad catch, swallowed errors, or fake success; propagate, log, or report errors according to project conventions.
-- External input, I/O, network, database, time, and randomness are all boundaries; boundaries require validation, timeouts, and observability.
-- When correctness, simplicity, maintainability, performance, and extensibility conflict, priority order is: **correctness → simplicity → maintainability → performance → extensibility**.
-- Refactor only areas strongly related to the current task; do not let "while I'm here" cleanup expand into unbounded rewrites.
-- When starting any code modification: first name (1) what observable behavior changes, (2) what must remain unchanged, and (3) how you will verify both. Write this down before writing a single line of code.
-- Public interfaces, exported types, and shared data structures are disproportionately costly to change once published. Default to the minimum viable surface area.
-- Keep additive changes (new capability), corrective changes (bug fix), and structural changes (refactoring) separate wherever possible — mixing them makes review and rollback harder.
+- **SOLID** — Design for change without dogma.
+- **SRP** — One coherent reason to change.
+- **OCP** — Extend without destabilizing proven behavior.
+- **LSP** — Preserve substitutability.
+- **ISP** — Keep contracts narrow for consumers.
+- **DIP** — Point dependencies toward policy.
+- **CUPID** — Prefer composable, idiomatic, predictable code.
+- **GRASP** — Assign responsibilities deliberately.
+- **Separation of Concerns** — Separate independent reasons to change.
+- **High Cohesion / Low Coupling** — Group related behavior; limit dependencies.
+- **Composition over Inheritance** — Assemble behavior explicitly.
+- **Law of Demeter** — Limit knowledge of collaborators.
+- **Tell, Don't Ask** — Keep behavior with its data.
+- **Encapsulate What Varies** — Isolate volatility.
+- **Pure Functions / Immutability** — Minimize hidden state.
+- **Make Invalid States Unrepresentable** — Encode invariants.
+- **Fail Fast** — Surface errors near their cause.
+- **Explicit Dependencies** — Make requirements visible.
+- **Resource Ownership / RAII** — Make cleanup deterministic.
 
----
+## Architecture and APIs
 
-## 2. Code-Level Principles
+- **DDD / Bounded Context / Aggregate** — Align boundaries with the domain.
+- **Hexagonal / Clean / Onion / Ports and Adapters** — Isolate policy from infrastructure.
+- **Modular Monolith** — Earn distribution.
+- **Microservices** — Distribute only for clear autonomy.
+- **API-First / Contract-First / Schema-First** — Agree boundaries before implementation.
+- **Backward Compatibility / Deprecation / Semantic Versioning** — Evolve without surprises.
+- **Hyrum's Law** — Every observable behavior can become a dependency.
+- **Conway's Law** — Structure mirrors communication.
+- **Evolutionary Architecture / Fitness Functions** — Keep architecture testable.
+- **Strangler Fig Pattern** — Replace systems incrementally.
+- **12-Factor App / Stateless Services** — Externalize deploy-time concerns and state.
 
-### SOLID
+## Data and Distributed Systems
 
-- **SRP** — A class should have only one reason to change.
-- **OCP** — Open for extension, closed for modification.
-- **LSP** — Subtypes must be substitutable for their base types; violation signals a wrong inheritance relationship.
-- **ISP** — Keep interfaces small and focused; do not force clients to depend on methods they don't use.
-- **DIP** — Both high-level and low-level modules depend on abstractions; inject implementations via DI.
+- **ACID / BASE** — Choose transaction semantics explicitly.
+- **CAP / PACELC** — Name consistency, availability, and latency trade-offs.
+- **Idempotency** — Make retries safe.
+- **At-Most-Once / At-Least-Once / Exactly-Once Semantics** — Define loss and duplication behavior.
+- **Event-Driven / CQRS / Event Sourcing** — Separate time, intent, and state when useful.
+- **Saga / Outbox** — Coordinate distributed state deliberately.
+- **Schema Evolution / Expand-Contract** — Migrate compatibly.
+- **Data Ownership / Source of Truth** — Make authority explicit.
+- **Cache Invalidation / TTL** — Define staleness.
+- **Backpressure / Load Shedding / Rate Limiting** — Bound overload.
+- **Clock Skew / Ordering / Logical Clocks** — Never assume shared time.
 
-### General Rules
+## Reliability and Operations
 
-- **DRY** — The duplication to eliminate is duplicated *knowledge*, not duplicated *shape*.
-- **KISS / YAGNI** — Prefer simplicity; don't write speculative requirements.
-- **SoC** — Separate different concerns.
-- **High Cohesion, Low Coupling** — The fundamental metric of all design.
-- **Law of Demeter** — Talk only to your immediate friends.
-- **Composition over Inheritance**.
-- **Tell, Don't Ask** — Command objects to act; don't query state and make decisions outside the object.
-- **Fail Fast** — Surface errors as early as possible; never swallow them silently.
-- **Principle of Least Astonishment** — Behavior should not violate the reader's intuition.
-- **Encapsulate What Varies** — Isolate the parts that change.
-- **Prefer Pure Functions** — Concentrate side effects; keep boundaries explicit.
+- **Timeout / Deadline / Cancellation** — Bound waiting and work.
+- **Retry / Backoff / Jitter** — Retry selectively without synchronizing failure.
+- **Circuit Breaker / Bulkhead** — Contain cascading failure.
+- **Graceful Degradation / Fail-Safe** — Fail with bounded harm.
+- **Liveness / Readiness / Health Checks** — Probe the right question.
+- **Observability / Logs / Metrics / Traces / Profiles** — Make behavior explainable.
+- **Structured Logging / Correlation IDs** — Connect events across boundaries.
+- **SLI / SLO / Error Budget** — Quantify reliability.
+- **Backup / Restore / RPO / RTO** — Prove recovery.
+- **Runbook / Chaos Engineering** — Prepare for and test failure.
 
-### Alternative Frameworks
+## Security, Privacy, and Safety
 
-- **CUPID** (Dan North) — Composable / Unix philosophy / Predictable / Idiomatic / Domain-based. Shifts from rule-oriented to property-oriented thinking.
-- **GRASP** (Larman) — Information Expert, Creator, Controller, Low Coupling, High Cohesion, Polymorphism, Pure Fabrication, Indirection, Protected Variations.
+- **Threat Modeling** — Design against plausible abuse.
+- **Least Privilege / Zero Trust** — Minimize assumed authority.
+- **Defense in Depth / Secure by Default** — Make safety the default path.
+- **Input Validation / Output Encoding** — Defend every trust boundary.
+- **Secrets Management** — Keep credentials out of code and logs.
+- **Supply Chain Security / SBOM** — Know and verify dependencies.
+- **Privacy by Design / Data Minimization** — Collect and retain less.
+- **Audit Trail / Non-Repudiation** — Make sensitive actions attributable and hard to deny.
+- **Safety Engineering / Hazard Analysis** — Bound harm beyond bugs.
 
----
+## Testing and Quality
 
-## 3. Architecture Level
+- **Tests as Specification** — Test intent, not implementation.
+- **TDD / BDD** — Drive design with feedback and examples.
+- **Test Pyramid / Testing Trophy** — Balance speed and confidence.
+- **Unit / Integration / Contract / E2E** — Test at the right boundary.
+- **Property-Based / Fuzz / Mutation Testing** — Search beyond examples.
+- **Regression / Golden Master / Snapshot Testing** — Lock intended behavior carefully.
+- **Deterministic / Hermetic Tests** — Remove incidental variance.
+- **Test Doubles / Mocks / Fakes** — Substitute only at real seams.
+- **Shift Left / Shift Right** — Validate before and after release.
 
-### Structural Principles
+## Performance and Concurrency
 
-- **12-Factor App** — Deployment / configuration / state discipline for cloud-native services.
-- **Stateless Services** — Externalize state to enable horizontal scaling and fault tolerance.
-- **DDD** — Bounded Context, Aggregate, Ubiquitous Language.
-- **Hexagonal / Clean / Onion Architecture** — Decouple domain from infrastructure.
-- **Event-Driven / CQRS / Event Sourcing** — Suited for high throughput, auditing, and complex state evolution.
-- **API Discipline** — Versioning, backward compatibility, explicit error semantics, contract testing.
-- **Schema-First** — Define interface contracts before implementation.
+- **Big O / Data Structures** — Match complexity to access patterns.
+- **Profiling / Benchmarking** — Optimize measured bottlenecks.
+- **Load / Stress / Soak Testing** — Test realistic limits.
+- **Amdahl's Law / Little's Law** — Respect scaling and queue mathematics.
+- **Bounded Resources** — Bound queues, tasks, memory, and fan-out.
+- **Structured Concurrency / Cancellation** — Make lifetimes explicit.
+- **Race Freedom / Atomicity / Isolation** — Make shared state safe.
+- **N+1 / Batching / Streaming** — Control I/O amplification.
 
-### Distributed Systems Awareness
+## Delivery and Collaboration
 
-- **CAP** — When a partition occurs you must choose between C and A; this choice must be intentional.
-- **PACELC** — When no partition exists you still trade off Latency vs. Consistency.
-- **Idempotency** — A prerequisite for any retriable operation.
-- **Exactly-once is an illusion** — Design for at-least-once + idempotent consumers.
-- **Backpressure** — Upstream must be able to sense downstream congestion.
-- **Clock Skew / Ordering** — Do not assume multi-node clocks are in sync; use logical clocks where ordering matters.
+- **CI / CD** — Integrate and deliver continuously.
+- **Trunk-Based Development / Short-Lived Branches** — Reduce merge delay.
+- **Small Batches / Incremental Delivery** — Limit change risk.
+- **Code Review / Pairing / Mob Programming** — Share context early.
+- **Conventional Commits / Semantic Release** — Make change intent machine-readable.
+- **IaC / Reproducible Builds / Immutable Deployment** — Make environments repeatable.
+- **Blue-Green / Canary / Feature Flags** — Reduce blast radius.
+- **Documentation as Code** — Evolve documentation with the system.
+- **Blameless Postmortem / Continuous Improvement** — Turn failure into learning.
 
-### Fault-Tolerance Patterns (Release It!)
+## Interaction
 
-- **Timeout** — Required on every remote call; must be shorter than the upstream's timeout.
-- **Retry with Exponential Backoff + Jitter**.
-- **Circuit Breaker** — Prevent cascading failures.
-- **Bulkhead** — Isolate resources so a single failure cannot bring down the whole system.
-- **Graceful Degradation** — Provide a degraded experience when a component fails.
-- **Liveness vs. Readiness Probe** — Different semantics; do not conflate them.
-
-### Data and Consistency
-
-- **Single Source of Truth**.
-- **Schema Evolution** — Consider both backward and forward compatibility.
-- **Saga / Outbox Pattern** — The standard solution for cross-service transactions.
-- **Cache Strategy** — Define explicit TTL, invalidation timing, and consistency semantics.
-- **Read / Write Path Separation** — Standard practice for high-load systems.
-
----
-
-## 4. Operability
-
-- **Three Pillars of Observability** — Metrics, Logs, Traces; all three are required.
-- **Structured Logging** — Machine-parseable output is more valuable than human-readable prose.
-- **Correlation / Trace ID** — Mandatory for cross-service request tracing.
-- **SLI / SLO / Error Budget** — Quantify reliability targets; don't rely on gut feeling.
-- **Infrastructure as Code** — Environments must be reproducible.
-- **Immutable Deployment** — Never manually change configuration in production.
-- **Blue/Green, Canary, Feature Flag** — Standard tools for reducing deployment risk.
-- **Runbook / Postmortem Culture** — Failures are a source of organizational knowledge.
-
----
-
-## 5. Security and Resilience
-
-- **Principle of Least Privilege**.
-- **Defense in Depth** — Multiple layers of defense; do not rely on a single perimeter.
-- **Secure by Default** — The default configuration must be the secure option.
-- **Zero Trust** — Do not trust internal network traffic.
-- **Secret Management** — Never hard-code secrets; never commit them to a repo.
-- **Input Validation at Boundary** — Treat all external input as hostile.
-- **Audit Trail** — Critical operations must be traceable.
-
----
-
-## 6. Development Process Discipline
-
-- **Boy Scout Rule** — Leave the code cleaner than you found it.
-- **Code Review as Knowledge Transfer** — Not just bug-hunting.
-- **Tests as Specification** — Tests describe intent, not implementation.
-- **Test Pyramid** — Many unit tests, moderate integration tests, few E2E tests.
-- **Reversibility-Aware Decision Making** — Irreversible decisions require more caution; reversible ones can be tried and corrected quickly.
-- **Trunk-Based / Short-Lived Branches** — Reduce merge hell.
-- **Conventional Commits / Explicit Change Semantics**.
-
----
-
-## 7. Decision Framework
-
-Before applying any principle, ask:
-
-1. **Lifecycle** — One-off script vs. long-lived service?
-2. **Rate of Change** — Stable vs. rapidly evolving?
-3. **Team Size** — Solo vs. multi-person collaboration?
-4. **Risk Level** — Internal tool vs. external payment / medical / safety-critical system?
-5. **Reversibility** — Can you easily revert if the decision is wrong?
-
-**Guidance:**
-
-- Low lifecycle / low change rate / solo / low risk → apply loosely; avoid over-engineering.
-- High lifecycle / high change rate / multi-person / high risk → apply strictly; accept the cost of abstraction.
-- Irreversible decision → always take the most conservative path.
-
----
-
-## 8. Review Checklist
-
-Quick scan before finishing a review, refactor, or implementation:
-
-- **Correctness** — Happy path, edge cases, error paths, concurrency / retry / idempotency are all handled correctly.
-- **Boundary** — Input validation, permissions, timeouts, resource cleanup, and I/O failures are addressed.
-- **Design Fit** — Respects existing architectural boundaries; no unnecessary abstraction or new coupling introduced.
-- **Change Safety** — Behavioral changes have tests, a rollback plan, compatibility considerations, and migration coverage.
-- **Operability** — Important failures are observable; logs / metrics / traces are sufficient to locate problems.
-- **Performance** — No N+1 queries, unbounded loops / queries / goroutines / queue growth, excessive allocation, or uncontrolled caches introduced.
-
----
-
-## 9. Anti-Pattern Warnings
-
-Stop and reconsider when you see:
-
-- An abstraction introduced to satisfy a principle has no second consumer.
-- An interface has only one implementation and no test-double requirement.
-- A class name contains vague words: `Manager`, `Helper`, `Utils`, `Processor`.
-- A single file / function / class is too long, but splitting it makes it harder to understand.
-- "We'll need it later" or "might expand in the future" used as a design justification.
-- Unrelated logic merged for DRY because it looks similar.
-- A design pattern forced in without addressing an actual problem.
-- A silent fallback added to avoid breaking existing flow, pushing errors to a harder-to-trace location.
-- Deferred decisions on schema, API, or error semantics justified as "keeping flexibility".
-- A function accepts three or more parameters; related ones should be grouped into a value object or request struct.
-- A boolean parameter selects between fundamentally different code paths — it should be split into two separate functions.
-- A unit test requires mocking five or more collaborators to exercise one small behavior — the unit under test is over-coupled.
-- Two pieces of code are kept separate "for different purposes" but solve the same sub-problem with nearly identical logic — a hidden DRY violation.
-
----
-
-## 10. Code Modification Protocol
-
-When touching existing code, follow this sequence:
-
-1. **Orient** — read the existing tests and behavior first; understand the current contracts before changing anything.
-2. **Contract** — state explicitly: what new behavior is being added or changed? What existing guarantees must survive?
-3. **Blast Radius** — identify all callers, dependents, and integration points affected by the change.
-4. **Minimal Surface** — make the smallest change that satisfies the requirement; resist the pull to clean up tangentially related code.
-5. **Verify** — confirm old contracts still hold and new behavior is observable, testable, and logged where needed.
-
-**Type of change guides the approach:**
-- **Additive (new capability)**: prefer extension at natural seams; avoid modifying existing code paths.
-- **Corrective (bug fix)**: surgical precision — change exactly the defect source; reproduce the bug as a failing test first.
-- **Structural (refactoring)**: pure behavior-preserving transformation; never mix with functional changes in the same commit.
-
----
-
-## 11. Interface & Type Design
-
-Interfaces encode roles; types encode domain reality. Both are hard to reverse once published.
-
-**Naming**
-- Interfaces: name by capability (`Reader`, `Validator`, `EventBus`), not by noun prefix (`IUserService`, `AbstractHandler`).
-- Types: name after the domain concept, not the storage or implementation detail (`Invoice`, not `InvoiceRecord` unless context requires the distinction).
-
-**Sizing interfaces**
-- Start from the consumer's perspective: what is the minimum contract each caller actually needs?
-- One-method interfaces are the most composable building block; prefer them when the role is single-purpose.
-- Merge methods into one interface only when every caller always uses every method.
-- If some callers need only a subset, split into smaller interfaces and let wider ones embed them.
-
-**Type contracts**
-- Zero / null / default value must be safe to use, or construction must be mandatory and enforced.
-- Make invalid states unrepresentable at the type level when practical — fewer runtime checks, fewer bugs.
-- Prefer accepting interfaces and returning concrete types: callers gain narrow dependencies; their callers gain full access to the concrete API.
-
-**Evolution**
-- Adding a method to a published interface is a breaking change: define a new interface that embeds the old one and adds the method.
-- Deprecate, don't delete. Mark old interfaces deprecated, provide migration guidance, remove only after all callers are migrated.
-- Adding optional capability: use a capability-check pattern (type assertion or optional interface) rather than widening the base interface.
-
----
-
-Final rule: **Design quality = making the most reasonable trade-offs given the current context.** Principles provide vocabulary and a framework; the final judgment remains the engineer's responsibility.
+- **Human-Centered Design / Developer Experience** — Optimize for real users.
+- **Accessibility / WCAG / Inclusive Design** — Design for diverse abilities.
+- **i18n / l10n** — Separate language and locale.
+- **Progressive Enhancement / Responsive Design** — Preserve the core experience.
+- **Error UX / Graceful Recovery** — Make failure understandable and recoverable.
