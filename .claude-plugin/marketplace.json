@@ -25,6 +25,7 @@
         "./windows-script",
         "./write-md",
         "./arch-rules",
+        "./code-rules",
         "./go-mongo-rules",
         "./code-mereology"
       ]
