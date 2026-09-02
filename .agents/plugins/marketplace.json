@@ -1,7 +1,7 @@
 {
-  "name": "aery-codex-plugins",
+  "name": "misty-plugins",
   "interface": {
-    "displayName": "Aery Codex Plugins"
+    "displayName": "Misty Plugins"
   },
   "plugins": [
     {

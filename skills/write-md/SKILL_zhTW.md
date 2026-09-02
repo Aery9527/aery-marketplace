@@ -61,6 +61,6 @@ AI agent 文件（`SKILL.md`、agent instructions、system prompt、workflow rul
 name: skills-governance
 description: >-
   用於建立或修改 `.agents/skills/` 下的專案客製 skills，或修改
-  `aery-marketplace/aery-dev/` 並需要套用本 repo 的目錄邊界、
+  `misty-marketplace/misty-dev/` 並需要套用本 repo 的目錄邊界、
   相關文件同步與 Conventional Commit 規則時使用。
 ```

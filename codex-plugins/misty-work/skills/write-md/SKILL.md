@@ -64,6 +64,6 @@ Safe example:
 name: skills-governance
 description: >-
   Use when creating or modifying project-custom skills under `.agents/skills/`,
-  or when editing `aery-marketplace/aery-dev/` and the repo's directory-boundary,
+  or when editing `misty-marketplace/misty-dev/` and the repo's directory-boundary,
   doc-sync, and Conventional Commit rules must be applied.
 ```
