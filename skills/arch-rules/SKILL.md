@@ -12,7 +12,7 @@ description: >-
 Treat each keyword as a thinking cue: recall its established meaning,
 assumptions, and trade-offs. Apply relevant ideas; do not force the full list.
 When cues conflict, choose by scope, risk, and evidence; treat alternatives as
-choices, not cumulative rules.
+choices, not cumulative rules. For concrete implementation rules, use `code-rules`.
 
 ## Engineering Mindset
 
