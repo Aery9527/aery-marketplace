@@ -1,0 +1,24 @@
+{
+  "name": "misty-dev-go",
+  "version": "0.31.2",
+  "description": "MongoDB development rules for Go and shell scripts packaged for Codex.",
+  "author": {
+    "name": "Aery Lin"
+  },
+  "repository": "https://github.com/Aery9527/aery-marketplace",
+  "license": "Apache-2.0",
+  "keywords": [
+    "go",
+    "mongodb",
+    "mongo-go-driver",
+    "aggregation"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Misty Dev Go",
+    "shortDescription": "MongoDB rules for Go and mongo shell scripts.",
+    "longDescription": "Packages the Misty Go developer bundle for Codex, including MongoDB query, aggregation pipeline, mongo-go-driver, and MongoDB shell script (.js) rules.",
+    "developerName": "Aery Lin",
+    "category": "Developer Tools"
+  }
+}

@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "aery-design",
+      "name": "misty-work",
       "source": {
         "source": "local",
-        "path": "./codex-plugins/aery-design"
+        "path": "./codex-plugins/misty-work"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -17,10 +17,22 @@
       "category": "Productivity"
     },
     {
-      "name": "aery-go-dev",
+      "name": "misty-dev",
       "source": {
         "source": "local",
-        "path": "./codex-plugins/aery-go-dev"
+        "path": "./codex-plugins/misty-dev"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "misty-dev-go",
+      "source": {
+        "source": "local",
+        "path": "./codex-plugins/misty-dev-go"
       },
       "policy": {
         "installation": "AVAILABLE",

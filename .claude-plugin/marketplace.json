@@ -9,25 +9,30 @@
   },
   "plugins": [
     {
-      "name": "aery-design",
+      "name": "misty-work",
       "source": "./skills",
       "strict": false,
       "skills": [
         "./write-md",
-        "./image-to-html"
+        "./windows-script"
       ]
     },
     {
-      "name": "aery-go-dev",
+      "name": "misty-dev",
       "source": "./skills",
       "strict": false,
       "skills": [
-        "./windows-script",
-        "./write-md",
         "./arch-rules",
         "./code-rules",
-        "./go-mongo-rules",
         "./code-mereology"
+      ]
+    },
+    {
+      "name": "misty-dev-go",
+      "source": "./skills",
+      "strict": false,
+      "skills": [
+        "./go-mongo-rules"
       ]
     }
   ]

@@ -1,0 +1,24 @@
+{
+  "name": "misty-work",
+  "version": "0.31.2",
+  "description": "Everyday writing and scripting skills packaged for Codex.",
+  "author": {
+    "name": "Aery Lin"
+  },
+  "repository": "https://github.com/Aery9527/aery-marketplace",
+  "license": "Apache-2.0",
+  "keywords": [
+    "markdown",
+    "documentation",
+    "powershell",
+    "windows"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Misty Work",
+    "shortDescription": "Markdown writing and Windows scripting workflows.",
+    "longDescription": "Packages the Misty work bundle for Codex, including Markdown writing rules for human and AI-agent documents, and Windows PowerShell and batch scripting guidance.",
+    "developerName": "Aery Lin",
+    "category": "Productivity"
+  }
+}

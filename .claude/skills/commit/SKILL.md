@@ -32,7 +32,7 @@ description: >-
 
 | 情境 | Scope |
 |------|-------|
-| 修改或新增特定 skill | 該 skill 名稱，例如 `write-md`、`image-to-html`、`commit` |
+| 修改或新增特定 skill | 該 skill 名稱，例如 `write-md`、`code-rules`、`commit` |
 | 修改 Plugin Bundle 定義（marketplace.json） | `marketplace` |
 | 僅修改 README 或頂層說明文件 | `docs` |
 | 跨多個 skill 或全域性變更 | 省略 scope |
@@ -77,10 +77,10 @@ description: >-
 
 好的範例：
 
-- `feat(image-to-html): add visual diff Python toolset`
+- `feat(code-rules): add concrete implementation guidance`
 - `fix(windows-script): correct BOM handling for PowerShell 5.1`
 - `docs: rewrite README with plugin bundle overview`
-- `feat(marketplace): register aery-go-dev bundle`
+- `feat(marketplace): register misty-dev bundle`
 - `refactor(write-md): restructure Mermaid decision criteria`
 - `feat(commit): add commit skill for this repository`
 

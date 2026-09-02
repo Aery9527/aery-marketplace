@@ -1,0 +1,24 @@
+{
+  "name": "misty-dev",
+  "version": "0.31.2",
+  "description": "Language-agnostic software design and implementation skills packaged for Codex.",
+  "author": {
+    "name": "Aery Lin"
+  },
+  "repository": "https://github.com/Aery9527/aery-marketplace",
+  "license": "Apache-2.0",
+  "keywords": [
+    "architecture",
+    "design",
+    "code-quality",
+    "tdd"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Misty Dev",
+    "shortDescription": "Architecture cues, implementation rules, and design-driven development.",
+    "longDescription": "Packages the Misty developer bundle for Codex, including architecture and design cues, concrete implementation rules, and the design-document to TDD workflow.",
+    "developerName": "Aery Lin",
+    "category": "Developer Tools"
+  }
+}
