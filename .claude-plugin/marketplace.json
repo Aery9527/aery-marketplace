@@ -4,7 +4,7 @@
     "name": "Aery Lin"
   },
   "metadata": {
-    "description": "將自己開發經驗與習慣收斂成 skill or agent.",
+    "description": "軟體開發用的 AI Agent Skills：架構設計提示與具體實作規則、設計文件驅動的 TDD 流程、Go 與 MongoDB 開發規則、Markdown 撰寫與 Windows 腳本規範。",
     "version": "0.31.2"
   },
   "plugins": [
