@@ -1,10 +1,10 @@
 {
   "plugins": [
     {
-      "name": "aery-claude-code",
+      "name": "misty-claude",
       "source": "./skills",
       "skills": [
-        "./claude-code"
+        "./claude"
       ]
     }
   ]

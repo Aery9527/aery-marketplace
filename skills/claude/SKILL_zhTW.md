@@ -1,5 +1,5 @@
 ---
-name: claude-code
+name: claude
 description: >-
   用於 Codex session 需要把工作交給 Claude Code，或與 Claude reviewer 協作時——審查
   當前 diff 或 branch、挑戰設計決策、委派 bug 調查或修復、管理背景 Claude job，或

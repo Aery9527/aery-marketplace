@@ -41,10 +41,10 @@
       "category": "Developer Tools"
     },
     {
-      "name": "aery-claude-code",
+      "name": "misty-claude",
       "source": {
         "source": "local",
-        "path": "./codex-plugins/aery-claude-code"
+        "path": "./codex-plugins/misty-claude"
       },
       "policy": {
         "installation": "AVAILABLE",

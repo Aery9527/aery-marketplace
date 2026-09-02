@@ -1,5 +1,5 @@
 ---
-name: claude-code
+name: claude
 description: >-
   Use when a Codex session should hand work to Claude Code or collaborate with
   Claude as a reviewer — reviewing the current diff or branch, challenging a
