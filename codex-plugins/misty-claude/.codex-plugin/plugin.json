@@ -1,6 +1,6 @@
 {
   "name": "misty-claude",
-  "version": "0.31.2",
+  "version": "1.0.0",
   "description": "Use Claude Code from Codex to review code or delegate tasks.",
   "author": {
     "name": "Aery Lin"

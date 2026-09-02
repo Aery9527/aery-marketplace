@@ -1,6 +1,6 @@
 # misty-marketplace
 
-Current version: [`v0.31.2`](release-note/v0.31.2.md)
+Current version: [`v1.0.0`](release-note/v1.0.0.md)
 
 將 Aery Lin 多年開發經驗與工程慣例收斂成可重複使用的 AI Agent Skills，並透過 Plugin Bundle 機制按情境組裝載入。
 

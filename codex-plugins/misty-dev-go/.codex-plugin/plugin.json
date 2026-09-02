@@ -1,6 +1,6 @@
 {
   "name": "misty-dev-go",
-  "version": "0.31.2",
+  "version": "1.0.0",
   "description": "MongoDB development rules for Go and shell scripts packaged for Codex.",
   "author": {
     "name": "Aery Lin"
