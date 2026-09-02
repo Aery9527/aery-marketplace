@@ -2,10 +2,9 @@
 name: windows-script
 description: >-
   Use when writing, modifying, or reviewing any Windows script (.ps1, .bat,
-  .cmd), or handling PowerShell encoding, BOM, line endings, Windows
-  PowerShell 5.1 compatibility, non-ASCII content, hook scripts, init.ps1,
-  or Windows CLI automation. Whenever a task involves .ps1, PowerShell,
-  UTF-8, BOM, CRLF/LF, or batch script migration, use this skill first.
+  .cmd), or when a task involves PowerShell encoding, BOM, line endings,
+  non-ASCII content, or Windows PowerShell 5.1 compatibility. Enforces
+  .ps1-only scripting and PowerShell pitfall rules.
 ---
 
 # Windows Script Development Guidelines

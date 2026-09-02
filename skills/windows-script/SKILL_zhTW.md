@@ -1,11 +1,9 @@
 ---
 name: windows-script
 description: >-
-  撰寫、修改或 review 任何 Windows 腳本（.ps1、.bat、.cmd）時使用，或處理
-  PowerShell 的 encoding、BOM、line ending、Windows PowerShell 5.1 相容性、
-  中文／非 ASCII 內容、hook script、init.ps1、Windows CLI 自動化時使用。
-  只要任務涉及 .ps1、PowerShell、UTF-8、BOM、CRLF/LF、batch script 遷移，
-  就應先使用此 skill。
+  撰寫、修改或 review 任何 Windows 腳本（.ps1、.bat、.cmd）時使用，或任務涉及
+  PowerShell encoding、BOM、line ending、非 ASCII 內容、Windows PowerShell 5.1
+  相容性時使用。強制只用 .ps1，並套用 PowerShell 常見陷阱守則。
 ---
 
 # Windows Script 開發守則

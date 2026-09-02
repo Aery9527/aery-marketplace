@@ -1,12 +1,9 @@
 ---
 name: go-mongo-rules
 description: >-
-  MongoDB 開發守則與陷阱防範。任何涉及 MongoDB 查詢、aggregation pipeline、
-  Go mongo-go-driver 程式碼、或 MongoDB shell 腳本（.js）的開發任務都應使用此 skill。
-  涵蓋：JS shell 中 NumberLong/ISODate 等型別的隱性比對陷阱、Go 中 bson.M 與 bson.D
-  的正確使用時機（尤其 $sort/$group 等依賴順序的場景）、以及「優先 aggregation
-  單次請求 vs 多次指令」的決策原則與文件記錄規範。
-  當需要新增、修改、review 任何 MongoDB 相關程式碼時，務必先讀完此 skill 再動手。
+  撰寫、修改或 review 任何 MongoDB 相關程式碼時使用——查詢、aggregation pipeline、
+  Go mongo-go-driver 程式碼或 MongoDB shell 腳本（.js）。
+  強制型別安全比對、bson.M 與 bson.D 選用，以及查詢策略決策。
 ---
 
 # MongoDB 開發守則

@@ -1,14 +1,10 @@
 ---
 name: go-mongo-rules
 description: >-
-  MongoDB development rules and pitfall prevention. Use this skill for any task
-  involving MongoDB queries, aggregation pipelines, Go mongo-go-driver code, or
-  MongoDB shell scripts (.js). Covers: implicit type-matching traps for
-  NumberLong/ISODate in JS shell, correct usage of bson.M vs bson.D in Go
-  (especially for order-dependent stages like $sort/$group), and decision
-  principles for single aggregation request vs multiple commands with
-  documentation requirements. Always read this skill before adding, modifying,
-  or reviewing any MongoDB-related code.
+  Use when writing, modifying, or reviewing any MongoDB-related code — queries,
+  aggregation pipelines, Go mongo-go-driver code, or MongoDB shell scripts
+  (.js). Enforces type-safe comparisons, bson.M vs bson.D selection, and
+  query-strategy decisions.
 ---
 
 # MongoDB Development Rules

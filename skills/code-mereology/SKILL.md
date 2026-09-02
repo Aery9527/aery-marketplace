@@ -2,19 +2,12 @@
 name: code-mereology
 description: >-
   Use for feature development that starts from design — creating or revising a
-  design document, splitting a feature into modules, clarifying module
-  boundaries, defining SBE, driving code through TDD, or measuring the
-  performance of a finished feature. Also load it before modifying existing
-  code in a repository already under development, so the change is checked
-  against any design document that already covers what it touches. Use when the
-  task is: building a new feature or module, changing a feature, reworking a
-  module, modifying existing code, designing the flow, TDD, SBE, load testing,
-  benchmarking, capturing work to defer in an sd-*-plan.md file, or reviewing
-  deferred plans that remain. The only specification document this skill
-  produces is a design document. A plan is temporary intent rather than a
-  specification and is deleted after delivery. Phase 4 additionally records
-  performance measurements, and the later phases produce tests and
-  implementation code.
+  design document, splitting a feature into modules, defining SBE, driving code
+  through TDD, measuring a finished feature's performance, or capturing and
+  reviewing deferred work in sd-*-plan.md. Also load before modifying existing
+  code in a repository under development, so the change is checked against the
+  design document that covers it. Routes each task to one of four phase
+  references.
 ---
 
 # Code Mereology

@@ -3,13 +3,10 @@ name: claude-code
 description: >-
   Use when a Codex session should hand work to Claude Code or collaborate with
   Claude as a reviewer — reviewing the current diff or branch, challenging a
-  design decision, delegating a bug investigation or fix, or managing background
-  Claude jobs. Triggers on "ask Claude", "let Claude review this", "call
-  reviewer", "delegate this to Claude Code", "claude-review", "claude-rescue",
-  "claude-transfer", and requests to install, configure or troubleshoot this
-  bridge. An explicit slash command is one standalone invocation; "call
-  reviewer" or a request for reviewer involvement through task completion
-  triggers the collaborative review workflow.
+  design decision, delegating a bug investigation or fix, managing background
+  Claude jobs, or installing and troubleshooting this bridge. Also triggers on
+  "ask Claude", "call reviewer", and the claude-* commands. Wraps the local
+  claude CLI for standalone invocations and collaborative reviews.
 ---
 
 # Claude Code Bridge

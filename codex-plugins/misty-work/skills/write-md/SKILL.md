@@ -2,12 +2,9 @@
 name: write-md
 description: >-
   Use when writing or editing any Markdown file — README, user guide, feature
-  doc, architecture overview, API reference, design proposal, SKILL.md,
-  agent instructions, or workflow rule. Before producing output, MUST determine
-  whether the document targets a human reader or an AI agent; if unclear, MUST
-  ask. By default, MUST load only the matching reference. If the task
-  explicitly requires maintaining both document types in one task, MAY load
-  both reference paths as needed, but MUST keep their rules separated.
+  doc, architecture overview, API reference, design proposal, SKILL.md, agent
+  instructions, or workflow rule. Routes to a human-reader or AI-agent rule set
+  based on the document's audience.
 ---
 
 # Write MD

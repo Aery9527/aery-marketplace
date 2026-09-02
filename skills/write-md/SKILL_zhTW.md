@@ -1,12 +1,9 @@
 ---
 name: write-md
 description: >-
-  撰寫或編輯 Markdown 文件時使用。當使用者要求撰寫、建立、更新或整理任何 Markdown
-  檔案時——包含功能文件、模組文件、架構總覽、README、技術規格、SKILL.md、
-  agent instructions 或 workflow rule——應優先使用此 skill。產出前必須先判斷文件是
-  給人類讀者還是給 AI agent 使用；若無法判斷，必須先詢問使用者。判斷完成後，預設
-  必須先讀取對應的 reference 文件；若同一任務明確需要同時維護兩種文件，則可以依需
-  載入兩套路徑，但必須把各自規則分開套用。
+  撰寫或編輯任何 Markdown 檔案時使用——README、使用指南、功能文件、架構總覽、
+  API 說明、設計提案、SKILL.md、agent instructions 或 workflow rule。
+  依文件受眾（人類讀者或 AI agent）分流至對應規則集。
 ---
 
 # Write MD

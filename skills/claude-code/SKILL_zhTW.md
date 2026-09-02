@@ -1,12 +1,10 @@
 ---
 name: claude-code
 description: >-
-  用於 Codex session 需要把工作交給 Claude Code，或與 Claude reviewer 協作時 — 審查
-  當前 diff 或 branch、挑戰設計決策、委派 bug 調查或修復，或管理背景 Claude job。
-  當使用者提到「問 Claude」「讓 Claude 審」「call reviewer」「委派給 Claude Code」
-  「claude-review」「claude-rescue」「claude-transfer」，或要求安裝、設定、排查此
-  bridge 時觸發。明確指定 slash command 代表一次獨立執行；「call reviewer」或要求
-  reviewer 參與直到任務完成，則觸發協作審查流程。
+  用於 Codex session 需要把工作交給 Claude Code，或與 Claude reviewer 協作時——審查
+  當前 diff 或 branch、挑戰設計決策、委派 bug 調查或修復、管理背景 Claude job，或
+  安裝與排查此 bridge。使用者提到「問 Claude」「call reviewer」或 claude-* 指令時
+  亦觸發。包裝本機 claude CLI，支援獨立執行與協作審查。
 ---
 
 # Claude Code Bridge
