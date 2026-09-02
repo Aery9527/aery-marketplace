@@ -1,32 +1,38 @@
 {
-  "name": "aery-plugins",
+  "name": "misty-plugins",
   "owner": {
     "name": "Aery Lin"
   },
   "metadata": {
-    "description": "將自己開發經驗與習慣收斂成 skill or agent.",
-    "version": "0.31.2"
+    "description": "軟體開發用的 AI Agent Skills：架構設計提示與具體實作規則、設計文件驅動的 TDD 流程、Go 與 MongoDB 開發規則、Markdown 撰寫與 Windows 腳本規範。",
+    "version": "1.0.0"
   },
   "plugins": [
     {
-      "name": "aery-design",
+      "name": "misty-work",
       "source": "./skills",
       "strict": false,
       "skills": [
         "./write-md",
-        "./image-to-html"
+        "./windows-script"
       ]
     },
     {
-      "name": "aery-go-dev",
+      "name": "misty-dev",
       "source": "./skills",
       "strict": false,
       "skills": [
-        "./windows-script",
-        "./write-md",
         "./arch-rules",
-        "./go-mongo-rules",
+        "./code-rules",
         "./code-mereology"
+      ]
+    },
+    {
+      "name": "misty-dev-go",
+      "source": "./skills",
+      "strict": false,
+      "skills": [
+        "./go-mongo-rules"
       ]
     }
   ]

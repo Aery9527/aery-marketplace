@@ -1,213 +1,38 @@
 ---
 name: go-mongo-rules
 description: >-
-  MongoDB 開發守則與陷阱防範。任何涉及 MongoDB 查詢、aggregation pipeline、
-  Go mongo-go-driver 程式碼、或 MongoDB shell 腳本（.js）的開發任務都應使用此 skill。
-  涵蓋：JS shell 中 NumberLong/ISODate 等型別的隱性比對陷阱、Go 中 bson.M 與 bson.D
-  的正確使用時機（尤其 $sort/$group 等依賴順序的場景）、以及「優先 aggregation
-  單次請求 vs 多次指令」的決策原則與文件記錄規範。
-  當需要新增、修改、review 任何 MongoDB 相關程式碼時，務必先讀完此 skill 再動手。
+  撰寫、修改或 review 任何 MongoDB 相關程式碼時使用——查詢、aggregation pipeline、
+  Go mongo-go-driver 程式碼或 MongoDB shell 腳本（.js）。
+  強制型別安全比對、bson.M 與 bson.D 選用，以及查詢策略決策。
 ---
 
-# MongoDB 開發守則
+# Go Mongo Rules
 
-## Overview
+MongoDB 程式碼必須在 `code-rules` 之上遵守以下規則。若專案已有明確規範，必須優先遵循專案規範。
 
-防範 MongoDB 常見陷阱、規範 BSON 型別選用與 aggregation 決策，確保每一次 MongoDB 操作
-都是型別安全、低 round-trip、且意圖明確的。
+Go 範例以 mongo-go-driver v1（`go.mongodb.org/mongo-driver`）為準。v2 的 `primitive` 型別移至 `bson`，例如 `bson.ObjectID`、`bson.DateTime`，請自行對應名稱。
 
----
+## 型別原則
 
-## 守則一：型別安全 — 比對前先確認型別
+- 對從 MongoDB 讀出的值做比對、當 key 或算術前，必須先由 schema 或印出結果確認其 BSON 型別。嚴禁假設數值欄位回來就是原生 number。
+- 在 shell 腳本中，Int64 欄位回來是 `NumberLong`（legacy shell）或 `Long`（mongosh），它是物件，且字串形式因 shell 而異。嚴禁直接用作 object key、`===` 或算術。值在 `Number.MAX_SAFE_INTEGER` 範圍內時先以 `Number()` 轉換，因此 `set[t] = true` 必須寫成 `set[Number(t)] = true`；超出範圍則以 `.toString()` 當 key、以 `BigInt` 運算。
+- 嚴禁把日期轉成字串再比對。shell 腳本中日期物件直接用 `<`、`>` 或 `.getTime()` 比對；Go 使用 `time.Time.Before`、`After`、`Equal`。
+- 在 Go 中，寫入數值欄位必須使用與 BSON 型別相符的 Go 型別：Int32 用 `int32`、Int64 用 `int64`、Double 用 `float64`。Go 的 `int` 在值放得下時編碼為 Int32，否則為 Int64，因此用 `int` 寫入會在值跨越 Int32 範圍後讓同一欄位混雜型別。查詢仍能以數值比對，但 `$type` 會區分儲存型別，解碼進較窄的 Go 型別也會壞掉。
+- 查詢 ObjectID 欄位必須用 `primitive.ObjectIDFromHex` 得到的 `primitive.ObjectID`，嚴禁直接用 hex 字串；字串永遠比不到 ObjectID。
+- 解碼時必須使用足以容納既有值的 Go 型別。預設情況下，溢出 `int32` 的 Int64，或非整數的 Double 解碼進任何整數型別，都會解碼失敗。
 
-MongoDB 的型別系統在不同語境（shell JS、Go driver、BSON wire protocol）之間存在隱性轉換，
-任何比對或 key 操作前，必須明確確認目標型別。
+## bson.M vs bson.D
 
-### JavaScript / Mongo Shell
+- `bson.M` 無序；`bson.D` 有序。凡 server 會讀取 key 順序的地方必須用 `bson.D`，其他地方一律 `bson.M`。
+- key 順序有意義的地方包括：`$sort`、所有多 key 的 `sortBy`（例如 `$setWindowFields`、`$sortArray`）、`mongo.IndexModel.Keys` 的複合索引 key、複合 `hint`、`RunCommand` 的指令文件（指令名稱必須是第一個 key），以及 filter 中整個比對的 embedded document，因為 embedded document 相等比對包含欄位順序。
+- 多 key 的 `$sort` stage 寫成 `bson.M` 會執行，但 key 優先順序不確定；必須寫成 `bson.D{{Key: "day", Value: 1}, {Key: "user", Value: -1}}`。`SetSort` 則直接以 `ErrMapForOrderedArgument` 拒絕多 key 的 map。
+- pipeline 本身必須是 `mongo.Pipeline`（`[]bson.D`），每個 stage 一個 `bson.D`。stage 本身 key 順序無意義者，例如 `$match`、`$group`、`$project`，維持 `bson.M`，但其中巢狀的順序敏感文件仍用 `bson.D`。
 
-MongoDB shell 回傳的數值可能是 `NumberLong`（BSON Int64），它是一個**物件**，不是原生 JS number。
+## 查詢策略
 
-**最常見的陷阱：用 NumberLong 當 Object key**
-
-```js
-// 錯誤 — NumberLong 作為 Object key 時呼叫 .toString()
-//    產生 "NumberLong(260128)"，parseInt("NumberLong(260128)") → NaN
-const targetSet = {};
-dc.targets.forEach(function(t) {
-    targetSet[t] = true;               // key = "NumberLong(260128)" ← 看不出來的 bug
-});
-const yymmdd = parseInt(key, 10);      // NaN → collection name 錯誤 → 靜默漏查
-
-// 正確 — 明確轉為 JS number 再用作 key
-dc.targets.forEach(function(t) {
-    targetSet[Number(t)] = true;       // key = "260128" ✓
-});
-```
-
-**其他 NumberLong 陷阱**
-
-```js
-// 嚴格相等 — NumberLong 是物件，=== 永遠 false
-if (doc.yymmdd === 260205) { ... }     // 永遠 false → 改用 Number(doc.yymmdd) === 260205
-
-// 算術 — NumberLong 不自動轉型
-var next = doc.yymmdd + 1;            // "[object Object]1" → 改用 Number(doc.yymmdd) + 1
-```
-
-**ISODate 比對**
-
-```js
-// ISODate 是物件，直接用 < > 比對即可（有實作 valueOf）
-if (doc.createdAt >= ISODate("2026-02-01T00:00:00Z")) { ... }  // OK
-
-// 禁止字串化後比對 — toString() 格式不穩定
-if (doc.createdAt.toString() > "2026-02-01") { ... }  // 結果不確定
-```
-
-> 每次在 shell 腳本處理 cursor 結果時，凡涉及數值欄位，先印出 `typeof` 或觀察 shell 輸出是否顯示 `NumberLong(...)`，若是，後續所有使用該欄位的地方都要 `Number()` 包裹。
-
-### Go / mongo-go-driver
-
-```go
-// BSON 型別對應（常見）
-// MongoDB Int32  ↔  Go int32   / primitive.Int32
-// MongoDB Int64  ↔  Go int64   / primitive.Int64
-// MongoDB Double ↔  Go float64
-// MongoDB Date   ↔  Go time.Time / primitive.DateTime
-// MongoDB OID    ↔  Go primitive.ObjectID
-
-// 錯誤：用 int 查 Int64 欄位可能不 match（int 預設編碼為 Int32）
-filter := bson.M{"yymmdd": 260205}        // 可能被編碼為 Int32
-
-// 正確：明確指定 Int64
-filter := bson.M{"yymmdd": int64(260205)}
-
-// 錯誤：用 string 查 ObjectID 欄位
-filter := bson.M{"_id": "507f1f77bcf86cd799439011"}
-
-// 正確：先解析成 primitive.ObjectID
-oid, _ := primitive.ObjectIDFromHex("507f1f77bcf86cd799439011")
-filter := bson.M{"_id": oid}
-```
-
----
-
-## 守則二：bson.M vs bson.D — 依賴順序才用 bson.D
-
-- `bson.M` — 底層結構：`map[string]any` — **無序** — 用途：filter、projection、`$match` 條件
-- `bson.D` — 底層結構：`[]bson.E`（有序 slice） — **有序** — 用途：`$sort`、依賴宣告順序的 aggregation stage
-
-**使用 bson.D 的判斷標準：操作結果是否依賴宣告順序？**
-
-```go
-// 錯誤 — $sort 用 bson.M，map 無序，sort key 優先順序不確定（難復現的 bug）
-bson.M{"$sort": bson.M{"day": 1, "user": -1}}
-
-// 正確 — $sort 用 bson.D，保證 day 優先於 user 排序
-bson.D{{Key: "$sort", Value: bson.D{
-    {Key: "day", Value: 1},
-    {Key: "user", Value: -1},
-}}}
-
-// Aggregation pipeline 正確寫法
-pipeline := mongo.Pipeline{
-    bson.D{{Key: "$match",  Value: bson.M{"flag": 0}}},          // $match 內部無序 → bson.M
-    bson.D{{Key: "$group",  Value: bson.D{
-        {Key: "_id",   Value: "$user"},
-        {Key: "count", Value: bson.M{"$sum": 1}},
-    }}},
-    bson.D{{Key: "$sort",   Value: bson.D{{Key: "count", Value: -1}}}}, // $sort → bson.D
-    bson.D{{Key: "$limit",  Value: 10}},
-}
-```
-
-**快速口訣**：
-- `$sort` → 永遠 `bson.D`
-- filter / `$match` 條件 → `bson.M`（除非欄位順序有業務意義）
-- 整個 pipeline 本身 → `mongo.Pipeline`（`[]bson.D`）
-
----
-
-## 守則三：評估查詢策略，按情境選擇最適方式
-
-每次實作 MongoDB 操作前，先做情境分析，再決定採用 aggregation 或多次指令。
-**沒有放諸四海皆準的答案**，下表提供明確傾向與需要抉擇的指引。
-
-### 明確傾向 Aggregation 的情境
-
-- 跨 collection join — `$lookup` 在 server 端完成，避免 N+1
-- 跨多個 collection 合併結果 — `$unionWith` 單次回傳，避免多次 round-trip
-- 聚合統計（count/sum/avg） — `$group` 一次掃描即完成，多次查詢無法替代
-- 動態 collection 名稱的跨集合查詢 — 只有 aggregation 能動態組裝 `$unionWith` stages
-- 分頁 — `$skip + $limit` 在 server 端限制資料量
-
-### 明確傾向多次指令的情境
-
-- 需要 transaction 寫入 — aggregation 無法在 `session.WithTransaction` 中執行寫入
-- 業務邏輯依賴上一步結果再決定操作 — 例如「先查版本號 → 條件 upsert」，分支邏輯無法在 pipeline 表達
-- 單純 CRUD（單 doc insert/update/delete） — 直接指令更清晰，aggregation 反而增加複雜度
-
-### 無明顯傾向時 — 列出優缺點供使用者抉擇
-
-當情境不屬於上述任何一類時（例如：少量跨集合查詢、已有現成多次指令的邏輯要不要重構），
-**不自行決定，先呈現分析**：
-
-```
-方案 A：Aggregation 單次 pipeline
-  優點：
-    - 1 次 round-trip，延遲低
-    - Server-side 過濾，回傳資料量小
-  缺點：
-    - Pipeline 複雜度高，debug 較困難
-    - 若資料量小，效能差異可忽略，pipeline 反而增加維護成本
-
-方案 B：多次指令（Find × N）
-  優點：
-    - 邏輯直觀，易讀易 debug
-    - 每步結果可獨立 log/驗證
-  缺點：
-    - N+1 風險；資料量大時延遲明顯
-    - 需自行在應用層做 join/merge
-
-建議：[若有傾向給出建議，否則由使用者依可維護性/效能需求決定]
-```
-
----
-
-## 守則四：每個 MongoDB 任務必須聲明執行策略
-
-實作任何 MongoDB 操作前，**先在 code comment 或說明中聲明**：
-
-```go
-// 查詢策略：Aggregation（單次 pipeline）
-// 原因：需跨 gp_{yymmdd}_detail 多個 collection 合併結果，
-//        透過 $unionWith 動態組裝 stages，避免 N 次 Find 請求。
-```
-
-```go
-// 查詢策略：多次指令（Find + UpdateOne）
-// 原因：需 optimistic lock — 先讀取版本號，比對後再條件更新，
-//        無法在單一 aggregation 中完成寫入。
-```
-
-```js
-// 查詢策略：Aggregation（$unionWith 動態多 collection）
-// 原因：detail 分散在 gp_YYMMDD_detail 各日期 collection，
-//        加上 DetailConsume 跨日 target，必須 server-side 合併後再 $match。
-```
-
-**聲明格式**：
-```
-查詢策略：<Aggregation 單次 pipeline | 多次指令 | 混合>
-原因：<一句話說明為何選擇此策略，或無法用 aggregation 的限制>
-```
-
----
-
-## 快速 Checklist（每次 MongoDB 任務前過一遍）
-
-- [ ] 所有從 cursor/結果取出的數值欄位，是否確認過型別（尤其 NumberLong / Int64）？
-- [ ] 有無將 NumberLong/BSON 物件直接用作 map key、陣列 index 或算術？
-- [ ] Go 程式碼中，`$sort`、依賴順序的 aggregation stage，是否使用 `bson.D`？
-- [ ] 是否做過情境分析，確認用 aggregation 或多次指令（若無明顯傾向，是否已列出優缺點）？
-- [ ] 是否已在 comment 中聲明「查詢策略」與原因？
+- 實作任何 MongoDB 操作前，必須依情境在單次 aggregation pipeline 與直接指令（一次或多次）之間做出決定。沒有預設答案。
+- 當 server 能在一次請求內完成工作時偏向 aggregation：跨 collection join（`$lookup`）、合併多個 collection（`$unionWith`）、分組統計（`$group`）。嚴禁在應用層用 N 次 round-trip 模擬這些操作。`$unionWith` 只接受字面的 collection 名稱，動態命名的 collection 由 client 端依已知名稱逐一組裝 stage 合併。
+- 當下一步取決於 client 必須檢視的結果（例如先讀版本號再條件更新）、或操作是單文件寫入時偏向直接指令。pipeline 只能依文件資料透過 `$cond`、`$switch` 分支，寫入只能透過 `$out`、`$merge`，而這兩者不允許在 `session.WithTransaction` 內使用。`UpdateOne`、`UpdateMany` 可接受 aggregation pipeline 作為 update，且可在 transaction 內執行。
+- `Find` 搭配 `SetSkip`、`SetLimit`、`SetSort`、`SetProjection` 本來就在 server 端執行。嚴禁只為了分頁、依既有欄位排序或投影既有欄位而改用 aggregation；當某一步依賴前一步的輸出（例如依計算欄位排序）才使用 pipeline。
+- 兩者無明顯優劣時，嚴禁自行決定。以 round-trip 次數、傳輸資料量、可除錯性、維護成本列出兩個方案的優缺點；只在確有傾向時給建議，由使用者選擇。
+- 當所選策略的原因無法從程式碼直接看出時，必須在該操作上以一則註解記錄策略與原因，例如 `// 策略：單次 aggregation pipeline。明細分散在每日 collection，以 $unionWith 在 server 端合併，取代 N 次 Find。` 策略不言自明的操作，例如單文件 CRUD 或單純的 `$group` 計數，不需要此註解。

@@ -1,14 +1,14 @@
 {
-  "name": "aery-codex-plugins",
+  "name": "misty-plugins",
   "interface": {
-    "displayName": "Aery Codex Plugins"
+    "displayName": "Misty Plugins"
   },
   "plugins": [
     {
-      "name": "aery-design",
+      "name": "misty-work",
       "source": {
         "source": "local",
-        "path": "./codex-plugins/aery-design"
+        "path": "./codex-plugins/misty-work"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -17,10 +17,10 @@
       "category": "Productivity"
     },
     {
-      "name": "aery-go-dev",
+      "name": "misty-dev",
       "source": {
         "source": "local",
-        "path": "./codex-plugins/aery-go-dev"
+        "path": "./codex-plugins/misty-dev"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -29,10 +29,22 @@
       "category": "Developer Tools"
     },
     {
-      "name": "aery-claude-code",
+      "name": "misty-dev-go",
       "source": {
         "source": "local",
-        "path": "./codex-plugins/aery-claude-code"
+        "path": "./codex-plugins/misty-dev-go"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "misty-claude",
+      "source": {
+        "source": "local",
+        "path": "./codex-plugins/misty-claude"
       },
       "policy": {
         "installation": "AVAILABLE",
