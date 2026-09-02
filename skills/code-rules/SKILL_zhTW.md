@@ -1,100 +1,55 @@
 ---
 name: code-rules
 description: >-
-  可維護程式碼的具體實作規則。在撰寫、修改、重構或審查程式碼時載入，尤其適用於
-  命名、函式、介面、型別、錯誤、logging、I/O 邊界、資源所有權、並行與測試。
+  可維護程式碼的具體實作規則。在撰寫、修改、重構或審查程式碼時載入，
+  涵蓋變更邊界、錯誤處理、註解、log 與工具使用。
   優先遵循專案與語言的既有慣例；較高層次的設計取捨使用 `arch-rules`。
 ---
 
 # Code Rules
 
-讓程式碼的行為、依賴、失敗與所有權明確。除非既有專案或語言慣例不安全，或與必要行為
-矛盾，否則以既有慣例為準。只套用與當下變更相關的規則。
+撰寫程式碼必須遵守以下原則，無關程式語言、框架或專案。若專案已有明確規範，必須優先遵循專案規範。設計層面的取捨使用 `arch-rules`。
 
-## 變更邊界
+以下有任何程式碼範例則會以 Go 語言為例，其他語言請自行轉換。
 
-- 改變行為前，先讀取 caller、測試與相鄰程式碼。
-- 說明哪些行為必須改變、哪些必須維持相容，以及如何驗證兩者。
-- 做最小且完整的變更；不要把無關清理與行為變更混在一起。
-- 重構時維持公開行為。把 exported contract 與已儲存資料視為 migration boundary。
-- 只有在已證實的變化、穩定邊界或必要 test seam 出現時才加入抽象，不為推測建立抽象。
+## 變更原則
 
-## 命名與結構
+- 改變行為前，必須先讀直接 caller、覆蓋受影響行為的測試與所在模組，確認現有契約。
+- 動手前必須先說明：哪些行為會改變、哪些必須維持相容、兩者各如何驗證。
+- 一次變更只做一件事。嚴禁把無關的清理混進行為變更；清理另開 commit。
+- 需要增加 func args 時，必須先確認參數是否過多。不計 `ctx` 這類貫穿呼叫鏈的參數、receiver 與回傳值，預設以 3 個參數為限。超過時：
+    - 若這些 args 屬同一個 scope，且實際上總是一起處理，則包裝成一個 struct 或 Object 承載後傳入。
+    - 若這些 args 餵給彼此可分離的操作，則依專案規範沿操作邊界拆分 func。
+    - 否則保留原參數。嚴禁只為了減少數量而包裝。
+- 連續的 `if-else` 或 `switch` 分支，僅在有明確需求或既有擴充點證明 case 會持續新增時，改為以 map 或介面分派，例如
+  `switch kind { case A: ...; case B: ... }`
+  改為 `handlers[kind].Handle(ctx, req)`；否則保留原分支，嚴禁為了消除分支而提前抽象。
 
-- 依 domain 意義與責任命名，不依機制命名，也避免 `Manager`、`Helper`、`Utils` 等模糊角色。
-- 一個函式聚焦一個可觀察結果；只有新單元具明確名稱與契約時才抽取。
-- 讓相關狀態與行為靠近，分離不相關的改變理由。
-- 優先 early return，避免深層巢狀；讓主要路徑容易閱讀。
-- boolean mode flag 若會選擇不同的行為，改用獨立操作或明確 option type。
-- 只有參數共同構成一個概念時才分組；不要只為減少數量建立 parameter object。
-- 註解說明意圖、限制或取捨，不重述程式碼。
+## 錯誤原則
 
-## 介面與型別
+- 嚴禁吞掉錯誤、回傳假成功，或在契約未定義 fallback 時靜默降級。
+- 只在能恢復、能轉換為邊界契約、或能決定最終結果的地方處理錯誤；其他地方附加上下文後傳遞給上層。
+- 同一個失敗只 log 一次，由決定最終結果的那一層負責。嚴禁每層都 log 又往上拋。
 
-- 在需要替換的 consumer 或架構邊界定義介面，不要在每個 implementation 旁建立介面。
-- 介面依角色設計並保持精簡，以 `Reader`、`Validator`、`Publisher` 等能力命名。
-- 單一 implementation 若沒有真實邊界或 test seam，不要建立介面。
-- 依賴 caller 實際使用的最小契約；回傳最精確且有用的型別。
-- 優先使用 composition。只有 substitutability 穩定且受保證時才使用 inheritance。
-- 用 domain type 表達 domain concept，不要到處傳遞原始 string 或 number。
-- 明確表達 optionality，不使用只有慣例才知道意義的 sentinel value。
-- 可行時讓無效狀態無法表示；否則只在 construction 或 trust boundary 驗證一次。
-- 讓 zero、null 與 default 行為安全且不意外，否則明確要求 construction。
-- 公開型別與介面保持最小；已發布契約透過 additive change、deprecation 與 migration 演進。
+## 註解原則
 
-範例——consumer 需要讀取能力，不需要整個 service：
+- 描述高階意圖、隱含含意、限制與取捨，而非任何程式碼就能透露的細節。
+- 註解有兩個以上獨立要點時，必須用清單結構，而非文章式的描述。
+- 嚴禁寫下修改的歷史原因。它已不代表當前程式碼意圖，是一種雜訊；歷史原因只應存在 commit message 裡。
 
-```text
-Bad:  UserService { create, update, delete, find, list, export, ... }
-Good: UserReader  { find(userId) -> User }
-```
+## log 原則
 
-## 錯誤與控制流程
+- 每一個資訊必須有其追溯的意義，可於事後追蹤、統計、分析或除錯。對上述行為毫無幫助的資訊嚴禁寫入 log。
+- 每一條 log 必須能追溯到唯一的程式碼位置：訊息本身唯一，或 logger 自動附加來源位置皆可。
+- 以精簡的結構紀錄資訊，而非文章式的描述。若專案有結構化欄位的 log 慣例，必須沿用；否則使用固定順序的位置式格式，例如 `Enter 23 Rion "HI~"`（
+  `Enter {AGE} {NAME} "{MSG}"`）。欄位意義由程式碼位置決定，不需在 log 內描述。
+- 統計用資訊必須先收集，再定時或定次 log。嚴禁以重複的 log 做事後統計。例如要統計系統的請求頻率，嚴禁靠 `Rion Enter`、`Aery Enter` 這類重複 log
+  事後計數；應持續累計請求次數，然後每 5s 寫下 `Request ALL 123`、`Request Rion 23`、`Request Aery 100`，代價是最多可能遺失 5s
+  的資料。例外：若該統計不容許遺失區間內的資料，則逐筆記錄。
+- 若專案沒有 level 政策：`DEBUG` 用於除錯、`INFO` 記錄有意義的生命週期事件、`WARN` 記錄可恢復的降級、`ERROR` 記錄需要人處理的失敗結果。
+- 嚴禁傾倒整個 request、response 或物件。payload 大小與欄位數量依專案上限；無上限時只記錄選定欄位。
 
-- 不吞錯、不回傳假成功，也不 silent fallback；除非 fallback 本身就是契約的一部分。
-- 增加可採取行動的 context，同時保留原始 cause 與機器可辨識的 identity。
-- caller 需要不同處理時，區分無效輸入、資料不存在、衝突、暫時性依賴失敗與內部缺陷。
-- 只有能復原、轉成 boundary contract 或決定最終結果的層級才處理錯誤。
-- 不要每一層都同時 log 並向上傳遞相同失敗；底層補充 context，由 owning boundary 記錄。
-- 縮小 catch 範圍。cleanup 放在 `defer`、`finally`、RAII 或語言等價的 lifetime mechanism。
-- 傳遞 cancellation 與 deadline；不要把取消轉成一般失敗，也不要繼續已放棄的工作。
-- exhaustive branch 遇到未處理的新 case 時必須明確失敗。
+## 執行覺察
 
-## Logging
-
-- 記錄有助於解釋狀態轉換、外部互動、降級行為或最終失敗的事件。
-- 優先使用具穩定名稱與 typed field 的 structured event，不使用插值 prose。
-- 專案沒有 level policy 時：`DEBUG` 用於診斷、`INFO` 記錄重要生命週期事件、`WARN` 記錄可復原降級、`ERROR` 記錄需要處理的失敗結果。
-- 一個失敗通常只記錄一次，由擁有 response、retry、job result 或 process termination 的邊界記錄。
-- 加入相關 identifier，例如 operation、entity ID、dependency、outcome、duration、trace ID 或 correlation ID。
-- message 與 field name 保持穩定；變動資料放在 field。
-- 不記錄 credential、token、secret、原始 authorization header 或不必要的個人資料；寫入 log 前先遮蔽。
-- 限制 payload 大小與 field cardinality；預設不傾印完整 request、response 或 object。
-- 依 runtime 慣例保留 error cause 或 stack，不要在多個 field 重複記錄。
-- Logging 不是 error handling；caller 仍必須收到正確結果。
-
-範例——穩定事件搭配安全 context：
-
-```text
-Bad:  "payment failed: " + request + error
-Good: payment_capture_failed { payment_id, provider, error_code, trace_id }
-```
-
-## 邊界、狀態與資源
-
-- 在入口邊界驗證不可信輸入；內部程式碼使用已驗證型別。
-- 依目的地 context encode output；database query 與外部 command 必須 parameterize。
-- 明確標示 side-effect boundary：network、storage、filesystem、clock、randomness 與 process execution。
-- 遠端與 blocking work 要有 timeout、cancellation path；可安全 retry 時才設定 bounded retry policy。
-- 明確定義 ownership 與 lifetime；creator 必須釋放資源，或明確移交所有權。
-- 限制 queue、concurrency、memory、recursion、batching 與 fan-out；超量時明確拒絕或 load shedding。
-- 共享 mutable state 只使用一種清楚的 synchronization strategy；不要混用 lock、atomic 與臨時 flag。
-- 讓 partial success 可見；multi-step write 前先定義 transaction、rollback、idempotency 與 retry 行為。
-
-## 測試與完成
-
-- 測試可觀察行為與契約，不測 private implementation structure。
-- 涵蓋 success path、boundary value、預期失敗與本次修改的 regression。
-- 在有意義的 integration boundary 使用真實 collaborator；只在 genuine seam 使用 test double。
-- 控制 time、randomness、concurrency 與 external I/O，讓測試保持 deterministic。
-- 舊保證仍通過、新行為已驗證、失敗可觀測，且沒有資源或 secret leak，變更才算完成。
+- 處理程式碼或 HTML 時，若宿主提供 `LSP` 工具且支援該語言，必須優先使用，讓查找與修改依照真正的程式 symbol；否則以文字工具處理。
+- 網頁與 CSS 的顏色必須以 `OKLCH` 定義。其他視覺輸出（例如 ppt）以 OKLCH 挑色，再轉換為目標格式支援的色彩空間。
